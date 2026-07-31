@@ -723,6 +723,81 @@ const UI = {
     this.closeDistressModal();
   },
 
+  openTechPartModal(techPart) {
+    this.currentTechPart = techPart;
+    const modal = document.getElementById("techpart-modal");
+    if (!modal || !techPart) return;
+
+    document.getElementById("techpart-title").textContent = `⚡ ${techPart.name.toUpperCase()}`;
+    document.getElementById("techpart-value").textContent = `SALVAGE VALUE: ${techPart.value || 2500} M.U.`;
+    document.getElementById("techpart-desc").textContent = techPart.desc;
+
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  closeTechPartModal() {
+    const modal = document.getElementById("techpart-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  installCurrentTechPart() {
+    if (!this.currentTechPart) return;
+    const part = this.currentTechPart;
+    const ship = window.game.ship;
+
+    if (part.effect === "engine_boost") {
+      ship.engineLevel = Math.min(5, (ship.engineLevel || 1) + 1);
+      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Engine Level increased to Class ${ship.engineLevel}!`);
+    } else if (part.effect === "shield_boost") {
+      ship.maxShields = (ship.maxShields || 100) + 30;
+      ship.shieldsCharge = ship.maxShields;
+      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Max Shield capacity increased to ${ship.maxShields}!`);
+    } else if (part.effect === "hull_boost") {
+      ship.maxHull = (ship.maxHull || 100) + 25;
+      ship.hull = ship.maxHull;
+      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Max Hull integrity increased to ${ship.maxHull}!`);
+    } else if (part.effect === "weapon_boost") {
+      ship.blasterLevel = Math.min(5, (ship.blasterLevel || 1) + 1);
+      ship.weaponsArmed = true;
+      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Blaster Weapon Firepower increased to Class ${ship.blasterLevel}!`);
+    } else if (part.effect === "cargo_boost") {
+      ship.cargoCap = (ship.cargoCap || 20) + 15;
+      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Cargo Hold capacity expanded to ${ship.cargoCap} slots!`);
+    }
+
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    this.updateShip(ship);
+    window.game.saveGame();
+    this.closeTechPartModal();
+  },
+
+  storeCurrentTechPartInCargo() {
+    if (!this.currentTechPart) return;
+    const part = this.currentTechPart;
+    const ship = window.game.ship;
+
+    if (!ship.cargo) ship.cargo = {};
+    const itemKey = part.id;
+    ship.cargo[itemKey] = (ship.cargo[itemKey] || 0) + 1;
+
+    // Register commodity info if not present
+    if (!GameData.commodities[itemKey]) {
+      GameData.commodities[itemKey] = {
+        name: part.name,
+        price: part.value || 2500,
+        mass: 1.0,
+        type: "exotic"
+      };
+    }
+
+    this.addLog(`RECOVERED: Stored 1 unit of ${part.name.toUpperCase()} in ship cargo hold.`);
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    this.updateShip(ship);
+    window.game.saveGame();
+    this.closeTechPartModal();
+  },
+
   cycleFontSize() {
     if (this.fontSizeMode === 'normal') {
       this.fontSizeMode = 'large';

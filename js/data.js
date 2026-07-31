@@ -4,6 +4,59 @@
  */
 
 const GameData = {
+  // Rare Ship Upgrade Tech Components (found in planet ruins/wrecks and space debris)
+  techParts: {
+    warp_conduit: {
+      id: "warp_conduit",
+      name: "Precursor Warp Conduit",
+      icon: "⚡",
+      desc: "An ancient chronos conduit that accelerates warp field generation. Permanently boosts Engine Level (+20% Speed & Efficiency)!",
+      value: 2500,
+      effect: "engine_boost"
+    },
+    quantum_shield_core: {
+      id: "quantum_shield_core",
+      name: "Quantum Shield Matrix Core",
+      icon: "🛡️",
+      desc: "A sub-atomic phase shielding core. Permanently increases Ship Shield Energy capacity by +30 points!",
+      value: 2800,
+      effect: "shield_boost"
+    },
+    titanium_composite: {
+      id: "titanium_composite",
+      name: "Titanium Composite Armor Plate",
+      icon: "🧱",
+      desc: "Molecularly-bonded precursor armor. Permanently increases Ship Max Hull integrity by +25 points!",
+      value: 2200,
+      effect: "hull_boost"
+    },
+    plasma_overcharger: {
+      id: "plasma_overcharger",
+      name: "Plasma Blaster Overcharger",
+      icon: "🔫",
+      desc: "Supercharges laser and plasma weapons. Permanently increases Ship Blaster Weapon Level (+15 Firepower)!",
+      value: 3000,
+      effect: "weapon_boost"
+    },
+    hyper_cargo_compressor: {
+      id: "hyper_cargo_compressor",
+      name: "Subspace Cargo Compressor",
+      icon: "📦",
+      desc: "Uses dimensional folding to compress hold volume. Permanently expands Ship Cargo Hold by +15 slots!",
+      value: 2400,
+      effect: "cargo_boost"
+    }
+  },
+
+  // Rare Drifting Alien Ship Wrecks in Hyperspace & Solar Systems
+  spaceWrecks: [
+    { id: "sw_1", name: "Alien Fighter Wreck Alpha", x: 160, y: 290, searched: false, techPartKey: "warp_conduit" },
+    { id: "sw_2", name: "Precursor Scout Wreck Beta", x: 340, y: 120, searched: false, techPartKey: "quantum_shield_core" },
+    { id: "sw_3", name: "Uhlek Assault Wreck Gamma", x: 430, y: 380, searched: false, techPartKey: "plasma_overcharger" },
+    { id: "sw_4", name: "Deep Void Wreck Delta", x: 70, y: 370, searched: false, techPartKey: "titanium_composite" },
+    { id: "sw_5", name: "Exploration Wreck Epsilon", x: 290, y: 440, searched: false, techPartKey: "hyper_cargo_compressor" }
+  ],
+
   // Upgrades purchasable at Starport
   upgrades: {
     engines: [

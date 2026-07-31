@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.0</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.0</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.5</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.5</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -582,14 +582,43 @@
     </div>
   </div>
 
+  <!-- Rare Precursor Tech Component Recovery Modal -->
+  <div id="techpart-modal" class="modal hidden">
+    <div class="modal-content" style="width: 640px; max-width: 95%; padding: 16px; box-sizing: border-box;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 12px;">
+        <h2 id="techpart-title" style="color: #ffcc00; margin: 0; border: none; padding: 0;">⚡ RARE TECH COMPONENT DISCOVERED</h2>
+        <span id="techpart-value" style="font-size: 11px; color: #00e5ff;">SALVAGE VALUE: 2,500 M.U.</span>
+      </div>
+
+      <div class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span style="color: #00ff66;">COMPONENT ANALYSIS</span></div>
+        <div id="techpart-desc" class="log-card-body" style="font-size: 13px; line-height: 1.6;">
+          Scanners confirm an intact precursor tech module!
+        </div>
+      </div>
+
+      <div class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span style="color: #ffcc00;">INSTALLATION PROTOCOL</span></div>
+        <div class="log-card-body" style="font-size: 13px; line-height: 1.6;">
+          You can install this rare tech module directly onto ISS Odyssey right now for a permanent performance boost, or store it in your cargo hold to sell for credits at Starbase Prime.
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: space-between; margin-top: 14px;">
+        <button id="btnInstallTechPart" class="glow-btn green-glow btn-large" onclick="UI.installCurrentTechPart()">⚡ INSTALL IMMEDIATELY ON SHIP</button>
+        <button id="btnStoreTechPart" class="glow-btn yellow-glow btn-large" onclick="UI.storeCurrentTechPartInCargo()">📦 STORE IN SHIP CARGO</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.9.0"></script>
-  <script src="js/audio.js?v=1.9.0"></script>
-  <script src="js/ui.js?v=1.9.0"></script>
-  <script src="js/spaceport.js?v=1.9.0"></script>
-  <script src="js/navigation.js?v=1.9.0"></script>
-  <script src="js/planet.js?v=1.9.0"></script>
-  <script src="js/encounter.js?v=1.9.0"></script>
-  <script src="js/game.js?v=1.9.0"></script>
+  <script src="js/data.js?v=1.9.5"></script>
+  <script src="js/audio.js?v=1.9.5"></script>
+  <script src="js/ui.js?v=1.9.5"></script>
+  <script src="js/spaceport.js?v=1.9.5"></script>
+  <script src="js/navigation.js?v=1.9.5"></script>
+  <script src="js/planet.js?v=1.9.5"></script>
+  <script src="js/encounter.js?v=1.9.5"></script>
+  <script src="js/game.js?v=1.9.5"></script>
 </body>
 </html>

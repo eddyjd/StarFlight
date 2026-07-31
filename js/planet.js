@@ -373,6 +373,23 @@ const PlanetExploration = {
       this.grid[8][15] = { type: "ruin", name: this.planet.artifact };
     }
 
+    // Place Rare Tech Component Ruin/Wreck on ~18% of planets (seeded random check)
+    const hasTechRuin = (rand() < 0.18);
+    if (hasTechRuin) {
+      const wx = 12 + Math.floor(rand() * 26);
+      const wy = 8 + Math.floor(rand() * 18);
+      const techKeys = Object.keys(GameData.techParts);
+      const partKey = techKeys[Math.floor(rand() * techKeys.length)];
+      const techPart = GameData.techParts[partKey];
+
+      const isAlienWreck = (rand() < 0.5);
+      this.grid[wy][wx] = {
+        type: isAlienWreck ? "wreck" : "tech_ruin",
+        part: techPart,
+        name: techPart.name
+      };
+    }
+
     // Distribute obstacles (Mountains) and Deposits
     for (let y = 0; y < this.gridHeight; y++) {
       for (let x = 0; x < this.gridWidth; x++) {
@@ -719,6 +736,15 @@ const PlanetExploration = {
         window.game.saveGame();
         Spaceport.renderHqLogs();
       }
+    }
+    else if (tile.type === "tech_ruin" || tile.type === "wreck") {
+      const part = tile.part || GameData.techParts.warp_conduit;
+      this.grid[y][x] = { type: "empty" };
+      pState.minedTiles[`${x}_${y}`] = true;
+      AudioController.playVictory();
+      UI.addLog(`PRECURSOR SALVAGE DECRYPTED! RARE TECH PART RECOVERED: ${part.name.toUpperCase()}`);
+      UI.openTechPartModal(part);
+      window.game.saveGame();
     }
   },
 
@@ -1386,12 +1412,20 @@ const PlanetExploration = {
             this.ctx.shadowBlur = 0;
           }
         }
-        else if (cell.type === "ruin") {
+        else if (cell.type === "ruin" || cell.type === "tech_ruin") {
           this.ctx.font = `${itemFontSize + 4}px Share Tech Mono`;
           this.ctx.fillStyle = "#00ff66";
           this.ctx.shadowBlur = 10;
           this.ctx.shadowColor = "#00ff66";
           this.ctx.fillText("🏛️", px, py);
+          this.ctx.shadowBlur = 0;
+        }
+        else if (cell.type === "wreck") {
+          this.ctx.font = `${itemFontSize + 4}px Share Tech Mono`;
+          this.ctx.fillStyle = "#00e5ff";
+          this.ctx.shadowBlur = 10;
+          this.ctx.shadowColor = "#00e5ff";
+          this.ctx.fillText("🛸", px, py);
           this.ctx.shadowBlur = 0;
         }
       }

@@ -83,7 +83,9 @@ const Navigation = {
         }
       }
       if (e.key === "b" || e.key === "B") {
-        if (this.nearbyDerelict) {
+        if (this.nearbySpaceWreck) {
+          this.salvageSpaceWreck();
+        } else if (this.nearbyDerelict) {
           this.boardNearbyDerelict();
         }
       }
@@ -162,6 +164,14 @@ const Navigation = {
   boardNearbyDerelict() {
     if (!this.nearbyDerelict) return;
     UI.openDerelictModal(this.nearbyDerelict);
+  },
+
+  salvageSpaceWreck() {
+    if (!this.nearbySpaceWreck || this.nearbySpaceWreck.searched) return;
+    const sw = this.nearbySpaceWreck;
+    sw.searched = true;
+    const part = GameData.techParts[sw.techPartKey] || GameData.techParts.warp_conduit;
+    UI.openTechPartModal(part);
   },
 
   investigateDistressSignal() {
@@ -436,9 +446,25 @@ const Navigation = {
       });
     }
 
+    // 5. Drifting Alien Space Wrecks Proximity
+    this.nearbySpaceWreck = null;
+    if (GameData.spaceWrecks) {
+      GameData.spaceWrecks.forEach(sw => {
+        if (!sw.searched) {
+          const dist = Math.hypot(this.shipX - sw.x, this.shipY - sw.y);
+          if (dist < 4.0) {
+            this.nearbySpaceWreck = sw;
+          }
+        }
+      });
+    }
+
     // Update Control Panel Buttons dynamically
     if (UI.elements && UI.elements.btnEnterSystem) {
-      if (this.nearbyDerelict) {
+      if (this.nearbySpaceWreck) {
+        UI.elements.btnEnterSystem.disabled = false;
+        UI.elements.btnEnterSystem.textContent = `SALVAGE ALIEN WRECK [B]`;
+      } else if (this.nearbyDerelict) {
         UI.elements.btnEnterSystem.disabled = false;
         UI.elements.btnEnterSystem.textContent = `BOARD DERELICT [B]`;
       } else if (this.nearbyDistressSignal) {
@@ -1086,6 +1112,25 @@ const Navigation = {
       });
     }
 
+    // Draw Drifting Space Alien Wrecks on Star Map
+    if (GameData.spaceWrecks) {
+      GameData.spaceWrecks.forEach(sw => {
+        const swPx = toCanvasX(sw.x);
+        const swPy = toCanvasY(sw.y);
+
+        ctx.font = `${fontSize + 3}px Share Tech Mono`;
+        ctx.fillStyle = sw.searched ? "#777777" : "#00ffcc";
+        ctx.fillText("🛸", swPx - (fontSize / 2), swPy + (fontSize / 3));
+
+        this.mapTargets.push({
+          type: "space_wreck",
+          x: swPx, y: swPy, radius: 12 * zScale,
+          title: `🛸 ALIEN WRECK: ${sw.name.toUpperCase()}`,
+          details: `Location: (${sw.x}, ${sw.y})\nStatus: ${sw.searched ? 'Salvaged' : 'Unsearched Tech Component Wreck'}`
+        });
+      });
+    }
+
     // Draw Subspace Distress Beacons on Star Map
     if (GameData.distressSignals) {
       GameData.distressSignals.forEach(sig => {
@@ -1533,6 +1578,29 @@ const Navigation = {
           this.ctx.font = "bold 10px Share Tech Mono";
           this.ctx.fillStyle = "#d870ff";
           this.ctx.fillText(`🕳 ${bh.name.toUpperCase()} (${bh.x}, ${bh.y})`, px + coreRadPx + 6, py + 3);
+        }
+      });
+    }
+
+    // Render Space Alien Wrecks in Viewport
+    if (GameData.spaceWrecks) {
+      GameData.spaceWrecks.forEach(sw => {
+        const dx = (sw.x - this.shipX) * scale;
+        const dy = (sw.y - this.shipY) * scale;
+        const px = centerX + dx;
+        const py = centerY + dy;
+
+        if (px > -40 && px < viewWidth + 40 && py > -40 && py < viewHeight + 40) {
+          this.ctx.font = "16px Share Tech Mono";
+          this.ctx.fillStyle = sw.searched ? "#777777" : "#00ffcc";
+          this.ctx.shadowBlur = sw.searched ? 0 : 10;
+          this.ctx.shadowColor = "#00ffcc";
+          this.ctx.fillText("🛸", px - 8, py + 6);
+          this.ctx.shadowBlur = 0;
+
+          this.ctx.font = "bold 10px Share Tech Mono";
+          this.ctx.fillStyle = sw.searched ? "#777777" : "#00ffcc";
+          this.ctx.fillText(`${sw.name.toUpperCase()} ${sw.searched ? '[SALVAGED]' : ''}`, px + 12, py + 3);
         }
       });
     }

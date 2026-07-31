@@ -195,7 +195,9 @@ const GameManager = {
     if (this.viewState !== "navigation") return;
 
     if (this.spaceState === "hyper") {
-      if (Navigation.nearbyDerelict) {
+      if (Navigation.nearbySpaceWreck) {
+        Navigation.salvageSpaceWreck();
+      } else if (Navigation.nearbyDerelict) {
         Navigation.boardNearbyDerelict();
       } else if (Navigation.nearbyDistressSignal) {
         Navigation.investigateDistressSignal();
@@ -205,7 +207,7 @@ const GameManager = {
         Navigation.enterSpacebase();
       } else {
         AudioController.playBeep('error');
-        UI.addLog("DOCKING UNAVAILABLE: APPROACH STARBASE PRIME AT (250, 250), A DERELICT, WORMHOLE OR BEACON.");
+        UI.addLog("DOCKING UNAVAILABLE: APPROACH STARBASE PRIME AT (250, 250), AN ALIEN WRECK, DERELICT, WORMHOLE OR BEACON.");
       }
     } else if (this.spaceState === "system") {
       // In Solar System: landing on current planet

@@ -91,7 +91,7 @@ const GameManager = {
   setupGlobalListeners() {
     const fileInput = document.getElementById("importFileInput");
 
-    // Intro start game button
+    // Intro start game button (Direct Launch into Space Navigation)
     const startBtn = document.getElementById("startGameBtn");
     if (startBtn) {
       startBtn.addEventListener("click", () => {
@@ -109,26 +109,55 @@ const GameManager = {
             this.ship.crew.navigator = { id: "starter_nav", name: "Nav. Kren", race: "Human", role: "Navigator", skill: 65, hp: 100, maxHp: 100 };
           }
 
-          if (this.ship.isInSpacebase) {
-            this.viewState = "spaceport";
-            UI.switchView("spaceport");
-            Spaceport.renderAll();
-          } else {
-            this.viewState = "navigation";
-            UI.switchView("navigation");
-            if (typeof AudioController !== 'undefined' && AudioController.startEngine) {
-              AudioController.startEngine();
-            }
+          // Launch ship directly into space navigation on dispatch jump
+          this.ship.isInSpacebase = false;
+          if (!this.ship.coordinates || isNaN(this.ship.coordinates.x)) {
+            this.ship.coordinates = { x: 250.0, y: 250.0 };
           }
+
+          this.viewState = "navigation";
+          this.spaceState = "hyper";
+
+          if (typeof Navigation !== 'undefined') {
+            Navigation.shipX = this.ship.coordinates.x;
+            Navigation.shipY = this.ship.coordinates.y;
+            Navigation.shipVx = 0;
+            Navigation.shipVy = 0;
+            Navigation.shipAngle = -Math.PI / 2;
+          }
+
+          UI.switchView("navigation");
+          UI.updateControlPanel(true, null, this.ship.shieldsActive, this.ship.weaponsArmed);
           UI.updateCrew(this.ship);
           UI.updateShip(this.ship);
+
+          if (typeof AudioController !== 'undefined' && AudioController.startEngine) {
+            AudioController.startEngine();
+          }
+
+          UI.addLog("DISPATCH JUMP INITIALIZED. ISS ODYSSEY LAUNCHED FROM STARBASE PRIME.");
           this.saveGame();
         } catch (err) {
           console.error("Error in dispatch jump:", err);
-          this.viewState = "spaceport";
-          UI.switchView("spaceport");
-          Spaceport.renderAll();
+          this.viewState = "navigation";
+          UI.switchView("navigation");
         }
+      });
+    }
+
+    // Intro enter spaceport facility button
+    const enterBaseBtn = document.getElementById("enterSpaceportBtn");
+    if (enterBaseBtn) {
+      enterBaseBtn.addEventListener("click", () => {
+        if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+          AudioController.playBeep('click');
+        }
+        this.ship.isInSpacebase = true;
+        this.viewState = "spaceport";
+        UI.switchView("spaceport");
+        Spaceport.renderAll();
+        UI.updateCrew(this.ship);
+        UI.updateShip(this.ship);
       });
     }
 

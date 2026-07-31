@@ -236,6 +236,10 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Planetary Surface Wrecks & Tech Vaults (`js/planet.js`)**: Generated rare Alien Ship Wrecks (`🛸`) and Tech Vaults (`🏛️`) on ~18% of planet surfaces. Inspecting a wreck opens `UI.openTechPartModal()`.
     * **Deep Space Alien Debris (`js/data.js` & `js/navigation.js`)**: Added 5 drifting Alien Space Wrecks (`🛸`) across outer space. Approaching displays `SALVAGE ALIEN WRECK [B]`.
     * **Instant Ship Installation or Cargo Cash-In (`js/ui.js`)**: Players can choose to **INSTALL IMMEDIATELY** to permanently boost Engine Speed, Max Shields (+30), Max Hull (+25), Blaster Level (+15 DMG), or Cargo Capacity (+15 slots), or store the module in cargo to sell for 2,500 M.U. at Starbase Prime!
+51. **Button Listener Delegation & Dispatch Jump Fix (v1.9.6)**:
+    * **Initialize Dispatch Jump (`js/game.js`)**: Fixed `startGameBtn` on intro screen. Added auto-assigning starter Captain & Navigator so game launch is never blocked. Wrapped audio and view transitions in error handlers.
+    * **Spaceport Launch Alias (`js/spaceport.js`)**: Added `Spaceport.launchVessel()` alias to match `Spaceport.launchShip()`. Auto-assigns starter Captain & Navigator if unassigned so launching from Starbase is always smooth.
+    * **Control Bar Buttons (`js/ui.js` & `js/navigation.js`)**: Fixed button delegation for `TOGGLE SHIELDS [K]`, `WEAPONS READY [F]`, and `LAND VEHICLE [L] / DOCK AT STARBASE` to delegate directly to `GameManager` and handle all landing/docking/space-wreck states. Added fallback delegators to `Navigation`.
 
 ---
 

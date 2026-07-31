@@ -735,9 +735,11 @@ const Spaceport = {
       UI.addLog("STARPORT DISPATCH: Nav. Kren assigned to Helm Control.");
     }
 
-    if (!ship.launchConfig) ship.launchConfig = { autoShields: true, autoWeapons: true };
-
-    AudioController.playBeep('success');
+    try {
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+        AudioController.playBeep('success');
+      }
+    } catch (e) {}
     UI.addLog("LAUNCH CLEARED. DISENGAGING STARPORT CLAMPS.");
 
     // Apply shield state according to Launch Configuration & installed modules
@@ -770,17 +772,23 @@ const Spaceport = {
     game.spaceState = "hyper"; // Launch directly into Hyperspace navigation
 
     // Reset navigation physics facing upward
-    Navigation.shipX = 250.0;
-    Navigation.shipY = 250.0;
-    Navigation.shipVx = 0;
-    Navigation.shipVy = 0;
-    Navigation.shipAngle = -Math.PI / 2;
+    if (typeof Navigation !== 'undefined') {
+      Navigation.shipX = 250.0;
+      Navigation.shipY = 250.0;
+      Navigation.shipVx = 0;
+      Navigation.shipVy = 0;
+      Navigation.shipAngle = -Math.PI / 2;
+    }
     
     UI.switchView("navigation");
     UI.updateControlPanel(true, null, game.ship.shieldsActive, game.ship.weaponsArmed);
     
     // Start engine hum
-    AudioController.startEngine();
+    try {
+      if (typeof AudioController !== 'undefined' && AudioController.startEngine) {
+        AudioController.startEngine();
+      }
+    } catch (e) {}
     
     game.saveGame();
   }

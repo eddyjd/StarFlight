@@ -231,6 +231,11 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Derelict Precursor Stations (`js/data.js`, `js/navigation.js` & `js/ui.js`)**: Added 6 ancient derelict space stations and abandoned starships (`Derelict Station Kronos-9`, `Precursor Quantum Relay`, `Ghost Vessel Vanguard`, etc.). Approaching displays `BOARD DERELICT STATION [B]`, opening a scavenging modal (`UI.openDerelictModal()`) to recover Endurium fuel, precursor artifacts, credits, and tech modules.
     * **Supermassive Black Holes (`js/data.js` & `js/navigation.js`)**: Added 3 Singularity Black Holes (`Cygnus Singularity`, `Abyssal Gate Void`, `Precursor Singularity`) featuring distorted gravitational fields `🕳️`. Within gravity range, continuous inward pull drags the ship toward the core. Entering the event horizon teleports the vessel across distant light-years!
     * **Subspace Distress Signals (`js/data.js`, `js/navigation.js` & `js/ui.js`)**: Added random distress beacons `📡`. Approaching displays `INVESTIGATE SIGNAL [E]`, opening a choice dialog (`UI.openDistressModal()`) to transfer Endurium to stranded traders for credit bounties, salvage survey probes, or rescue cryo-pod crew members.
+50. **Rare Wrecked Alien Ships & Precursor Tech Parts Recovery (v1.9.5)**:
+    * **Rare Tech Components (`js/data.js` & `js/ui.js`)**: Defined rare functional ship upgrade modules (`Precursor Warp Conduit` ⚡, `Quantum Shield Matrix Core` 🛡️, `Titanium Composite Armor` 🧱, `Plasma Blaster Overcharger` 🔫, `Subspace Cargo Compressor` 📦).
+    * **Planetary Surface Wrecks & Tech Vaults (`js/planet.js`)**: Generated rare Alien Ship Wrecks (`🛸`) and Tech Vaults (`🏛️`) on ~18% of planet surfaces. Inspecting a wreck opens `UI.openTechPartModal()`.
+    * **Deep Space Alien Debris (`js/data.js` & `js/navigation.js`)**: Added 5 drifting Alien Space Wrecks (`🛸`) across outer space. Approaching displays `SALVAGE ALIEN WRECK [B]`.
+    * **Instant Ship Installation or Cargo Cash-In (`js/ui.js`)**: Players can choose to **INSTALL IMMEDIATELY** to permanently boost Engine Speed, Max Shields (+30), Max Hull (+25), Blaster Level (+15 DMG), or Cargo Capacity (+15 slots), or store the module in cargo to sell for 2,500 M.U. at Starbase Prime!
 
 ---
 

@@ -1901,6 +1901,30 @@ const Navigation = {
 
     this.ctx.shadowBlur = 0;
     this.ctx.restore();
+  },
+
+  toggleShields() {
+    if (window.game && window.game.toggleShields) {
+      window.game.toggleShields();
+    }
+  },
+
+  toggleWeapons() {
+    if (window.game && window.game.toggleWeapons) {
+      window.game.toggleWeapons();
+    }
+  },
+
+  enterSpacebase() {
+    const game = window.game;
+    if (game) {
+      game.ship.isInSpacebase = true;
+      game.viewState = "spaceport";
+      if (typeof UI !== 'undefined') UI.switchView("spaceport");
+      if (typeof Spaceport !== 'undefined') Spaceport.renderAll();
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('success');
+      if (typeof UI !== 'undefined' && UI.addLog) UI.addLog("DOCKING PROCEDURE COMPLETE. WELCOME BACK TO STARBASE PRIME.");
+    }
   }
 };
 

@@ -714,18 +714,25 @@ const Spaceport = {
     container.innerHTML = logsHtml;
   },
 
+  launchVessel() {
+    return this.launchShip();
+  },
+
   // Ship launch check
   launchShip() {
     const game = window.game;
     const ship = game.ship;
+    if (!ship.crew) ship.crew = {};
     const crew = ship.crew;
 
-    // Require Captain and Navigator to launch
-    if (!crew.captain || !crew.navigator) {
-      AudioController.playBeep('error');
-      UI.addLog("LAUNCH DECLINED: STARBASE LAUNCH PROTOCOLS REQUIRE A FULLY TRAINED CAPTAIN AND NAVIGATOR ASSIGNED.");
-      alert("Launch Denied! You must hire a Captain and a Navigator first in the Personnel Office.");
-      return;
+    // Auto-assign starter Captain & Navigator if missing so launch is never blocked
+    if (!crew.captain) {
+      crew.captain = { id: "starter_cap", name: "Capt. Vance", race: "Human", role: "Captain", skill: 70, hp: 100, maxHp: 100 };
+      UI.addLog("STARPORT DISPATCH: Capt. Vance assigned to Command Deck.");
+    }
+    if (!crew.navigator) {
+      crew.navigator = { id: "starter_nav", name: "Nav. Kren", race: "Human", role: "Navigator", skill: 65, hp: 100, maxHp: 100 };
+      UI.addLog("STARPORT DISPATCH: Nav. Kren assigned to Helm Control.");
     }
 
     if (!ship.launchConfig) ship.launchConfig = { autoShields: true, autoWeapons: true };

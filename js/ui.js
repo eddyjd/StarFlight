@@ -117,16 +117,16 @@ const UI = {
     // Control buttons click handlers
     if (this.elements.btnShields) {
       this.elements.btnShields.addEventListener("click", () => {
-        if (typeof Navigation !== 'undefined' && Navigation.toggleShields) {
-          Navigation.toggleShields();
+        if (window.game && window.game.toggleShields) {
+          window.game.toggleShields();
         }
       });
     }
 
     if (this.elements.btnWeapons) {
       this.elements.btnWeapons.addEventListener("click", () => {
-        if (typeof Navigation !== 'undefined' && Navigation.toggleWeapons) {
-          Navigation.toggleWeapons();
+        if (window.game && window.game.toggleWeapons) {
+          window.game.toggleWeapons();
         }
       });
     }
@@ -161,24 +161,8 @@ const UI = {
     if (this.elements.btnLand) {
       this.elements.btnLand.addEventListener("click", () => {
         const game = window.game;
-        if (game.viewState === "landing" && typeof PlanetExploration !== 'undefined') {
-          if (PlanetExploration.grid && PlanetExploration.grid[PlanetExploration.roverY] && PlanetExploration.grid[PlanetExploration.roverY][PlanetExploration.roverX].type === "lander") {
-            PlanetExploration.unloadAtLander();
-          } else {
-            PlanetExploration.harvestCurrentTile();
-          }
-        } else if (game.spaceState === "system") {
-          if (game.ship.currentPlanet && typeof PlanetExploration !== 'undefined') {
-            PlanetExploration.startLanding();
-          }
-        } else if (game.spaceState === "hyper") {
-          if (typeof Navigation !== 'undefined') {
-            if (Navigation.nearStarbase) {
-              Navigation.enterSpacebase();
-            } else if (Navigation.nearbyAlien && typeof Encounter !== 'undefined') {
-              Encounter.trigger(Navigation.nearbyAlien.raceKey);
-            }
-          }
+        if (game && game.triggerLanding) {
+          game.triggerLanding();
         }
       });
     }

@@ -92,20 +92,45 @@ const GameManager = {
     const fileInput = document.getElementById("importFileInput");
 
     // Intro start game button
-    document.getElementById("startGameBtn").addEventListener("click", () => {
-      AudioController.playBeep('success');
-      if (this.ship.isInSpacebase) {
-        this.viewState = "spaceport";
-        UI.switchView("spaceport");
-        Spaceport.renderAll();
-      } else {
-        this.viewState = "navigation";
-        UI.switchView("navigation");
-        AudioController.startEngine();
-      }
-      UI.updateCrew(this.ship);
-      UI.updateShip(this.ship);
-    });
+    const startBtn = document.getElementById("startGameBtn");
+    if (startBtn) {
+      startBtn.addEventListener("click", () => {
+        try {
+          if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+            AudioController.playBeep('success');
+          }
+
+          // Auto assign starter captain & navigator if unassigned so launch is never blocked
+          if (!this.ship.crew) this.ship.crew = {};
+          if (!this.ship.crew.captain) {
+            this.ship.crew.captain = { id: "starter_cap", name: "Capt. Vance", race: "Human", role: "Captain", skill: 70, hp: 100, maxHp: 100 };
+          }
+          if (!this.ship.crew.navigator) {
+            this.ship.crew.navigator = { id: "starter_nav", name: "Nav. Kren", race: "Human", role: "Navigator", skill: 65, hp: 100, maxHp: 100 };
+          }
+
+          if (this.ship.isInSpacebase) {
+            this.viewState = "spaceport";
+            UI.switchView("spaceport");
+            Spaceport.renderAll();
+          } else {
+            this.viewState = "navigation";
+            UI.switchView("navigation");
+            if (typeof AudioController !== 'undefined' && AudioController.startEngine) {
+              AudioController.startEngine();
+            }
+          }
+          UI.updateCrew(this.ship);
+          UI.updateShip(this.ship);
+          this.saveGame();
+        } catch (err) {
+          console.error("Error in dispatch jump:", err);
+          this.viewState = "spaceport";
+          UI.switchView("spaceport");
+          Spaceport.renderAll();
+        }
+      });
+    }
 
     // Intro export / import / reset buttons
     const exportBtn = document.getElementById("exportSaveBtn");

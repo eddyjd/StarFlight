@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StarFlight: Odyssey</title>
+  <!-- Retro Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <!-- Core Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="crisp-mode">
+  <!-- CRT Screen Effect Container -->
+  <div class="crt-screen">
+    <!-- Curved overlay glass reflection -->
+    <div class="crt-glass"></div>
+    <!-- Moving Scanlines -->
+    <div class="scanlines"></div>
+    <!-- Slight screen flicker -->
+    <div class="screen-flicker"></div>
+
+    <!-- Main Game Dashboard -->
+    <div class="dashboard">
+      
+      <!-- Top Title Bar -->
+      <header class="console-header">
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.7.1</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.7.1</span></div>
+        <div style="display: flex; gap: 8px;">
+          <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
+          <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
+          <button id="helpBtn" class="sound-btn" onclick="UI.openHelpModal()">HELP [?]</button>
+          <button id="displayToggle" class="sound-btn" onclick="UI.toggleDisplayMode()">DISPLAY: CRISP</button>
+          <button id="logBtn" class="sound-btn green-glow" onclick="UI.openCaptainsLogModal()">CAPTAIN'S LOG [G]</button>
+          <button id="soundToggle" class="sound-btn">SOUND: OFF</button>
+          <button id="fullscreenToggle" class="sound-btn">FULLSCREEN: OFF</button>
+        </div>
+      </header>
+
+      <!-- Left Sidebar: Crew Console -->
+      <aside class="side-panel crew-panel">
+        <h2>CREW CONSOLE</h2>
+        <div class="crew-list">
+          <div class="crew-member" id="crew-captain">
+            <div class="crew-name">CAPT: -- UNASSIGNED --</div>
+            <div class="crew-stats">HP: <span class="bar"><span class="val" style="width:0%"></span></span> SKILL: 0%</div>
+          </div>
+          <div class="crew-member" id="crew-science">
+            <div class="crew-name">SCI: -- UNASSIGNED --</div>
+            <div class="crew-stats">HP: <span class="bar"><span class="val" style="width:0%"></span></span> SKILL: 0%</div>
+          </div>
+          <div class="crew-member" id="crew-navigator">
+            <div class="crew-name">NAV: -- UNASSIGNED --</div>
+            <div class="crew-stats">HP: <span class="bar"><span class="val" style="width:0%"></span></span> SKILL: 0%</div>
+          </div>
+          <div class="crew-member" id="crew-engineer">
+            <div class="crew-name">ENG: -- UNASSIGNED --</div>
+            <div class="crew-stats">HP: <span class="bar"><span class="val" style="width:0%"></span></span> SKILL: 0%</div>
+          </div>
+          <div class="crew-member" id="crew-comm">
+            <div class="crew-name">COM: -- UNASSIGNED --</div>
+            <div class="crew-stats">HP: <span class="bar"><span class="val" style="width:0%"></span></span> SKILL: 0%</div>
+          </div>
+          <div class="crew-member" id="crew-doctor">
+            <div class="crew-name">DOC: -- UNASSIGNED --</div>
+            <div class="crew-stats">HP: <span class="bar"><span class="val" style="width:0%"></span></span> SKILL: 0%</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Display Viewport -->
+      <main class="main-display">
+        
+        <!-- View 1: Intro Screen -->
+        <div id="view-intro" class="view-panel active">
+          <div class="title-screen">
+            <h1 class="glitch-title" data-text="STARFLIGHT">STARFLIGHT</h1>
+            <h3 class="subtitle">ODYSSEY</h3>
+            <p class="intro-lore">
+              THE YEAR IS 4620. SOLAR SYSTEMS AROUND SECTOR 100,100 ARE BECOMING UNSTABLE.
+              STARS ARE PREMATURELY GOING SUPERNOVA, DESTROYING INHABITED WORLDS.
+              STATION COMMAND CHARGES YOU TO EXPLORE THE UNKNOWN REACHES OF THE GALAXY,
+              FIND THE PRECURSOR RUINS, AND UNCOVER THE COSMIC THREAT BEFORE ALL LIFE IS EXTINGUISHED.
+            </p>
+            <div class="menu-actions" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+              <button id="startGameBtn" class="glow-btn btn-large">INITIALIZE DISPATCH JUMP</button>
+              <button id="exportSaveBtn" class="glow-btn btn-large">EXPORT SAVE FILE</button>
+              <button id="importSaveBtn" class="glow-btn btn-large">IMPORT SAVE FILE</button>
+              <button id="resetGameBtn" class="glow-btn btn-large red-glow">NEW GAME / RESET SAVE</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: Spaceport Dashboard -->
+        <div id="view-spaceport" class="view-panel">
+          <div class="spaceport-menu">
+            <h2>STARPORT COMMAND - DOCK SECTOR 1</h2>
+            <div class="spaceport-grid">
+              <div class="spaceport-nav-menu">
+                <button class="menu-item active" data-action="depot">SHIP DEPT / UPGRADES</button>
+                <button class="menu-item" data-action="personnel">PERSONNEL OFFICE</button>
+                <button class="menu-item" data-action="market">COMMODITY MARKET</button>
+                <button class="menu-item" data-action="hq">STARPORT HQ LOGS</button>
+                <button class="menu-item launch-btn" data-action="launch">LAUNCH VESSEL</button>
+                <button class="menu-item" data-action="export-save" style="margin-top: 15px;">EXPORT SAVE FILE</button>
+                <button class="menu-item" data-action="import-save">IMPORT SAVE FILE</button>
+                <button class="menu-item reset-btn" id="spaceportResetBtn" data-action="reset" style="margin-top: 10px;">RESET GAME</button>
+              </div>
+              <div class="spaceport-content">
+                <!-- Inner views of spaceport loaded dynamically -->
+                <div id="spaceport-depot" class="sub-view-panel active">
+                  <h3>SHIP REPAIR AND UPGRADE DEPOT</h3>
+                  <div class="depot-list">
+                    <!-- Loaded via JS -->
+                  </div>
+                </div>
+                <div id="spaceport-personnel" class="sub-view-panel">
+                  <h3>PERSONNEL OFFICE: HIRE & TRAIN CREW</h3>
+                  <div class="crew-hiring-grid">
+                    <!-- Loaded via JS -->
+                  </div>
+                </div>
+                <div id="spaceport-market" class="sub-view-panel">
+                  <h3>COMMODITY EXCHANGE & CARGO MARKET</h3>
+                  <div id="market-content">
+                    <!-- Loaded via JS -->
+                  </div>
+                </div>
+                <div id="spaceport-hq" class="sub-view-panel">
+                  <h3>STARPORT COMMAND LORE TRANSMISSIONS</h3>
+                  <div id="hq-logs-content" class="hq-logs-scroll">
+                    <!-- Loaded via JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 3: Space Navigation Canvas Viewport -->
+        <div id="view-navigation" class="view-panel">
+          <canvas id="gameCanvas" width="600" height="380"></canvas>
+          <div class="coordinates-hud">
+            COORD: X <span id="hud-coord-x">100</span>, Y <span id="hud-coord-y">100</span> | VEL: <span id="hud-velocity">0.0</span> LY/s
+          </div>
+        </div>
+
+        <!-- View 4: Encounter / Combat Panel -->
+        <div id="view-encounter" class="view-panel">
+          <div class="encounter-container">
+            <div class="encounter-display">
+              <div class="alien-view">
+                <canvas id="alienCanvas" width="280" height="120"></canvas>
+              </div>
+              <div class="alien-dialogue">
+                <h3 id="alien-name">UNKNOWN ALIEN VESSEL</h3>
+                <div class="dialogue-box" id="dialogue-box">
+                  TRANSMISSION PENDING ENCOUNTER STATUS INITIALIZATION...
+                </div>
+              </div>
+            </div>
+            
+            <!-- Interact Subpanel -->
+            <div class="encounter-controls">
+              <div id="dialogue-options" class="options-grid">
+                <!-- Dialog branches -->
+              </div>
+              <div id="combat-actions" class="options-grid hidden">
+                <button class="action-btn red-glow" id="btn-fire-blaster">FIRE BLASTERS</button>
+                <button class="action-btn red-glow" id="btn-fire-missile">LAUNCH MISSILE (<span id="ammo-count">0</span>)</button>
+                <button class="action-btn" id="btn-comms-retreat">OPEN COMMUNICATIONS</button>
+                <button class="action-btn yellow-glow" id="btn-flee">ENGAGE RETREAT ENGINES</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 5: Bartering Panel -->
+        <div id="view-barter" class="view-panel">
+          <div class="barter-container">
+            <h2>COMMERCE SYSTEM: BARTER & TRADE</h2>
+            <div class="barter-grid">
+              <div class="barter-col">
+                <h3>YOUR SHIP INVENTORY</h3>
+                <div class="barter-list" id="player-cargo-list"></div>
+              </div>
+              <div class="barter-middle">
+                <div class="haggling-panel">
+                  <div class="haggle-offer">
+                    OFFER VALUE: <span id="offer-value">0</span> M.U.
+                  </div>
+                  <div class="haggle-alien-reaction" id="haggle-reaction">
+                    "Offer your terms, traveler."
+                  </div>
+                  <div class="haggle-actions">
+                    <button class="glow-btn" id="btn-haggle-raise">RAISE OFFER (+10%)</button>
+                    <button class="glow-btn" id="btn-haggle-lower">LOWER OFFER (-10%)</button>
+                    <button class="glow-btn green-glow" id="btn-haggle-submit">SUBMIT OFFER</button>
+                    <button class="glow-btn red-glow" id="btn-haggle-cancel">CANCEL TRADE</button>
+                  </div>
+                </div>
+              </div>
+              <div class="barter-col">
+                <h3>MERCHANT CARGO</h3>
+                <div class="barter-list" id="alien-cargo-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- Right Sidebar: Ship Status -->
+      <aside class="side-panel ship-panel">
+        <h2>SHIP DIAGNOSTICS</h2>
+        <div class="ship-details">
+          <div class="stat-row">
+            <span class="label">CREDITS:</span>
+            <span class="value cyan" id="ship-credits">1,500 M.U.</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">ENDURIUM (FUEL):</span>
+            <span class="value" id="ship-fuel">100 / 100</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">SHIELDS:</span>
+            <span class="value green" id="ship-shields">OFFLINE</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">HULL INTEGRITY:</span>
+            <span class="value" id="ship-hull">100%</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">MISSILE AMMO:</span>
+            <span class="value yellow" id="ship-missiles">0 / 0</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">CARGO MASS:</span>
+            <span class="value" id="ship-cargo-mass">0 / 50 T</span>
+          </div>
+        </div>
+        <div class="modules-equipped">
+          <h3>EQUIPPED MODULES</h3>
+          <ul id="equipped-list">
+            <li>Engines: Class 1</li>
+            <li>Shields: None</li>
+            <li>Blasters: None</li>
+            <li>Cargo Holds: Class 1</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Bottom Panel: Scrollable Terminal Log -->
+      <footer class="console-footer">
+        <h2>LOG TERMINAL</h2>
+        <div class="log-output" id="log-terminal">
+          <div>&gt; STARFLIGHT SYSTEM INITIALIZED... READY FOR CAPTAIN DISPATCH.</div>
+          <div>&gt; SHIELD ARRAYS CURRENTLY DISENGAGED.</div>
+          <div>&gt; SHIP DOCKED AT STARBASE (100, 100).</div>
+        </div>
+      </footer>
+
+      <!-- Bottom Control Actions Bar -->
+      <section class="system-controls">
+        <button id="ctrl-scan" class="nav-control-btn" disabled>SCAN PLANET [S]</button>
+        <button id="ctrl-land" class="nav-control-btn" disabled>LAND VEHICLE [L]</button>
+        <button id="ctrl-comms" class="nav-control-btn" disabled>COMMUNICATIONS [C]</button>
+        <button id="ctrl-shields" class="nav-control-btn" disabled>TOGGLE SHIELDS [K]</button>
+        <button id="ctrl-weapons" class="nav-control-btn" disabled>WEAPONS READY [F]</button>
+        <button id="ctrl-cargo" class="nav-control-btn">CARGO LOG [I]</button>
+        <button id="ctrl-starmap" class="nav-control-btn">STAR MAP [M]</button>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Hidden File Input for Save File Import -->
+  <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
+  <!-- Cargo Inventory Modal Overlay -->
+  <div id="cargo-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 650px;">
+      <h2>SHIP CARGO MANIFEST</h2>
+      <div id="cargo-manifest-details">
+        <!-- JS filled -->
+      </div>
+      <div style="margin-top: 15px; text-align: right;">
+        <button class="glow-btn close-modal-btn">CLOSE MANIFEST [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cargo Transfer & Discard Modal -->
+  <div id="transfer-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 760px;">
+      <h2 style="color: #ffcc00;">CARGO BAY SAMPLE TRANSFER & MANIFEST</h2>
+      <p style="font-size: 11px; margin-bottom: 15px; color: #88ccaa;">
+        Transfer harvested samples between Rover and Ship hold. Un-transferred items will stay safely stored in the Rover bed.
+      </p>
+      <div id="transfer-modal-details" style="display: flex; gap: 15px;">
+        <!-- JS filled: Ship Cargo vs Rover Cargo -->
+      </div>
+      <div style="margin-top: 18px; display: flex; justify-content: center; gap: 15px;">
+        <button class="glow-btn btn-large green-glow" onclick="PlanetExploration.confirmTransferAndStay()">UNLOAD & CONTINUE EXPLORING</button>
+        <button class="glow-btn btn-large" onclick="PlanetExploration.confirmTransferAndAscend()">UNLOAD & ASCEND TO ORBIT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rover (TV) Surface Cargo Bed Modal -->
+  <div id="tv-cargo-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 650px;">
+      <h2 style="color: #00ccff;">TERRAIN VEHICLE (TV) CARGO BED MANIFEST</h2>
+      <div id="tv-cargo-manifest-details" style="max-height: 250px; overflow-y: auto; padding: 10px; border: 1px solid rgba(0, 204, 255, 0.3); background-color: rgba(0, 0, 0, 0.4); margin-bottom: 15px; font-size: 11px;">
+        <!-- JS filled -->
+      </div>
+      <div style="display: flex; justify-content: space-between; gap: 10px;">
+        <button class="glow-btn red-glow btn-sm" onclick="PlanetExploration.discardAllRoverCargo()">DISCARD ALL TV CARGO</button>
+        <button class="glow-btn" onclick="PlanetExploration.closeRoverCargoModal()">CLOSE MANIFEST [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-Screen Interactive Star Map Modal Overlay -->
+  <div id="starmap-modal" class="modal hidden" style="padding: 0; background: rgba(0, 5, 2, 0.96);">
+    <div class="modal-content" style="width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border: none; border-radius: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 12px 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px; margin-bottom: 8px;">
+        <div>
+          <h2 style="color: #00ff66; margin: 0; border: none; padding: 0; font-size: 20px;">NAV-COMPUTER INTERACTIVE STAR MAP MATRIX</h2>
+          <span style="font-size: 11px; color: #88ccaa;">MOUSE WHEEL: ZOOM | CLICK & DRAG: PAN MAP | HOVER ICON: INSPECT LOGS</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="starmap-zoom-level" style="font-size: 12px; color: var(--secondary-color); font-weight: bold; margin-right: 8px;">ZOOM: 100%</span>
+          <button class="glow-btn" onclick="Navigation.zoomStarMap(1.25)">[+] ZOOM IN</button>
+          <button class="glow-btn" onclick="Navigation.zoomStarMap(0.8)">[-] ZOOM OUT</button>
+          <button class="glow-btn green-glow" onclick="Navigation.centerStarMapOnShip()">[🎯] CENTER SHIP</button>
+          <button class="glow-btn" onclick="Navigation.resetStarMapPanZoom()">[⟲] RESET MAP</button>
+        </div>
+      </div>
+      <div style="flex-grow: 1; width: 100%; height: 100%; position: relative; margin: 4px 0; overflow: hidden; background-color: #020804; border: 1px solid rgba(0,255,102,0.4); border-radius: 4px;">
+        <canvas id="starmapCanvas" style="width: 100%; height: 100%; display: block; cursor: crosshair;"></canvas>
+        <div id="starmap-tooltip" class="starmap-tooltip hidden"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px;">
+        <span style="color: #ffcc00; font-weight: bold;" id="starmap-info-text">VESSEL POSITION: X 100.0, Y 100.0 (STARBASE PRIME SECTOR)</span>
+        <button class="glow-btn red-glow btn-large" onclick="Navigation.closeStarMapModal()">CLOSE STAR MAP [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Planetary Landing Site Selection Modal -->
+  <div id="landing-site-modal" class="modal hidden">
+    <div class="modal-content" style="width: 860px; max-width: 95%; display: flex; flex-direction: column; box-sizing: border-box; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 8px;">
+        <h2 style="color: #00ff66; margin: 0; border: none; padding: 0;" id="landing-site-title">PLANETARY LANDING SITE SELECTION</h2>
+        <span style="font-size: 11px; color: #88ccaa;">SURFACE GRID: 50 x 35 SECTORS</span>
+      </div>
+      <p style="font-size: 11px; color: #88ccaa; margin-bottom: 8px;">
+        Click any surface tile to select your descent target. Gold <strong>[H]</strong> markers represent previous landing sites.
+      </p>
+      <div style="width: 100%; height: 350px; position: relative; margin: 4px 0; overflow: hidden; background-color: #040c06; border: 1px solid rgba(0,255,102,0.4); border-radius: 4px;">
+        <canvas id="landingSiteCanvas" width="820" height="340" style="width: 100%; height: 100%; display: block; cursor: crosshair;"></canvas>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px;">
+        <span style="color: #ffcc00; font-weight: bold;" id="selected-site-info">SELECTED DESCENT SITE: (X 25, Y 17) - STANDARD TERRAIN</span>
+        <div style="display: flex; gap: 10px;">
+          <button class="glow-btn green-glow" onclick="PlanetExploration.confirmLandingSite()">CONFIRM DESCENT SITE [ENTER]</button>
+          <button class="glow-btn red-glow" onclick="PlanetExploration.closeLandingSiteModal()">ABORT LANDING [ESC]</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Captain's Exploration Log & Archive Modal -->
+  <div id="captains-log-modal" class="modal hidden">
+    <div class="modal-content" style="width: 880px; max-width: 95%; display: flex; flex-direction: column; box-sizing: border-box; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 10px;">
+        <h2 style="color: #00ff66; margin: 0; border: none; padding: 0;">📜 CAPTAIN'S LOG & EXPLORATION ARCHIVE</h2>
+        <span style="font-size: 11px; color: #88ccaa;">FLIGHT RECORD & SURVEY HISTORY MATRIX</span>
+      </div>
+
+      <div class="log-tabs">
+        <button class="log-tab-btn active" onclick="UI.switchLogTab('systems')">🌌 STAR SYSTEMS</button>
+        <button class="log-tab-btn" onclick="UI.switchLogTab('planets')">🪐 SURVEYED PLANETS</button>
+        <button class="log-tab-btn" onclick="UI.switchLogTab('artifacts')">🏛️ PRECURSOR ARTIFACTS</button>
+        <button class="log-tab-btn" onclick="UI.switchLogTab('aliens')">👽 ALIEN CONTACTS</button>
+      </div>
+
+      <div id="log-panel-systems" class="log-content-panel active"></div>
+      <div id="log-panel-planets" class="log-content-panel"></div>
+      <div id="log-panel-artifacts" class="log-content-panel"></div>
+      <div id="log-panel-aliens" class="log-content-panel"></div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+        <button class="glow-btn red-glow btn-large" onclick="UI.closeCaptainsLogModal()">CLOSE ARCHIVE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Ship Command Manual & Gameplay Guide Modal -->
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-content" style="width: 880px; max-width: 95%; display: flex; flex-direction: column; box-sizing: border-box; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 10px;">
+        <h2 style="color: #00ff66; margin: 0; border: none; padding: 0;">❓ ISS ODYSSEY : COMMAND MANUAL & FLIGHT GUIDE</h2>
+        <span style="font-size: 11px; color: #88ccaa;">TACTICAL SPECIFICATIONS v1.6.0</span>
+      </div>
+
+      <div class="log-tabs">
+        <button class="log-tab-btn active" onclick="UI.switchHelpTab('flight')">🚀 FLIGHT & NAV</button>
+        <button class="log-tab-btn" onclick="UI.switchHelpTab('surface')">🪐 PLANET MINING</button>
+        <button class="log-tab-btn" onclick="UI.switchHelpTab('combat')">⚔️ TACTICAL COMBAT</button>
+        <button class="log-tab-btn" onclick="UI.switchHelpTab('commerce')">💰 COMMERCE & CREW</button>
+        <button class="log-tab-btn" onclick="UI.switchHelpTab('mission')">⭐ MISSION OBJECTIVE</button>
+      </div>
+
+      <div id="help-panel-flight" class="log-content-panel active">
+        <div class="log-card">
+          <div class="log-card-header"><span>🚀 HYPERSPACE & SOLAR NAVIGATION CONTROLS</span></div>
+          <div class="log-card-body">
+            <strong>W / UP ARROW</strong>: Fire main thrusters / Accelerate forward.<br>
+            <strong>A / LEFT ARROW</strong>: Rotate ship nose left.<br>
+            <strong>D / RIGHT ARROW</strong>: Rotate ship nose right.<br>
+            <strong>SHIFT</strong>: Engage Impulse Overdrive for high-speed evasion boost.<br>
+            <strong>ENTER</strong>: Enter Star System or Planet Orbit when near orbital marker.<br>
+            <strong>L</strong>: Dock at Starbase Prime (at 100, 100) or launch Terrain Lander on planet surface.<br>
+            <strong>M</strong>: Toggle Fullscreen Interactive Star Map with zoom & pan.<br>
+            <strong>G</strong>: Open Captain's Exploration Log & Survey History Archive.<br>
+            <strong>?</strong>: Toggle this Command Manual.
+          </div>
+        </div>
+      </div>
+
+      <div id="help-panel-surface" class="log-content-panel">
+        <div class="log-card">
+          <div class="log-card-header"><span>🪐 PLANETARY SURFACE EXPLORATION & MINING</span></div>
+          <div class="log-card-body">
+            <strong>ARROW KEYS / WASD</strong>: Drive Terrain Vehicle (TV) Rover across 50x35 sector planetary grid.<br>
+            <strong>A / ENTER</strong>: Analyze mineral/bio deposit under Rover or harvest items into cargo.<br>
+            <strong>I / U AT LANDER</strong>: Inspect TV cargo hold or unload cargo samples into Lander storage.<br>
+            <strong>L AT LANDER</strong>: Ascend back into space orbit.<br>
+            <span style="color:#ffcc00;">TELEMETRY HUD</span>: Real-time compass heading (↗ NE, ➡ E, etc.), sector distance to lander pad <strong>[H]</strong>, required return power, and safety margin status (SAFE / WARNING / CRITICAL).
+          </div>
+        </div>
+      </div>
+
+      <div id="help-panel-combat" class="log-content-panel">
+        <div class="log-card">
+          <div class="log-card-header"><span>⚔️ REAL-TIME TACTICAL COMBAT & SHIELDS</span></div>
+          <div class="log-card-body">
+            <strong>F</strong>: Fire Phaser Blasters (green directional lasers).<br>
+            <strong>V</strong>: Launch Homing Missiles (high damage explosive ordnance).<br>
+            <strong>K</strong>: Toggle Deflector Shields (absorbs incoming alien plasma bolts).<br>
+            <strong>SHIFT</strong>: Evasive impulse roll to dodge enemy plasma torpedoes.<br>
+            <strong>C</strong>: Open Subspace Comms Dialogue with alien vessels at any time.
+          </div>
+        </div>
+      </div>
+
+      <div id="help-panel-commerce" class="log-content-panel">
+        <div class="log-card">
+          <div class="log-card-header"><span>💰 SPACEPORT COMMERCE & CREW RECRUITMENT</span></div>
+          <div class="log-card-body">
+            <strong>TRADE DEPOT</strong>: Sell harvested Endurium, Precursor Alloys, Gold, Platinum, Iron, Fauna & Flora for Credits.<br>
+            <strong>SHIP YARD</strong>: Upgrade Engine Thrust, Shield Capacitors, Phaser Blasters, Missiles, Scanner Resolution, and Lander TV Modules.<br>
+            <strong>PERSONNEL CLINIC</strong>: Recruit Captain, Science Officer, Navigator, Engineer, Communications Specialist, and Doctor to boost vessel performance!
+          </div>
+        </div>
+      </div>
+
+      <div id="help-panel-mission" class="log-content-panel">
+        <div class="log-card">
+          <div class="log-card-header"><span>⭐ GALACTIC MISSION & ANCIENT PRECURSOR LORE</span></div>
+          <div class="log-card-body">
+            The year is 4620. Stars across Sector 100, 100 are going supernova prematurely.<br>
+            Explore uncharted star systems, survey alien worlds, recover Ancient Precursor Crystal Relics 🏛️, decode the cosmic anomaly frequency, and save the galaxy before total stellar collapse!
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+        <button class="glow-btn green-glow btn-large" onclick="UI.closeHelpModal()">CLOSE MANUAL [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Planet Surface Deposit & Terrain Legend Modal -->
+  <div id="legend-modal" class="modal hidden">
+    <div class="modal-content" style="width: 680px; max-width: 95%; padding: 16px; box-sizing: border-box;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 12px;">
+        <h2 style="color: #00ff66; margin: 0; border: none; padding: 0;">🪐 PLANETARY SURFACE ICON LEGEND</h2>
+        <span style="font-size: 11px; color: #88ccaa;">TV ROVER TACTICAL SENSORS</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px;">
+        <div class="log-card">
+          <div class="log-card-header"><span>⛏️ MINERAL & ENERGY DEPOSITS</span></div>
+          <div class="log-card-body" style="line-height: 1.8;">
+            <span style="font-size: 18px;">🔋</span> <strong>ENDURIUM ORE</strong> - Starship fuel source<br>
+            <span style="font-size: 18px;">💠</span> <strong>PRECURSOR ALLOY</strong> - Ancient relic material<br>
+            <span style="font-size: 18px;">🪙</span> <strong>GOLD ORE</strong> - High-value trade commodity<br>
+            <span style="font-size: 18px;">💎</span> <strong>PLATINUM ORE</strong> - Rare precious metal<br>
+            <span style="font-size: 18px;">🧱</span> <strong>IRON ORE</strong> - Commercial industrial mineral<br>
+            <span style="font-size: 18px;">⛏️</span> <strong>UNKNOWN MINERAL</strong> - Un-analyzed deposit
+          </div>
+        </div>
+
+        <div class="log-card">
+          <div class="log-card-header"><span>👾 BIOLOGICAL & ANCIENT RUINS</span></div>
+          <div class="log-card-body" style="line-height: 1.8;">
+            <span style="font-size: 18px;">👾</span> <strong>ALIEN FAUNA</strong> - Exobiological animal sample<br>
+            <span style="font-size: 18px;">🌱</span> <strong>ALIEN FLORA</strong> - Botanical plant specimen<br>
+            <span style="font-size: 18px;">🧬</span> <strong>UNKNOWN BIO</strong> - Un-analyzed specimen<br>
+            <span style="font-size: 18px;">🏛️</span> <strong>ANCIENT RUIN</strong> - Precursor structure site<br>
+            <span style="font-size: 18px;">📦</span> <strong>SUPPLY CRATE</strong> - Cargo drop container<br>
+            <span style="font-size: 18px; color: #00ccff;">[H]</span> <strong>TERRAIN LANDER</strong> - Orbit ascent pad
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+        <button class="glow-btn green-glow btn-large" onclick="UI.closeLegendModal()">CLOSE LEGEND [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Scripts -->
+  <script src="js/data.js?v=1.7.1"></script>
+  <script src="js/audio.js?v=1.7.1"></script>
+  <script src="js/ui.js?v=1.7.1"></script>
+  <script src="js/spaceport.js?v=1.7.1"></script>
+  <script src="js/navigation.js?v=1.7.1"></script>
+  <script src="js/planet.js?v=1.7.1"></script>
+  <script src="js/encounter.js?v=1.7.1"></script>
+  <script src="js/game.js?v=1.7.1"></script>
+</body>
+</html>

@@ -1,0 +1,1131 @@
+/* Global CSS variables for easy styling and theme customizability */
+:root {
+  --primary-color: #00ff66; /* Phosphor Green */
+  --primary-glow: rgba(0, 255, 102, 0.4);
+  --secondary-color: #00ccff; /* Sci-Fi Cyan */
+  --secondary-glow: rgba(0, 204, 255, 0.4);
+  --warning-color: #ffcc00; /* Amber Warning */
+  --danger-color: #ff3333; /* Crimson Alert */
+  --bg-dark: #070f0a; /* Very dark green-black */
+  --bg-panel: #0d1a12; /* Dark panel container */
+  --terminal-font: 'Share Tech Mono', 'Courier New', monospace;
+}
+
+/* Reset and base page settings */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #030604;
+  color: var(--primary-color);
+  font-family: var(--terminal-font);
+  font-size: 14px;
+  line-height: 1.4;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Controlled Non-Compounding Font Size Scaling */
+body.font-large {
+  font-size: 15px;
+}
+body.font-large .sound-btn,
+body.font-large .glow-btn,
+body.font-large .menu-item,
+body.font-large .log-tab-btn {
+  font-size: 12px;
+}
+body.font-large .header-title { font-size: 19px; }
+body.font-large .header-decor { font-size: 12px; }
+body.font-large .side-panel h2 { font-size: 13px; }
+body.font-large .side-panel h3 { font-size: 11px; }
+body.font-large .crew-name { font-size: 12px; }
+body.font-large .crew-stats { font-size: 11px; }
+body.font-large .stat-row { font-size: 12px; }
+body.font-large .modules-equipped ul { font-size: 11px; }
+body.font-large #log-terminal, body.font-large .log-entry { font-size: 12px; }
+body.font-large .depot-name, body.font-large .hire-name { font-size: 13px; }
+body.font-large .depot-desc, body.font-large .hire-desc { font-size: 11px; }
+body.font-large .depot-cost, body.font-large .hire-cost { font-size: 12px; }
+body.font-large .hq-log-title { font-size: 13px; }
+body.font-large .hq-log-entry { font-size: 12px; line-height: 1.4; }
+body.font-large .log-card-header { font-size: 14px; }
+body.font-large .log-card-body { font-size: 12px; line-height: 1.4; }
+body.font-large .coordinates-hud { font-size: 12px; }
+body.font-large #selected-site-info { font-size: 12px; }
+
+body.font-xlarge {
+  font-size: 16px;
+}
+body.font-xlarge .sound-btn,
+body.font-xlarge .glow-btn,
+body.font-xlarge .menu-item,
+body.font-xlarge .log-tab-btn {
+  font-size: 13px;
+}
+body.font-xlarge .header-title { font-size: 20px; }
+body.font-xlarge .header-decor { font-size: 13px; }
+body.font-xlarge .side-panel h2 { font-size: 14px; }
+body.font-xlarge .side-panel h3 { font-size: 12px; }
+body.font-xlarge .crew-name { font-size: 13px; }
+body.font-xlarge .crew-stats { font-size: 12px; }
+body.font-xlarge .stat-row { font-size: 13px; }
+body.font-xlarge .modules-equipped ul { font-size: 12px; }
+body.font-xlarge #log-terminal, body.font-xlarge .log-entry { font-size: 13px; }
+body.font-xlarge .depot-name, body.font-xlarge .hire-name { font-size: 14px; }
+body.font-xlarge .depot-desc, body.font-xlarge .hire-desc { font-size: 12px; }
+body.font-xlarge .depot-cost, body.font-xlarge .hire-cost { font-size: 13px; }
+body.font-xlarge .hq-log-title { font-size: 14px; }
+body.font-xlarge .hq-log-entry { font-size: 13px; line-height: 1.4; }
+body.font-xlarge .log-card-header { font-size: 15px; }
+body.font-xlarge .log-card-body { font-size: 13px; line-height: 1.4; }
+body.font-xlarge .coordinates-hud { font-size: 13px; }
+body.font-xlarge #selected-site-info { font-size: 13px; }
+
+/* CRT Screen Frame & Shadow (Full-Browser Layout) */
+.crt-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  background-color: var(--bg-dark);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Screen curve glare overlay */
+.crt-glass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 60%),
+              radial-gradient(circle at 50% 80%, rgba(0, 255, 102, 0.04) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Moving Scanlines */
+.scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.06),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.06)
+  );
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* Cathode Tube Screen Flicker */
+.screen-flicker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 255, 102, 0.015);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 8;
+  animation: crt-flicker 0.15s infinite;
+}
+
+@keyframes crt-flicker {
+  0% { opacity: 0.18; }
+  50% { opacity: 0.12; }
+  100% { opacity: 0.16; }
+}
+
+/* Crisp High-Contrast Mode Overrides (Default Active) */
+body.crisp-mode .scanlines,
+body.crisp-mode .crt-glass,
+body.crisp-mode .screen-flicker {
+  display: none !important;
+}
+
+body.crisp-mode * {
+  text-shadow: none !important;
+}
+
+body.crisp-mode .crt-screen {
+  border-color: #1c261e;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+}
+
+/* Captain's Exploration Log Modal */
+.log-tabs {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid var(--primary-color);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+}
+
+.log-tab-btn {
+  background: rgba(0, 255, 102, 0.08);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  padding: 6px 14px;
+  font-family: var(--terminal-font);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.15s ease;
+}
+
+.log-tab-btn.active, .log-tab-btn:hover {
+  background: var(--primary-color);
+  color: #000;
+  font-weight: bold;
+}
+
+.log-content-panel {
+  display: none;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.log-content-panel.active {
+  display: block;
+}
+
+.log-card {
+  background: rgba(0, 255, 102, 0.04);
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.log-card-header {
+  display: flex;
+  justify-content: space-between;
+  color: #00ccff;
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.log-card-body {
+  font-size: 11px;
+  color: #a0d8b0;
+  line-height: 1.5;
+}
+
+/* Main Dashboard Structure (100% Full-Browser) */
+.dashboard {
+  display: grid;
+  grid-template-columns: 250px 1fr 250px;
+  grid-template-rows: 40px 1fr 150px 52px;
+  width: 100vw;
+  height: 100vh;
+  padding: 8px 12px;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+/* Header styling */
+.console-header {
+  grid-column: 1 / span 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 5px;
+  text-shadow: 0 0 5px var(--primary-glow);
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.header-decor {
+  font-size: 11px;
+  color: var(--secondary-color);
+  text-shadow: 0 0 5px var(--secondary-glow);
+}
+
+.sound-btn {
+  background: none;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--terminal-font);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.sound-btn:hover {
+  background: var(--primary-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 10px var(--primary-color);
+}
+
+/* General Sidebar Panel design */
+.side-panel {
+  background-color: var(--bg-panel);
+  border: 2px solid var(--primary-color);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 0 15px rgba(0, 255, 102, 0.1);
+  overflow-y: auto;
+}
+
+.side-panel h2 {
+  font-size: 12px;
+  text-align: center;
+  border-bottom: 1px solid var(--primary-color);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px var(--primary-glow);
+}
+
+/* Crew panel details */
+.crew-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+}
+
+.crew-member {
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  padding: 4px 6px;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.crew-member.injured {
+  border-color: var(--danger-color);
+}
+
+.crew-member.hired {
+  border-color: var(--secondary-color);
+}
+
+.crew-name {
+  font-size: 11px;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crew-stats {
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.bar {
+  display: inline-block;
+  width: 50px;
+  height: 6px;
+  background-color: #111;
+  border: 1px solid var(--primary-color);
+  position: relative;
+}
+
+.bar .val {
+  display: block;
+  height: 100%;
+  background-color: var(--primary-color);
+}
+
+.crew-member.injured .bar {
+  border-color: var(--danger-color);
+}
+.crew-member.injured .bar .val {
+  background-color: var(--danger-color);
+}
+
+/* Ship diagnostics details */
+.ship-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px dashed var(--primary-color);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.stat-row .label {
+  color: rgba(0, 255, 102, 0.7);
+}
+
+.stat-row .value {
+  font-weight: bold;
+}
+
+.cyan { color: var(--secondary-color); text-shadow: 0 0 5px var(--secondary-glow); }
+.green { color: var(--primary-color); text-shadow: 0 0 5px var(--primary-glow); }
+.yellow { color: var(--warning-color); }
+.red { color: var(--danger-color); }
+
+.modules-equipped h3 {
+  font-size: 10px;
+  color: var(--secondary-color);
+  margin-bottom: 4px;
+  text-shadow: 0 0 5px var(--secondary-glow);
+}
+
+.modules-equipped ul {
+  list-style: none;
+  font-size: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.modules-equipped li {
+  padding-left: 6px;
+  position: relative;
+}
+
+.modules-equipped li::before {
+  content: ">";
+  position: absolute;
+  left: 0;
+  color: var(--primary-color);
+}
+
+/* Center Display Viewport */
+.main-display {
+  background-color: rgba(0, 0, 0, 0.85);
+  border: 2px solid var(--primary-color);
+  border-radius: 6px;
+  box-shadow: inset 0 0 20px rgba(0, 255, 102, 0.15);
+  overflow: hidden;
+  position: relative;
+}
+
+/* View panel visibility toggling */
+.view-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  padding: 10px;
+}
+
+.view-panel.active {
+  display: block;
+}
+
+/* Title Screen Styling */
+.title-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.glitch-title {
+  font-size: 55px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--primary-color);
+  position: relative;
+  text-shadow: 0 0 15px var(--primary-glow);
+}
+
+.title-screen .subtitle {
+  font-size: 18px;
+  letter-spacing: 8px;
+  color: var(--secondary-color);
+  margin-bottom: 25px;
+  text-shadow: 0 0 10px var(--secondary-glow);
+}
+
+.intro-lore {
+  font-size: 11px;
+  max-width: 460px;
+  color: rgba(0, 255, 102, 0.8);
+  margin-bottom: 30px;
+  text-align: justify;
+}
+
+/* Spaceport Operations styling */
+.spaceport-menu {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.spaceport-menu h2 {
+  font-size: 15px;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  text-shadow: 0 0 5px var(--primary-glow);
+}
+
+.spaceport-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  flex-grow: 1;
+  gap: 10px;
+  height: calc(100% - 30px);
+}
+
+.spaceport-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-right: 1px dashed var(--primary-color);
+  padding-right: 10px;
+}
+
+.menu-item {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--terminal-font);
+  font-size: 11px;
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.menu-item.active, .menu-item:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.menu-item.launch-btn {
+  margin-top: auto;
+  border-color: var(--warning-color);
+  color: var(--warning-color);
+}
+
+.menu-item.launch-btn:hover {
+  background-color: var(--warning-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
+}
+
+.menu-item.reset-btn {
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
+
+.menu-item.reset-btn:hover {
+  background-color: var(--danger-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 8px rgba(255, 51, 51, 0.4);
+}
+
+.spaceport-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding-right: 5px;
+}
+
+.sub-view-panel {
+  display: none;
+  height: 100%;
+  flex-direction: column;
+}
+
+.sub-view-panel.active {
+  display: flex;
+}
+
+.sub-view-panel h3 {
+  font-size: 12px;
+  color: var(--secondary-color);
+  margin-bottom: 8px;
+  text-shadow: 0 0 5px var(--secondary-glow);
+}
+
+/* Depot and upgrading lists */
+.depot-list, .crew-hiring-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.depot-item, .hire-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(0, 255, 102, 0.05);
+  border: 1px solid rgba(0, 255, 102, 0.25);
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.depot-item.maxed {
+  border-color: var(--secondary-color);
+  background-color: rgba(0, 204, 255, 0.05);
+}
+
+.depot-info, .hire-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.depot-name, .hire-name {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.depot-desc, .hire-desc {
+  font-size: 10px;
+  color: rgba(0, 255, 102, 0.7);
+}
+
+.depot-cost, .hire-cost {
+  font-size: 11px;
+  color: var(--warning-color);
+}
+
+.hq-logs-scroll {
+  flex-grow: 1;
+  height: 0;
+  min-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 255, 102, 0.2);
+  padding: 8px;
+  background-color: rgba(0,0,0,0.4);
+  font-size: 11px;
+}
+
+.hq-log-entry {
+  margin-bottom: 12px;
+  border-bottom: 1px dashed rgba(0, 255, 102, 0.2);
+  padding-bottom: 8px;
+}
+
+.hq-log-title {
+  color: var(--secondary-color);
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+/* Canvas Viewport HUD */
+#gameCanvas {
+  background-color: #020403;
+  display: block;
+  border: 1px solid rgba(0, 255, 102, 0.2);
+  border-radius: 4px;
+  width: 100%;
+  height: calc(100% - 22px);
+  object-fit: contain;
+}
+
+.coordinates-hud {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-top: 4px;
+  padding: 2px 5px;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(0, 255, 102, 0.2);
+  color: var(--secondary-color);
+}
+
+/* Encounter & Communication UI styling */
+.encounter-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.encounter-display {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  gap: 10px;
+  flex-grow: 1;
+  height: calc(100% - 70px);
+}
+
+.alien-view {
+  border: 1px solid var(--primary-color);
+  background-color: #030604;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  height: 100%;
+}
+
+#alienCanvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.alien-portrait-static {
+  width: 120px;
+  height: 120px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  image-rendering: pixelated;
+  /* Retro scan filter overlay */
+}
+
+.alien-dialogue {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.alien-dialogue h3 {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--secondary-color);
+}
+
+.dialogue-box {
+  flex-grow: 1;
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  border-radius: 4px;
+  padding: 8px;
+  background-color: rgba(0,0,0,0.5);
+  font-size: 11px;
+  overflow-y: auto;
+  height: 140px;
+  color: #fff;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.encounter-controls {
+  height: 60px;
+  border-top: 1px dashed var(--primary-color);
+  padding-top: 6px;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  height: 100%;
+}
+
+.options-grid.hidden {
+  display: none;
+}
+
+.action-btn {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--terminal-font);
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.action-btn:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-dark);
+}
+
+.action-btn.red-glow {
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
+.action-btn.red-glow:hover {
+  background-color: var(--danger-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 8px rgba(255, 51, 51, 0.4);
+}
+
+.action-btn.yellow-glow {
+  border-color: var(--warning-color);
+  color: var(--warning-color);
+}
+.action-btn.yellow-glow:hover {
+  background-color: var(--warning-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
+}
+
+/* Barter panel styling */
+.barter-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.barter-container h2 {
+  font-size: 14px;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.barter-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr 180px;
+  gap: 10px;
+  flex-grow: 1;
+  height: calc(100% - 30px);
+}
+
+.barter-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.barter-col h3 {
+  font-size: 11px;
+  color: var(--secondary-color);
+  margin-bottom: 4px;
+}
+
+.barter-list {
+  flex-grow: 1;
+  border: 1px solid rgba(0, 255, 102, 0.2);
+  border-radius: 4px;
+  background-color: rgba(0,0,0,0.3);
+  padding: 4px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barter-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  border: 1px solid rgba(0,255,102,0.15);
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  background-color: rgba(0,0,0,0.2);
+}
+
+.barter-item.selected {
+  border-color: var(--secondary-color);
+  background-color: rgba(0, 204, 255, 0.1);
+}
+
+.barter-middle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.haggling-panel {
+  text-align: center;
+  border: 1px solid var(--primary-color);
+  padding: 12px;
+  border-radius: 6px;
+  background-color: var(--bg-panel);
+  width: 100%;
+}
+
+.haggle-offer {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--warning-color);
+  margin-bottom: 8px;
+}
+
+.haggle-alien-reaction {
+  font-size: 11px;
+  color: #fff;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.haggle-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* Log Console at the bottom */
+.console-footer {
+  grid-column: 1 / span 3;
+  background-color: var(--bg-panel);
+  border: 2px solid var(--primary-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  box-shadow: inset 0 0 15px rgba(0, 255, 102, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.console-footer h2 {
+  font-size: 11px;
+  color: var(--secondary-color);
+  border-bottom: 1px dashed rgba(0, 255, 102, 0.3);
+  padding-bottom: 2px;
+  margin-bottom: 4px;
+}
+
+.log-output {
+  flex-grow: 1;
+  overflow-y: auto;
+  font-family: var(--terminal-font);
+  font-size: 11px;
+  color: rgba(0, 255, 102, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 5px;
+}
+
+/* Control buttons below terminal */
+.system-controls {
+  grid-column: 1 / span 3;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.nav-control-btn {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--terminal-font);
+  font-size: 10px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 4px var(--primary-glow);
+}
+
+.nav-control-btn:hover:not(:disabled) {
+  background-color: var(--primary-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 10px var(--primary-color);
+}
+
+.nav-control-btn:disabled {
+  border-color: rgba(0, 255, 102, 0.15);
+  color: rgba(0, 255, 102, 0.25);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Reusable buttons & utility styles */
+.glow-btn {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: var(--terminal-font);
+  font-size: 12px;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 5px var(--primary-glow);
+}
+
+.glow-btn:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-dark);
+  box-shadow: 0 0 12px var(--primary-color);
+}
+
+.glow-btn.green-glow { border-color: var(--primary-color); color: var(--primary-color); }
+.glow-btn.red-glow { border-color: var(--danger-color); color: var(--danger-color); }
+.glow-btn.red-glow:hover { background-color: var(--danger-color); color: var(--bg-dark); box-shadow: 0 0 12px var(--danger-color); }
+
+.btn-large {
+  font-size: 14px;
+  padding: 10px 24px;
+  letter-spacing: 1px;
+}
+
+/* Modals */
+.modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.modal.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  background-color: var(--bg-panel);
+  border: 2px solid var(--primary-color);
+  padding: 20px;
+  border-radius: 8px;
+  width: 480px;
+  box-shadow: 0 0 25px var(--primary-glow);
+}
+
+.modal-content h2 {
+  font-size: 15px;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  text-shadow: 0 0 5px var(--primary-glow);
+}
+
+#cargo-manifest-details {
+  font-size: 11px;
+  height: 180px;
+  overflow-y: auto;
+  border: 1px solid rgba(0,255,102,0.2);
+  margin-bottom: 15px;
+  padding: 8px;
+  background-color: rgba(0,0,0,0.3);
+}
+
+.cargo-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed rgba(0,255,102,0.15);
+  padding: 4px 0;
+}
+
+.close-modal-btn {
+  width: 100%;
+}
+
+.btn-sm {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.transfer-column {
+  flex: 1;
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+}
+
+.transfer-column h3 {
+  font-size: 12px;
+  border-bottom: 1px solid rgba(0, 255, 102, 0.3);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+  color: var(--secondary-color);
+}
+
+.transfer-list {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+/* Custom retro scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 102, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* Starmap Interactive Hover Tooltip */
+.starmap-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background-color: rgba(3, 15, 6, 0.94);
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 0 14px var(--primary-glow);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--primary-color);
+  z-index: 1000;
+  max-width: 280px;
+  white-space: pre-line;
+}
+
+.starmap-tooltip strong {
+  color: var(--secondary-color);
+  font-size: 12px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.starmap-tooltip .subtext {
+  color: rgba(0, 255, 102, 0.85);
+  font-size: 10px;
+}

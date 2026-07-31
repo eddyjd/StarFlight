@@ -11,7 +11,7 @@ const GameManager = {
 
   // Player state object
   ship: {
-    coordinates: { x: 100.0, y: 100.0 },
+    coordinates: { x: 250.0, y: 250.0 },
     credits: 1500,
     fuel: 100,
     maxFuel: 100,
@@ -59,7 +59,7 @@ const GameManager = {
     },
 
     discoveredSystems: { "Starbase Prime": true },
-    exploredSectors: { "100_100": true },
+    exploredSectors: { "250_250": true },
     encounterHistory: [],
 
     launchConfig: {
@@ -196,11 +196,11 @@ const GameManager = {
 
     if (this.spaceState === "hyper") {
       // In Hyperspace: only docking at Starbase Prime is possible
-      if (Math.hypot(Navigation.shipX - 100.0, Navigation.shipY - 100.0) < 4.0) {
+      if (Math.hypot(Navigation.shipX - 250.0, Navigation.shipY - 250.0) < 4.0) {
         Navigation.enterSpacebase();
       } else {
         AudioController.playBeep('error');
-        UI.addLog("DOCKING UNAVAILABLE: FLY TO STARBASE PRIME AT (100, 100) TO DOCK.");
+        UI.addLog("DOCKING UNAVAILABLE: FLY TO STARBASE PRIME AT (250, 250) TO DOCK.");
       }
     } else if (this.spaceState === "system") {
       // In Solar System: landing on current planet
@@ -333,8 +333,8 @@ const GameManager = {
 
     // Only hostile Uhlek vessels intercept automatically when physically right next to player ship (< 3.5 LY)
     if (Navigation.alienShips) {
-      const shipX = this.ship.coordinates.x || 100.0;
-      const shipY = this.ship.coordinates.y || 100.0;
+      const shipX = this.ship.coordinates.x || 250.0;
+      const shipY = this.ship.coordinates.y || 250.0;
 
       Navigation.alienShips.forEach(alien => {
         if (alien.raceKey === "uhlek") {
@@ -423,7 +423,7 @@ const GameManager = {
 
         // Sync navigation ship positions
         if (typeof Navigation !== 'undefined') {
-          Navigation.resetPhysics(this.ship.coordinates.x || 100.0, this.ship.coordinates.y || 100.0);
+          Navigation.resetPhysics(this.ship.coordinates.x || 250.0, this.ship.coordinates.y || 250.0);
         }
         this.spaceState = "hyper";
 
@@ -479,6 +479,14 @@ const GameManager = {
           this.ship.currentPlanet = null;
         }
 
+        // Migration check for v1.8.0 500x500 Galaxy Map
+        if (!this.ship.coordinates || (this.ship.coordinates.x === 100 && this.ship.coordinates.y === 100)) {
+          this.ship.coordinates = { x: 250.0, y: 250.0 };
+        }
+        if (this.ship.exploredSectors && this.ship.exploredSectors["100_100"]) {
+          this.ship.exploredSectors["250_250"] = true;
+        }
+
         // Ensure default starting shield and blaster modules if old save
         if (!this.ship.shieldLevel || this.ship.shieldLevel < 1) {
           this.ship.shieldLevel = 1;
@@ -490,8 +498,8 @@ const GameManager = {
         }
 
         // Sync navigation ship positions
-        Navigation.shipX = this.ship.coordinates.x || 100.0;
-        Navigation.shipY = this.ship.coordinates.y || 100.0;
+        Navigation.shipX = this.ship.coordinates.x || 250.0;
+        Navigation.shipY = this.ship.coordinates.y || 250.0;
         Navigation.shipVx = 0;
         Navigation.shipVy = 0;
       }
@@ -509,7 +517,7 @@ const GameManager = {
 
       // Reset in-memory state
       this.ship = {
-        coordinates: { x: 100.0, y: 100.0 },
+        coordinates: { x: 250.0, y: 250.0 },
         credits: 1500,
         fuel: 100,
         maxFuel: 100,
@@ -541,7 +549,7 @@ const GameManager = {
       // Reset navigation and system physics
       this.spaceState = "hyper";
       if (typeof Navigation !== 'undefined') {
-        Navigation.resetPhysics(100.0, 100.0);
+        Navigation.resetPhysics(250.0, 250.0);
       }
 
       // Reset planet explorer

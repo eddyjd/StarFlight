@@ -752,10 +752,10 @@ const Spaceport = {
       UI.addLog("WEAPONS STANDBY: Cannon banks disarmed.");
     }
 
-    // Launch coordinates: Hyperspace at Starbase Prime (100, 100)
+    // Launch coordinates: Hyperspace at Starbase Prime (250, 250)
     ship.isInSpacebase = false;
-    ship.coordinates.x = 100.0;
-    ship.coordinates.y = 100.0;
+    ship.coordinates.x = 250.0;
+    ship.coordinates.y = 250.0;
     ship.currentSystem = null;
     ship.currentPlanet = null;
 
@@ -763,8 +763,8 @@ const Spaceport = {
     game.spaceState = "hyper"; // Launch directly into Hyperspace navigation
 
     // Reset navigation physics facing upward
-    Navigation.shipX = 100.0;
-    Navigation.shipY = 100.0;
+    Navigation.shipX = 250.0;
+    Navigation.shipY = 250.0;
     Navigation.shipVx = 0;
     Navigation.shipVy = 0;
     Navigation.shipAngle = -Math.PI / 2;

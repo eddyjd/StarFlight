@@ -309,8 +309,8 @@ const Navigation = {
     // Ensure physics values are clean and not NaN
     if (isNaN(this.shipVx)) this.shipVx = 0;
     if (isNaN(this.shipVy)) this.shipVy = 0;
-    if (isNaN(this.shipX)) this.shipX = 100.0;
-    if (isNaN(this.shipY)) this.shipY = 100.0;
+    if (isNaN(this.shipX)) this.shipX = 250.0;
+    if (isNaN(this.shipY)) this.shipY = 250.0;
 
     // Update active space projectiles (phasers, missiles, plasma bolts)
     if (!this.spaceProjectiles) this.spaceProjectiles = [];
@@ -699,8 +699,8 @@ const Navigation = {
 
   centerStarMapOnShip() {
     const coords = this.getShipGalaxyCoords();
-    this.mapOffsetX = (100 - coords.x) * 2.0;
-    this.mapOffsetY = (100 - coords.y) * 2.0;
+    this.mapOffsetX = (250 - coords.x) * 2.0;
+    this.mapOffsetY = (250 - coords.y) * 2.0;
     this.drawStarMapCanvas();
   },
 
@@ -746,7 +746,7 @@ const Navigation = {
 
     const ctx = canvas.getContext("2d");
     const ship = window.game.ship;
-    if (!ship.exploredSectors) ship.exploredSectors = { "100_100": true };
+    if (!ship.exploredSectors) ship.exploredSectors = { "250_250": true };
     if (!ship.discoveredSystems) ship.discoveredSystems = { "Starbase Prime": true };
 
     const zoomText = document.getElementById("starmap-zoom-level");
@@ -918,13 +918,13 @@ const Navigation = {
 
           ctx.font = `${fontSize}px Share Tech Mono`;
           ctx.fillStyle = "#ffcc00";
-          ctx.fillText("★ STARBASE PRIME (100, 100)", sysPx + baseRadius + 4, sysPy + 4);
+          ctx.fillText("★ STARBASE PRIME (250, 250)", sysPx + baseRadius + 4, sysPy + 4);
 
           this.mapTargets.push({
             type: "system",
             x: sysPx, y: sysPy, radius: (baseRadius + 6) * zScale,
             title: "★ STARBASE PRIME HQ",
-            details: `Location: (100.0, 100.0)\nStatus: Operational Galactic Hub\nFacility: Refuel, Repairs, Upgrades & Personnel Command`
+            details: `Location: (250.0, 250.0)\nStatus: Operational Galactic Hub\nFacility: Refuel, Repairs, Upgrades & Personnel Command`
           });
         } else {
           const starRadius = Math.min(16, Math.max(4, 5.5 * zScale));
@@ -1221,7 +1221,7 @@ const Navigation = {
 
           this.ctx.font = "bold 10px Share Tech Mono";
           this.ctx.fillStyle = "#00ccff";
-          this.ctx.fillText(`★ STARBASE PRIME (100, 100)`, px + 12, py + 4);
+          this.ctx.fillText(`★ STARBASE PRIME (250, 250)`, px + 12, py + 4);
         } else {
           // Draw orbital halos
           this.ctx.beginPath();

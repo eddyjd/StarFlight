@@ -220,7 +220,12 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Large Glowing Lander Direction Badge (`js/planet.js`)**: Replaced inline text compass reading with a prominent **20px bold glowing direction symbol** (**`➡`**, **`↘`**, **`⬇`**, **`↙`**, **`⬅`**, **`↖`**, **`⬆`**, **`↗`**, **`🎯`**) in the telemetry HUD banner for instant lander orientation.
 46. **Dynamic Viewport Tile Coverage Scaling (v1.7.1)**:
     * **Dynamic Tile Count (`js/planet.js`)**: Calculated `viewportW` and `viewportH` dynamically based on canvas dimensions (`viewportW = Math.floor(availableW / 48)`, `viewportH = Math.floor(availableH / 44)`). Expanding the browser window now reveals **more sectors and more of the planetary surface map** (e.g. 38x20 viewable sectors on 1080p widescreen displays vs 20x14 on smaller windows) without stretching or compressing surface tiles!
-47. **Landing State Sanitization**: `ship.currentPlanet` is explicitly cleared to `null` whenever entering Hyperspace or docking at base to prevent persistent landing state bugs upon page reload.
+47. **500x500 Galaxy Map, 30+ Star Systems, Deep Space Nebulae & Quantum Wormholes (v1.8.0)**:
+    * **500x500 Light-Year Galaxy Quadrant (`js/data.js` & `js/navigation.js`)**: Expanded the universe dimensions from 200x200 to a massive 500x500 light-year galaxy quadrant map centered at Starbase Prime `(250, 250)`. Updated Star Map canvas camera zoom, drag pan, and grid lines (every 25 LY).
+    * **30+ Unique Star Systems & Planets (`js/data.js`)**: Added 30+ unique star systems (classes M, K, G, F, A, B, O) with 3 to 6 unique orbiting planets each (Volcanic, Desert, Oceanic, Ice World, Terran, Toxic, Gas Giant, Precursor Ruin World).
+    * **Deep Space Nebulae (`js/data.js` & `js/navigation.js`)**: Added 8 interactive, colorful Nebulae (Tarantula Nebula, Crimson Cloud, Emerald Veil, Orion Expanse, Cygnus Rift, Phoenix Dust Field, Aquila Dark Veil, Precursor Core Mist) rendered with glowing gas clouds and radial gradient particle bursts.
+    * **Quantum Wormhole Teleporters (`js/data.js` & `js/navigation.js`)**: Added 8 interactive Quantum Wormholes (`Wormhole Alpha-1/2`, `Beta-1/2`, `Gamma-1/2`, `Delta-1/2`) linking distant outer quadrants. Approaching a Wormhole displays `ENTER WORMHOLE [W]` and teleports the ship across hundreds of light-years.
+48. **Landing State Sanitization**: `ship.currentPlanet` is explicitly cleared to `null` whenever entering Hyperspace or docking at base to prevent persistent landing state bugs upon page reload.
 
 ---
 

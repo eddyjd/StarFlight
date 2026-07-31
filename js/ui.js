@@ -149,7 +149,7 @@ const UI = {
         } else if (game.spaceState === "hyper") {
           if (typeof Navigation !== 'undefined') {
             if (Navigation.nearStarbase || Navigation.nearSystem) {
-              Navigation.enterSystem(Navigation.nearSystem || { name: "Starbase Prime", x: 100, y: 100 });
+              Navigation.enterSystem(Navigation.nearSystem || { name: "Starbase Prime", x: 250, y: 250 });
             } else {
               Navigation.triggerSonar();
             }
@@ -762,7 +762,7 @@ const UI = {
       if (!panel) return;
       const artifacts = ship.precursorArtifacts || [];
       if (artifacts.length === 0) {
-        panel.innerHTML = `<div class="log-card"><div class="log-card-body">No Precursor Artifacts or Ancient Relics recovered yet. Search planet ruins (🏛️) across Sector 100, 100.</div></div>`;
+        panel.innerHTML = `<div class="log-card"><div class="log-card-body">No Precursor Artifacts or Ancient Relics recovered yet. Search planet ruins (🏛️) across Sector 250, 250.</div></div>`;
         return;
       }
       let html = '';

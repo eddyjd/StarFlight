@@ -9,9 +9,9 @@ const Navigation = {
   ctx: null,
   keys: {},
 
-  // Physics state
-  shipX: 100.0,
-  shipY: 100.0,
+  // Physics state (500x500 Galaxy Quadrant Map)
+  shipX: 250.0,
+  shipY: 250.0,
   shipVx: 0,
   shipVy: 0,
   shipAngle: -Math.PI / 2, // facing up
@@ -26,11 +26,12 @@ const Navigation = {
 
   // Active Alien Spacecraft flying in space
   alienShips: [
-    { raceKey: "spemin", name: "Spemin Scout", x: 78.0, y: 72.0, vx: 0.8, vy: 0.5, angle: 0, color: "#00ff66" },
-    { raceKey: "veloxi", name: "Veloxi Cruiser", x: 135.0, y: 105.0, vx: -0.6, vy: 0.7, angle: Math.PI / 4, color: "#ff5533" },
-    { raceKey: "uhlek", name: "Uhlek Interceptor", x: 148.0, y: 152.0, vx: 0.3, vy: -0.8, angle: Math.PI, color: "#ff3333" }
+    { raceKey: "spemin", name: "Spemin Scout", x: 125.0, y: 165.0, vx: 0.8, vy: 0.5, angle: 0, color: "#00ff66" },
+    { raceKey: "veloxi", name: "Veloxi Cruiser", x: 375.0, y: 265.0, vx: -0.6, vy: 0.7, angle: Math.PI / 4, color: "#ff5533" },
+    { raceKey: "uhlek", name: "Uhlek Interceptor", x: 435.0, y: 415.0, vx: 0.3, vy: -0.8, angle: Math.PI, color: "#ff3333" }
   ],
   nearbyAlien: null,
+  nearbyWormhole: null,
 
   // Starmap Zoom & Pan State
   mapZoom: 1.0,
@@ -73,6 +74,14 @@ const Navigation = {
       if (e.key === "g" || e.key === "G") {
         UI.openCaptainsLogModal();
       }
+      if (e.key === "k" || e.key === "K") {
+        UI.openLegendModal();
+      }
+      if (e.key === "w" || e.key === "W") {
+        if (this.nearbyWormhole) {
+          this.enterNearbyWormhole();
+        }
+      }
       if (e.key === "f" || e.key === "F") {
         this.firePlayerBlaster();
       }
@@ -101,58 +110,22 @@ const Navigation = {
     if (starmapCanvas) {
       starmapCanvas.addEventListener("wheel", (e) => {
         e.preventDefault();
-        const factor = e.deltaY < 0 ? 1.15 : 0.85;
-        this.zoomStarMap(factor);
-      }, { passive: false });
+        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+        this.mapZoom = Math.max(0.4, Math.min(4.0, this.mapZoom * zoomFactor));
+        this.drawStarMap();
+      });
 
       starmapCanvas.addEventListener("mousedown", (e) => {
         this.isDraggingMap = true;
-        this.dragStartX = e.clientX;
-        this.dragStartY = e.clientY;
+        this.dragStartX = e.clientX - this.mapOffsetX;
+        this.dragStartY = e.clientY - this.mapOffsetY;
       });
 
       window.addEventListener("mousemove", (e) => {
-        const modal = document.getElementById("starmap-modal");
-        if (!modal || modal.classList.contains("hidden")) return;
-
-        const rect = starmapCanvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
         if (this.isDraggingMap) {
-          const dx = e.clientX - this.dragStartX;
-          const dy = e.clientY - this.dragStartY;
-          this.dragStartX = e.clientX;
-          this.dragStartY = e.clientY;
-
-          this.mapOffsetX += dx / (this.mapZoom * 1.5);
-          this.mapOffsetY += dy / (this.mapZoom * 1.5);
-          this.drawStarMapCanvas();
-          return;
-        }
-
-        const tooltip = document.getElementById("starmap-tooltip");
-        let hoveredTarget = null;
-
-        if (this.mapTargets) {
-          for (let target of this.mapTargets) {
-            const dist = Math.hypot(mx - target.x, my - target.y);
-            if (dist <= target.radius) {
-              hoveredTarget = target;
-              break;
-            }
-          }
-        }
-
-        if (hoveredTarget && tooltip) {
-          tooltip.innerHTML = `<strong>${hoveredTarget.title}</strong><div class="subtext">${hoveredTarget.details}</div>`;
-          tooltip.style.left = `${Math.min(rect.width - 290, Math.max(10, mx + 15))}px`;
-          tooltip.style.top = `${Math.min(rect.height - 80, Math.max(10, my + 15))}px`;
-          tooltip.classList.remove("hidden");
-          starmapCanvas.style.cursor = "pointer";
-        } else if (tooltip) {
-          tooltip.classList.add("hidden");
-          starmapCanvas.style.cursor = "crosshair";
+          this.mapOffsetX = e.clientX - this.dragStartX;
+          this.mapOffsetY = e.clientY - this.dragStartY;
+          this.drawStarMap();
         }
       });
 
@@ -162,23 +135,42 @@ const Navigation = {
     }
   },
 
+  enterNearbyWormhole() {
+    if (!this.nearbyWormhole) return;
+    const wh = this.nearbyWormhole;
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
+    UI.addLog(`QUANTUM RIFT DETECTED! ENTERING ${wh.name.toUpperCase()}...`);
+    UI.addLog(`SPACE-TIME WARP COMPLETED. ARRIVED AT ${wh.destName.toUpperCase()} (${wh.targetX}, ${wh.targetY}).`);
+    this.shipX = wh.targetX;
+    this.shipY = wh.targetY;
+    this.shipVx = 0;
+    this.shipVy = 0;
+    window.game.ship.coordinates.x = this.shipX;
+    window.game.ship.coordinates.y = this.shipY;
+  },
+
   // Twinkling background star coordinates (normalized 0.0 - 1.0 across full canvas)
   generateBackground() {
+    if (!this.canvas) return;
+
     this.bgStars = [];
-    for (let i = 0; i < 220; i++) {
+    const count = 180;
+    for (let i = 0; i < count; i++) {
       this.bgStars.push({
         u: Math.random(),
         v: Math.random(),
-        size: Math.random() * 1.8 + 0.6,
-        twinkle: Math.random() * Math.PI
+        size: Math.random() * 1.8 + 0.5,
+        twinkleSpeed: Math.random() * 2 + 1,
+        color: ["#ffffff", "#00ff66", "#00ccff", "#ffaa33", "#ff77ff"][Math.floor(Math.random() * 5)]
       });
     }
 
     this.nebulae = [
-      { u: 0.15, v: 0.25, rRatio: 0.18, color: "rgba(100, 50, 150, 0.09)" },
-      { u: 0.70, v: 0.45, rRatio: 0.22, color: "rgba(0, 100, 150, 0.08)" },
-      { u: 0.35, v: 0.75, rRatio: 0.15, color: "rgba(150, 50, 50, 0.07)" },
-      { u: 0.85, v: 0.20, rRatio: 0.16, color: "rgba(0, 180, 120, 0.06)" }
+      { u: 0.20, v: 0.24, rRatio: 0.18, color: "rgba(255, 50, 120, 0.08)" },
+      { u: 0.80, v: 0.64, rRatio: 0.22, color: "rgba(255, 80, 50, 0.08)" },
+      { u: 0.32, v: 0.76, rRatio: 0.20, color: "rgba(50, 255, 120, 0.08)" },
+      { u: 0.56, v: 0.30, rRatio: 0.18, color: "rgba(80, 120, 255, 0.08)" },
+      { u: 0.86, v: 0.20, rRatio: 0.24, color: "rgba(180, 80, 255, 0.08)" }
     ];
   },
 
@@ -261,20 +253,31 @@ const Navigation = {
     this.shipX += this.shipVx * dt;
     this.shipY += this.shipVy * dt;
 
-    // Keep coordinates within bounds (0 - 200 light years)
-    this.shipX = Math.max(10, Math.min(190, this.shipX));
-    this.shipY = Math.max(10, Math.min(190, this.shipY));
+    // Keep coordinates within bounds of 500x500 Light-Year Galaxy Quadrant
+    this.shipX = Math.max(5, Math.min(495, this.shipX));
+    this.shipY = Math.max(5, Math.min(495, this.shipY));
 
     // Update global ship coordinates
     ship.coordinates.x = this.shipX;
     ship.coordinates.y = this.shipY;
 
     // Track explored sectors in Fog of War
-    if (!ship.exploredSectors) ship.exploredSectors = { "100_100": true };
+    if (!ship.exploredSectors) ship.exploredSectors = { "250_250": true };
     if (!ship.discoveredSystems) ship.discoveredSystems = { "Starbase Prime": true };
-    const secX = Math.floor(this.shipX / 20) * 20;
-    const secY = Math.floor(this.shipY / 20) * 20;
+    const secX = Math.floor(this.shipX / 25) * 25;
+    const secY = Math.floor(this.shipY / 25) * 25;
     ship.exploredSectors[`${secX}_${secY}`] = true;
+
+    // Check Proximity to Quantum Wormholes
+    this.nearbyWormhole = null;
+    if (GameData.wormholes) {
+      GameData.wormholes.forEach(wh => {
+        const dist = Math.hypot(this.shipX - wh.x, this.shipY - wh.y);
+        if (dist < 4.0) {
+          this.nearbyWormhole = wh;
+        }
+      });
+    }
 
     // Automatic Proximity Star System Discovery
     GameData.starSystems.forEach(sys => {
@@ -762,19 +765,19 @@ const Navigation = {
     const centerY = canvas.height / 2;
 
     const toCanvasX = (coordX) => {
-      const basePx = originX + (coordX / 200) * mapW;
+      const basePx = originX + (coordX / 500) * mapW;
       return centerX + (basePx - centerX + this.mapOffsetX) * this.mapZoom;
     };
 
     const toCanvasY = (coordY) => {
-      const basePy = originY + (coordY / 200) * mapH;
+      const basePy = originY + (coordY / 500) * mapH;
       return centerY + (basePy - centerY + this.mapOffsetY) * this.mapZoom;
     };
 
-    // Draw background grid lines (every 20 LY)
+    // Draw Background Grid Lines (every 25 LY in 500x500 Galaxy Map)
     ctx.strokeStyle = "rgba(0, 255, 102, 0.12)";
     ctx.lineWidth = 1;
-    for (let gx = 0; gx <= 200; gx += 20) {
+    for (let gx = 0; gx <= 500; gx += 25) {
       const px = toCanvasX(gx);
       ctx.beginPath();
       ctx.moveTo(px, originY);
@@ -786,7 +789,7 @@ const Navigation = {
       ctx.fillStyle = "rgba(0, 255, 102, 0.4)";
       ctx.fillText(gx, px - 6, originY + mapH + 14);
     }
-    for (let gy = 0; gy <= 200; gy += 20) {
+    for (let gy = 0; gy <= 500; gy += 25) {
       const py = toCanvasY(gy);
       ctx.beginPath();
       ctx.moveTo(originX, py);
@@ -798,23 +801,86 @@ const Navigation = {
       ctx.fillText(gy, originX - 25, py + 3);
     }
 
+    this.mapTargets = [];
+
+    // Proportional zoom scale factor
+    const zScale = Math.sqrt(this.mapZoom);
+    const fontSize = Math.min(18, Math.max(9, Math.round(10 * zScale)));
+
+    // Draw Deep Space Nebulae Gas Clouds on Star Map
+    if (GameData.nebulae) {
+      GameData.nebulae.forEach(neb => {
+        const nx = toCanvasX(neb.x);
+        const ny = toCanvasY(neb.y);
+        const nr = Math.max(15, neb.radius * (mapW / 500) * zScale);
+
+        const grad = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+        grad.addColorStop(0, neb.color);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(nx, ny, nr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = `${fontSize}px Share Tech Mono`;
+        ctx.fillStyle = "rgba(255, 150, 220, 0.85)";
+        ctx.fillText(`☁ ${neb.name.toUpperCase()}`, nx - nr/2, ny);
+
+        this.mapTargets.push({
+          type: "nebula",
+          x: nx, y: ny, radius: nr,
+          title: `☁ NEBULA: ${neb.name.toUpperCase()}`,
+          details: `Location: (${neb.x}, ${neb.y})\nType: Deep Space Cloud Field\nProperties: ${neb.desc}`
+        });
+      });
+    }
+
+    // Draw Quantum Wormholes Portals on Star Map
+    if (GameData.wormholes) {
+      GameData.wormholes.forEach(wh => {
+        const whPx = toCanvasX(wh.x);
+        const whPy = toCanvasY(wh.y);
+        const pulseRad = (7 + Math.abs(Math.sin(Date.now() / 250)) * 4) * zScale;
+
+        ctx.strokeStyle = "#00e5ff";
+        ctx.lineWidth = Math.max(1.5, 2 * zScale);
+        ctx.shadowBlur = 10 * zScale;
+        ctx.shadowColor = "#00e5ff";
+        ctx.beginPath();
+        ctx.arc(whPx, whPy, pulseRad, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.font = `${fontSize + 4}px Share Tech Mono`;
+        ctx.fillStyle = "#00e5ff";
+        ctx.fillText("🌀", whPx - (fontSize / 2), whPy + (fontSize / 3));
+
+        this.mapTargets.push({
+          type: "wormhole",
+          x: whPx, y: whPy, radius: 14 * zScale,
+          title: `🌀 QUANTUM WORMHOLE: ${wh.name.toUpperCase()}`,
+          details: `Coordinates: (${wh.x}, ${wh.y})\nTarget Jump Destination: ${wh.destName}\nStatus: Active Space-Time Fold Portal`
+        });
+      });
+    }
+
     // Check if any star system in a sector is discovered
     const systemInSectorDiscovered = (sx, sy) => {
       return GameData.starSystems.some(sys => {
-        return sys.x >= sx && sys.x < sx + 20 && sys.y >= sy && sys.y < sy + 20 && ship.discoveredSystems[sys.name];
+        return sys.x >= sx && sys.x < sx + 25 && sys.y >= sy && sys.y < sy + 25 && ship.discoveredSystems[sys.name];
       });
     };
 
-    // Draw Fog of War over unexplored 20x20 LY sectors
-    for (let sx = 0; sx < 200; sx += 20) {
-      for (let sy = 0; sy < 200; sy += 20) {
+    // Draw Fog of War over unexplored 25x25 LY sectors
+    for (let sx = 0; sx < 500; sx += 25) {
+      for (let sy = 0; sy < 500; sy += 25) {
         const secKey = `${sx}_${sy}`;
-        const isExplored = ship.exploredSectors[secKey] || systemInSectorDiscovered(sx, sy) || (Math.hypot(sx - 100, sy - 100) < 30);
+        const isExplored = ship.exploredSectors[secKey] || systemInSectorDiscovered(sx, sy) || (Math.hypot(sx - 250, sy - 250) < 40);
         if (!isExplored) {
           const px1 = toCanvasX(sx);
           const py1 = toCanvasY(sy);
-          const px2 = toCanvasX(sx + 20);
-          const py2 = toCanvasY(sy + 20);
+          const px2 = toCanvasX(sx + 25);
+          const py2 = toCanvasY(sy + 25);
 
           ctx.fillStyle = "rgba(4, 12, 6, 0.88)";
           ctx.fillRect(px1, py1, px2 - px1, py2 - py1);
@@ -827,18 +893,12 @@ const Navigation = {
       }
     }
 
-    this.mapTargets = [];
-
-    // Proportional zoom scale factor (sqrt scale for smooth natural growth)
-    const zScale = Math.sqrt(this.mapZoom);
-    const fontSize = Math.min(18, Math.max(9, Math.round(10 * zScale)));
-
     // Draw Explored/Discovered Star Systems (including Starbase Prime)
     GameData.starSystems.forEach(sys => {
-      const secX = Math.floor(sys.x / 20) * 20;
-      const secY = Math.floor(sys.y / 20) * 20;
+      const secX = Math.floor(sys.x / 25) * 25;
+      const secY = Math.floor(sys.y / 25) * 25;
       const isDiscovered = ship.discoveredSystems && ship.discoveredSystems[sys.name];
-      const isExplored = isDiscovered || ship.exploredSectors[`${secX}_${secY}`] || (Math.hypot(sys.x - 100, sys.y - 100) < 30);
+      const isExplored = isDiscovered || ship.exploredSectors[`${secX}_${secY}`] || (Math.hypot(sys.x - 250, sys.y - 250) < 40);
 
       if (isExplored || isDiscovered) {
         const sysPx = toCanvasX(sys.x);

@@ -106,83 +106,404 @@ const GameData = {
 
   // Starport Command logs (unlocked through progression)
   hqLogs: [
-    { title: "DISPATCH LOG 1 (URGENT)", text: "Commander, stellar activity in outer quadrants shows sudden collapse cycles. Sol-like G stars are bloating rapidly, emitting hyper-radiation. We need data from precursor monoliths. Scan sector 120, 85 for clues." },
-    { title: "DECODED RUIN RECORD ALPHA", text: "Found on Arth-IV: '...the Flare occurred 20,000 cycles ago. The Precursor Aegis matrix stabilized the cores. It requires three crystal conduits: Earth Artifact, Nebular Crystal, and Void Core. They were scattered to coordinate matrices: (120, 85), (80, 140), and (150, 160).'" },
-    { title: "INTELLIGENCE REPORT: UHLEK BORDER", text: "Warning: The Uhlek race is extremely territorial. They guard the wormhole in coordinate sector (145, 150). DO NOT attempt communication. Shields must be fully charged if entering their territory." },
-    { title: "RESEARCH SUMMARY: SAVING THE CORPS", text: "Bring all three Precursor Artifacts to Starbase at (100,100). The Depot engineers can integrate them with the warp reactor, triggering a dampening wave to stabilize all local stars." }
+    { title: "DISPATCH LOG 1 (URGENT)", text: "Commander, stellar activity in outer quadrants shows sudden collapse cycles. Sol-like G stars are bloating rapidly, emitting hyper-radiation. We need data from precursor monoliths. Scan sector 180, 220 for clues." },
+    { title: "DECODED RUIN RECORD ALPHA", text: "Found on Arth-IV: '...the Flare occurred 20,000 cycles ago. The Precursor Aegis matrix stabilized the cores. It requires three crystal conduits: Earth Artifact, Nebular Crystal, and Void Core. They were scattered to coordinate matrices: (180, 220), (320, 190), and (85, 380).'" },
+    { title: "INTELLIGENCE REPORT: UHLEK BORDER", text: "Warning: The Uhlek race is extremely territorial. They guard the quantum wormhole in coordinate sector (440, 420). DO NOT attempt communication. Shields must be fully charged if entering their territory." },
+    { title: "RESEARCH SUMMARY: SAVING THE CORPS", text: "Bring all three Precursor Artifacts to Starbase Prime at (250, 250). The Depot engineers can integrate them with the warp reactor, triggering a dampening wave to stabilize all local stars." }
   ],
 
-  // List of all Star Systems in our galaxy
+  // Deep Space Nebulae Regions (500x500 map)
+  nebulae: [
+    { id: "neb_1", name: "Tarantula Nebula", x: 100, y: 120, radius: 65, color: "rgba(255, 50, 120, 0.28)", desc: "Ionized hydrogen cloud. Shield recharge rate boosted by 50% inside gas field." },
+    { id: "neb_2", name: "Crimson Cloud", x: 400, y: 320, radius: 75, color: "rgba(255, 80, 50, 0.28)", desc: "Dense energetic dust cloud. Scanners experience severe interference." },
+    { id: "neb_3", name: "Emerald Veil", x: 160, y: 380, radius: 70, color: "rgba(50, 255, 120, 0.28)", desc: "Bio-organic plasma mist. Rich in rare flora and mineral deposits." },
+    { id: "neb_4", name: "Orion Expanse", x: 280, y: 150, radius: 60, color: "rgba(80, 120, 255, 0.28)", desc: "Luminous stellar nursery. High Endurium energy concentrations." },
+    { id: "neb_5", name: "Cygnus Rift", x: 430, y: 100, radius: 80, color: "rgba(180, 80, 255, 0.28)", desc: "Gamma radiation rift. Unstable warp vectors." },
+    { id: "neb_6", name: "Phoenix Dust Field", x: 350, y: 440, radius: 70, color: "rgba(255, 180, 50, 0.28)", desc: "Glowing stellar ash. Ancient Precursor combat debris." },
+    { id: "neb_7", name: "Aquila Dark Veil", x: 60, y: 260, radius: 55, color: "rgba(50, 200, 255, 0.28)", desc: "Dark absorption nebula. Stealth dampening field." },
+    { id: "neb_8", name: "Precursor Core Mist", x: 250, y: 250, radius: 45, color: "rgba(0, 255, 160, 0.22)", desc: "Central sector aura surrounding Starbase Prime." }
+  ],
+
+  // Quantum Wormhole Pairs (500x500 map bidirectional teleporters)
+  wormholes: [
+    { id: "wh_1", name: "Wormhole Alpha-1", x: 80, y: 80, targetX: 420, targetY: 420, destName: "Wormhole Alpha-2 (Southeast Abyss)" },
+    { id: "wh_2", name: "Wormhole Alpha-2", x: 420, y: 420, targetX: 80, targetY: 80, destName: "Wormhole Alpha-1 (Northwest Rim)" },
+    { id: "wh_3", name: "Wormhole Beta-1", x: 420, y: 80, targetX: 80, targetY: 420, destName: "Wormhole Beta-2 (Southwest Reach)" },
+    { id: "wh_4", name: "Wormhole Beta-2", x: 80, y: 420, targetX: 420, targetY: 80, destName: "Wormhole Beta-1 (Northeast Horizon)" },
+    { id: "wh_5", name: "Wormhole Gamma-1", x: 250, y: 50, targetX: 250, targetY: 450, destName: "Wormhole Gamma-2 (Galactic South)" },
+    { id: "wh_6", name: "Wormhole Gamma-2", x: 250, y: 450, targetX: 250, targetY: 50, destName: "Wormhole Gamma-1 (Galactic North)" },
+    { id: "wh_7", name: "Wormhole Delta-1", x: 40, y: 250, targetX: 460, targetY: 250, destName: "Wormhole Delta-2 (Eastern Quadrant)" },
+    { id: "wh_8", name: "Wormhole Delta-2", x: 460, y: 250, targetX: 40, targetY: 250, destName: "Wormhole Delta-1 (Western Quadrant)" }
+  ],
+
+  // 30+ Star Systems spanning the 500x500 Galaxy Quadrant
   starSystems: [
     {
       name: "Starbase Prime",
-      x: 100,
-      y: 100,
+      x: 250,
+      y: 250,
       starClass: "G",
       starColor: "#ffcc00",
-      descr: "G-type stable star. HQ of Starbase Operations.",
+      descr: "G-type yellow dwarf star. Central Command HQ of Starbase Operations.",
       planets: [
-        { name: "Arth", radius: 50, speed: 0.015, color: "#4488ff", size: 10, gravity: 1.0, temp: 20, atmosphere: "Nitrogen/Oxygen", bio: 0.6, minerals: 0.2, hasRuins: false, artifact: null },
-        { name: "Arth-IV", radius: 95, speed: 0.008, color: "#88ccaa", size: 7, gravity: 0.8, temp: -30, atmosphere: "Thin Nitrogen", bio: 0.1, minerals: 0.5, hasRuins: true, artifact: "Earth Artifact" }
+        { name: "Arth", radius: 45, speed: 0.015, color: "#4488ff", size: 10, gravity: 1.0, temp: 20, atmosphere: "Nitrogen/Oxygen", bio: 0.6, minerals: 0.2, hasRuins: false, artifact: null },
+        { name: "Arth-IV", radius: 85, speed: 0.008, color: "#88ccaa", size: 7, gravity: 0.8, temp: -30, atmosphere: "Thin Nitrogen", bio: 0.1, minerals: 0.5, hasRuins: true, artifact: "Earth Artifact" },
+        { name: "Solaria-III", radius: 120, speed: 0.005, color: "#e6aa66", size: 12, gravity: 1.4, temp: 110, atmosphere: "Dense CO2", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null },
+        { name: "Titanis", radius: 160, speed: 0.003, color: "#a5a5d8", size: 14, gravity: 2.1, temp: -140, atmosphere: "Thick Methane", bio: 0.2, minerals: 0.6, hasRuins: false, artifact: null }
       ]
     },
     {
       name: "Sirius Sector",
-      x: 120,
-      y: 85,
+      x: 180,
+      y: 220,
       starClass: "A",
       starColor: "#ffffff",
-      descr: "Bright A-class white star. Highly luminous.",
+      descr: "Luminous A-class white star system. High energy radiation grid.",
       planets: [
-        { name: "Sirius Prime", radius: 45, speed: 0.02, color: "#ddddff", size: 12, gravity: 1.5, temp: 150, atmosphere: "Dense Carbon", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null },
-        { name: "Sirius-II", radius: 80, speed: 0.01, color: "#a5a5d8", size: 8, gravity: 1.1, temp: 15, atmosphere: "Toxic Ammonia", bio: 0.4, minerals: 0.4, hasRuins: true, artifact: "Nebular Crystal" }
+        { name: "Sirius Prime", radius: 40, speed: 0.02, color: "#ddddff", size: 11, gravity: 1.5, temp: 150, atmosphere: "Dense Carbon", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null },
+        { name: "Sirius-II", radius: 75, speed: 0.012, color: "#a5a5d8", size: 8, gravity: 1.1, temp: 15, atmosphere: "Toxic Ammonia", bio: 0.4, minerals: 0.4, hasRuins: true, artifact: "Nebular Crystal" },
+        { name: "Valkyrie", radius: 110, speed: 0.007, color: "#ff8866", size: 9, gravity: 0.9, temp: 95, atmosphere: "Sulfur Fog", bio: 0.1, minerals: 0.9, hasRuins: false, artifact: null }
       ]
     },
     {
       name: "Nebular Gate",
-      x: 80,
-      y: 140,
+      x: 320,
+      y: 190,
       starClass: "M",
       starColor: "#ff5555",
-      descr: "Red Supergiant star, undergoing pre-nova expansion.",
+      descr: "Red Supergiant star, undergoing pre-nova core collapse.",
       planets: [
-        { name: "Nebula-I", radius: 60, speed: 0.012, color: "#ff8888", size: 11, gravity: 2.1, temp: 320, atmosphere: "Corrosive Acid", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
-        { name: "Nebula-II", radius: 100, speed: 0.006, color: "#aa88bb", size: 9, gravity: 0.7, temp: -110, atmosphere: "None", bio: 0.0, minerals: 0.6, hasRuins: true, artifact: "Void Core" }
+        { name: "Nebula-I", radius: 55, speed: 0.014, color: "#ff8888", size: 11, gravity: 2.1, temp: 320, atmosphere: "Corrosive Acid", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
+        { name: "Nebula-II", radius: 95, speed: 0.008, color: "#aa88bb", size: 9, gravity: 0.7, temp: -110, atmosphere: "None", bio: 0.0, minerals: 0.6, hasRuins: true, artifact: "Void Core" },
+        { name: "Ash-V", radius: 135, speed: 0.004, color: "#665555", size: 13, gravity: 1.8, temp: 240, atmosphere: "Volcanic Ash", bio: 0.0, minerals: 0.95, hasRuins: false, artifact: null }
       ]
     },
     {
       name: "Veloxi Shallows",
-      x: 140,
-      y: 110,
+      x: 380,
+      y: 270,
       starClass: "K",
       starColor: "#ffaa33",
-      descr: "Orange star system. Center of Veloxi insectoid territory.",
+      descr: "Orange K-class star. Heart of Veloxi insectoid empire.",
       planets: [
-        { name: "Veloxia", radius: 55, speed: 0.014, color: "#ffaa00", size: 10, gravity: 1.3, temp: 40, atmosphere: "Thick Nitrogen", bio: 0.8, minerals: 0.3, hasRuins: false, artifact: null },
-        { name: "Velox-B", radius: 90, speed: 0.009, color: "#887755", size: 6, gravity: 0.9, temp: 10, atmosphere: "Toxic Ammonia", bio: 0.5, minerals: 0.7, hasRuins: false, artifact: null }
+        { name: "Veloxia", radius: 50, speed: 0.016, color: "#ffaa00", size: 10, gravity: 1.3, temp: 40, atmosphere: "Thick Nitrogen", bio: 0.8, minerals: 0.3, hasRuins: false, artifact: null },
+        { name: "Velox-B", radius: 85, speed: 0.01, color: "#887755", size: 6, gravity: 0.9, temp: 10, atmosphere: "Toxic Ammonia", bio: 0.5, minerals: 0.7, hasRuins: false, artifact: null },
+        { name: "Hive World", radius: 125, speed: 0.006, color: "#bbaa44", size: 12, gravity: 1.4, temp: 32, atmosphere: "High Oxygen", bio: 0.9, minerals: 0.4, hasRuins: false, artifact: null },
+        { name: "Chitin-IV", radius: 165, speed: 0.003, color: "#665544", size: 8, gravity: 0.7, temp: -70, atmosphere: "Frozen Nitrogen", bio: 0.2, minerals: 0.6, hasRuins: false, artifact: null }
       ]
     },
     {
       name: "Spemin Outpost",
-      x: 75,
-      y: 70,
+      x: 120,
+      y: 160,
       starClass: "F",
       starColor: "#ffffaa",
-      descr: "Yellow-white star. Controlled by the cowardly Spemin blob Empire.",
+      descr: "Yellow-white star. Sovereign center of Spemin blob territory.",
       planets: [
-        { name: "Spemia Prime", radius: 50, speed: 0.018, color: "#bbff99", size: 9, gravity: 0.9, temp: 35, atmosphere: "Nitrogen/Oxygen", bio: 0.7, minerals: 0.2, hasRuins: false, artifact: null },
-        { name: "Blob-V", radius: 85, speed: 0.011, color: "#88cc88", size: 7, gravity: 0.6, temp: -50, atmosphere: "Methane", bio: 0.3, minerals: 0.5, hasRuins: false, artifact: null }
+        { name: "Spemia Prime", radius: 45, speed: 0.018, color: "#bbff99", size: 9, gravity: 0.9, temp: 35, atmosphere: "Nitrogen/Oxygen", bio: 0.7, minerals: 0.2, hasRuins: false, artifact: null },
+        { name: "Blob-V", radius: 80, speed: 0.011, color: "#88cc88", size: 7, gravity: 0.6, temp: -50, atmosphere: "Methane", bio: 0.3, minerals: 0.5, hasRuins: false, artifact: null },
+        { name: "Slime-world", radius: 115, speed: 0.007, color: "#66ff66", size: 11, gravity: 1.2, temp: 25, atmosphere: "Dense Moisture", bio: 0.95, minerals: 0.1, hasRuins: false, artifact: null }
       ]
     },
     {
-      name: "Uhlek Void",
-      x: 145,
-      y: 150,
+      name: "Uhlek Void Fortress",
+      x: 440,
+      y: 420,
       starClass: "O",
       starColor: "#8888ff",
-      descr: "Blue Hypergiant. Heavy gravity wells and unstable magnetic rifts. Uhlek home territory.",
+      descr: "Blue Hypergiant. Heavy gravity wells and fatal magnetic storms. Uhlek military core.",
       planets: [
-        { name: "Uhlekia", radius: 70, speed: 0.01, color: "#5555bb", size: 14, gravity: 3.4, temp: 480, atmosphere: "Super-dense Methane", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null }
+        { name: "Uhlekia", radius: 65, speed: 0.012, color: "#5555bb", size: 14, gravity: 3.4, temp: 480, atmosphere: "Super-dense Methane", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
+        { name: "Dread-II", radius: 105, speed: 0.007, color: "#333366", size: 10, gravity: 2.2, temp: -90, atmosphere: "Argon", bio: 0.0, minerals: 0.85, hasRuins: true, artifact: null },
+        { name: "Cyber-Forge", radius: 145, speed: 0.004, color: "#aa3333", size: 13, gravity: 1.9, temp: 350, atmosphere: "Sulfur Gas", bio: 0.0, minerals: 0.95, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Eridani Beta",
+      x: 65,
+      y: 80,
+      starClass: "K",
+      starColor: "#ffaa44",
+      descr: "Deep western frontier orange dwarf.",
+      planets: [
+        { name: "Eridani-I", radius: 40, speed: 0.02, color: "#cc9955", size: 8, gravity: 0.8, temp: 120, atmosphere: "Thin CO2", bio: 0.1, minerals: 0.7, hasRuins: false, artifact: null },
+        { name: "Eridani-II", radius: 75, speed: 0.013, color: "#55aaff", size: 11, gravity: 1.1, temp: 18, atmosphere: "Oceanic Water Vapor", bio: 0.8, minerals: 0.4, hasRuins: false, artifact: null },
+        { name: "Eridani-III", radius: 110, speed: 0.008, color: "#ddbb88", size: 9, gravity: 1.0, temp: -20, atmosphere: "Nitrogen", bio: 0.3, minerals: 0.6, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Proxima Centauri",
+      x: 195,
+      y: 310,
+      starClass: "M",
+      starColor: "#ff4444",
+      descr: "Dim red dwarf with turbulent solar flares.",
+      planets: [
+        { name: "Proxima-b", radius: 35, speed: 0.022, color: "#aa5555", size: 9, gravity: 1.0, temp: 5, atmosphere: "Thin Nitrogen", bio: 0.4, minerals: 0.5, hasRuins: false, artifact: null },
+        { name: "Proxima-c", radius: 70, speed: 0.014, color: "#88bbdd", size: 13, gravity: 1.8, temp: -130, atmosphere: "Methane/Helium", bio: 0.0, minerals: 0.7, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Rigel Cluster",
+      x: 410,
+      y: 110,
+      starClass: "B",
+      starColor: "#88ffff",
+      descr: "Blue Supergiant star. Blazing luminosity across northern quadrants.",
+      planets: [
+        { name: "Rigel Prime", radius: 50, speed: 0.017, color: "#99ffff", size: 15, gravity: 2.8, temp: 520, atmosphere: "Ionized Gas", bio: 0.0, minerals: 0.95, hasRuins: false, artifact: null },
+        { name: "Rigel-IV", radius: 95, speed: 0.009, color: "#5588cc", size: 10, gravity: 1.3, temp: 40, atmosphere: "Nitrogen/Oxygen", bio: 0.75, minerals: 0.4, hasRuins: true, artifact: null },
+        { name: "Rigel-V", radius: 140, speed: 0.005, color: "#77aadd", size: 12, gravity: 1.6, temp: -80, atmosphere: "Ammonia Ice", bio: 0.2, minerals: 0.8, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Antares Reach",
+      x: 85,
+      y: 380,
+      starClass: "M",
+      starColor: "#ff3333",
+      descr: "Pulsating Red Giant in southwestern deep space.",
+      planets: [
+        { name: "Antares Alpha", radius: 60, speed: 0.015, color: "#ff6644", size: 12, gravity: 1.7, temp: 280, atmosphere: "Sulfur Dioxide", bio: 0.0, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Antares Beta", radius: 100, speed: 0.009, color: "#88ccbb", size: 8, gravity: 0.8, temp: -15, atmosphere: "Oxygen/Nitrogen", bio: 0.65, minerals: 0.5, hasRuins: true, artifact: null },
+        { name: "Antares Gamma", radius: 145, speed: 0.005, color: "#bb99dd", size: 11, gravity: 1.2, temp: -110, atmosphere: "Thick Methane", bio: 0.1, minerals: 0.7, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Betelgeuse Expanse",
+      x: 450,
+      y: 290,
+      starClass: "M",
+      starColor: "#ff4422",
+      descr: "Massive variable red supergiant emitting plasma plumes.",
+      planets: [
+        { name: "Betel-I", radius: 50, speed: 0.018, color: "#ffaa44", size: 14, gravity: 2.5, temp: 420, atmosphere: "Dense Ash", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
+        { name: "Betel-II", radius: 90, speed: 0.011, color: "#bb9977", size: 9, gravity: 1.1, temp: 60, atmosphere: "Toxic Vapor", bio: 0.3, minerals: 0.7, hasRuins: false, artifact: null },
+        { name: "Betel-III", radius: 130, speed: 0.006, color: "#5588aa", size: 10, gravity: 0.9, temp: -40, atmosphere: "Nitrogen", bio: 0.5, minerals: 0.6, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Aldebaran Core",
+      x: 290,
+      y: 360,
+      starClass: "K",
+      starColor: "#ff9933",
+      descr: "Orange Giant star in central southern sector.",
+      planets: [
+        { name: "Aldebar-A", radius: 45, speed: 0.02, color: "#ffcc66", size: 11, gravity: 1.4, temp: 130, atmosphere: "Carbonic Gas", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null },
+        { name: "Aldebar-B", radius: 85, speed: 0.012, color: "#66cc99", size: 8, gravity: 0.9, temp: 22, atmosphere: "Lush Oxygen", bio: 0.85, minerals: 0.3, hasRuins: true, artifact: null },
+        { name: "Aldebar-C", radius: 125, speed: 0.007, color: "#9999cc", size: 12, gravity: 1.5, temp: -85, atmosphere: "Argon/Methane", bio: 0.1, minerals: 0.75, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Altair Nexus",
+      x: 150,
+      y: 420,
+      starClass: "A",
+      starColor: "#ffffff",
+      descr: "Fast rotating A-class star with compressed equator line.",
+      planets: [
+        { name: "Altair-I", radius: 40, speed: 0.022, color: "#eeeeff", size: 7, gravity: 0.7, temp: 180, atmosphere: "Silica Dust", bio: 0.0, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Altair-II", radius: 75, speed: 0.014, color: "#88aaff", size: 10, gravity: 1.1, temp: 15, atmosphere: "Nitrogen/Oxygen", bio: 0.6, minerals: 0.5, hasRuins: false, artifact: null },
+        { name: "Altair-III", radius: 115, speed: 0.008, color: "#aacc88", size: 12, gravity: 1.3, temp: -60, atmosphere: "Thin CO2", bio: 0.3, minerals: 0.65, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Vega Stellaris",
+      x: 340,
+      y: 410,
+      starClass: "A",
+      starColor: "#ddffff",
+      descr: "Bright bluish-white star surrounded by a debris disk.",
+      planets: [
+        { name: "Vega-Alpha", radius: 50, speed: 0.017, color: "#bbddff", size: 13, gravity: 2.0, temp: 210, atmosphere: "Thick Steam", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null },
+        { name: "Vega-Beta", radius: 90, speed: 0.01, color: "#77ccaa", size: 9, gravity: 0.95, temp: 28, atmosphere: "Nitrogen/Oxygen", bio: 0.7, minerals: 0.4, hasRuins: true, artifact: null },
+        { name: "Vega-Gamma", radius: 135, speed: 0.006, color: "#bbaadd", size: 11, gravity: 1.2, temp: -95, atmosphere: "Methane Ice", bio: 0.15, minerals: 0.7, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Capella Vault",
+      x: 210,
+      y: 130,
+      starClass: "G",
+      starColor: "#ffff66",
+      descr: "Quadruple star system anchored by two yellow giant stars.",
+      planets: [
+        { name: "Capella-I", radius: 45, speed: 0.02, color: "#ffdd88", size: 10, gravity: 1.2, temp: 140, atmosphere: "Carbon Monoxide", bio: 0.0, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Capella-II", radius: 80, speed: 0.012, color: "#66bbee", size: 11, gravity: 1.0, temp: 12, atmosphere: "Oxygen Matrix", bio: 0.8, minerals: 0.35, hasRuins: true, artifact: null },
+        { name: "Capella-III", radius: 120, speed: 0.007, color: "#ccaaee", size: 8, gravity: 0.75, temp: -75, atmosphere: "Nitrogen Gas", bio: 0.2, minerals: 0.6, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Deneb Veil",
+      x: 90,
+      y: 240,
+      starClass: "A",
+      starColor: "#ffffff",
+      descr: "White Supergiant star located at western galactic edge.",
+      planets: [
+        { name: "Deneb-I", radius: 55, speed: 0.015, color: "#e0e0ff", size: 14, gravity: 2.6, temp: 390, atmosphere: "Corrosive Acid", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
+        { name: "Deneb-II", radius: 95, speed: 0.009, color: "#99ccbb", size: 9, gravity: 0.85, temp: 5, atmosphere: "Nitrogen/Argon", bio: 0.5, minerals: 0.5, hasRuins: true, artifact: null },
+        { name: "Deneb-III", radius: 140, speed: 0.005, color: "#8888aa", size: 12, gravity: 1.5, temp: -120, atmosphere: "Frozen Carbon", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Polari Station",
+      x: 460,
+      y: 80,
+      starClass: "F",
+      starColor: "#ffffbb",
+      descr: "North-Eastern pole star anchor system.",
+      planets: [
+        { name: "Polaris Prime", radius: 45, speed: 0.019, color: "#ccffdd", size: 10, gravity: 1.1, temp: 8, atmosphere: "Thin Nitrogen", bio: 0.45, minerals: 0.55, hasRuins: false, artifact: null },
+        { name: "Polaris-II", radius: 85, speed: 0.011, color: "#aaddff", size: 12, gravity: 1.4, temp: -60, atmosphere: "Methane Ice", bio: 0.1, minerals: 0.75, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Fomalhaut Reach",
+      x: 40,
+      y: 190,
+      starClass: "A",
+      starColor: "#eeeeff",
+      descr: "Solitary A-type star enclosed by dense dust ring.",
+      planets: [
+        { name: "Fomal-A", radius: 50, speed: 0.017, color: "#bbaadd", size: 11, gravity: 1.3, temp: 85, atmosphere: "Dust & CO2", bio: 0.0, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Fomal-B", radius: 90, speed: 0.01, color: "#55ccbb", size: 9, gravity: 0.9, temp: 16, atmosphere: "Nitrogen/Oxygen", bio: 0.65, minerals: 0.4, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Castor Haven",
+      x: 310,
+      y: 60,
+      starClass: "A",
+      starColor: "#ffffff",
+      descr: "Sextuple star system in northern sky.",
+      planets: [
+        { name: "Castor-I", radius: 40, speed: 0.021, color: "#ffccbb", size: 8, gravity: 0.8, temp: 160, atmosphere: "Sulfur Gas", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
+        { name: "Castor-II", radius: 75, speed: 0.013, color: "#66aadd", size: 10, gravity: 1.0, temp: 24, atmosphere: "Oxygen Rich", bio: 0.75, minerals: 0.3, hasRuins: false, artifact: null },
+        { name: "Castor-III", radius: 115, speed: 0.008, color: "#bb99cc", size: 13, gravity: 1.7, temp: -50, atmosphere: "Nitrogen", bio: 0.25, minerals: 0.6, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Pollux Trench",
+      x: 370,
+      y: 140,
+      starClass: "K",
+      starColor: "#ffbb44",
+      descr: "Orange Giant star with rich inner asteroid belts.",
+      planets: [
+        { name: "Pollux-Alpha", radius: 50, speed: 0.016, color: "#eeaa55", size: 12, gravity: 1.6, temp: 110, atmosphere: "Carbonic Gas", bio: 0.0, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Pollux-Beta", radius: 90, speed: 0.01, color: "#77ddaa", size: 9, gravity: 0.95, temp: 18, atmosphere: "Nitrogen/Oxygen", bio: 0.7, minerals: 0.4, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Procyon Rim",
+      x: 110,
+      y: 310,
+      starClass: "F",
+      starColor: "#ffffaa",
+      descr: "Yellow-white subgiant star with white dwarf companion.",
+      planets: [
+        { name: "Procyon-A", radius: 45, speed: 0.019, color: "#eedd99", size: 9, gravity: 0.9, temp: 65, atmosphere: "Thin Nitrogen", bio: 0.3, minerals: 0.6, hasRuins: false, artifact: null },
+        { name: "Procyon-B", radius: 85, speed: 0.011, color: "#44bbee", size: 11, gravity: 1.1, temp: -10, atmosphere: "Water Vapor", bio: 0.8, minerals: 0.35, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Arcturus Spire",
+      x: 270,
+      y: 440,
+      starClass: "K",
+      starColor: "#ff9922",
+      descr: "Orange Giant star moving rapidly across southern sector.",
+      planets: [
+        { name: "Arcturus-I", radius: 50, speed: 0.017, color: "#ff9955", size: 13, gravity: 2.1, temp: 230, atmosphere: "Corrosive Acid", bio: 0.0, minerals: 0.95, hasRuins: false, artifact: null },
+        { name: "Arcturus-II", radius: 90, speed: 0.01, color: "#88ccaa", size: 10, gravity: 1.0, temp: 12, atmosphere: "Nitrogen/Oxygen", bio: 0.65, minerals: 0.5, hasRuins: true, artifact: null },
+        { name: "Arcturus-III", radius: 130, speed: 0.006, color: "#9988bb", size: 12, gravity: 1.4, temp: -90, atmosphere: "Methane Ice", bio: 0.1, minerals: 0.7, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Spica Supercluster",
+      x: 410,
+      y: 370,
+      starClass: "B",
+      starColor: "#77ffff",
+      descr: "Spectroscopic binary system composed of two blue giant stars.",
+      planets: [
+        { name: "Spica-Prime", radius: 55, speed: 0.015, color: "#77ddff", size: 15, gravity: 3.1, temp: 460, atmosphere: "Ionized Plasma", bio: 0.0, minerals: 0.95, hasRuins: false, artifact: null },
+        { name: "Spica-II", radius: 100, speed: 0.008, color: "#55aacc", size: 9, gravity: 1.1, temp: 35, atmosphere: "Thick Moisture", bio: 0.75, minerals: 0.4, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Regulus Sanctum",
+      x: 160,
+      y: 60,
+      starClass: "B",
+      starColor: "#aaffff",
+      descr: "Quadruple blue star system spinning near breakup velocity.",
+      planets: [
+        { name: "Regulus-A", radius: 40, speed: 0.021, color: "#bbffff", size: 12, gravity: 1.8, temp: 310, atmosphere: "Silica Vapor", bio: 0.0, minerals: 0.9, hasRuins: false, artifact: null },
+        { name: "Regulus-B", radius: 80, speed: 0.012, color: "#66ccaa", size: 10, gravity: 1.0, temp: 26, atmosphere: "Oxygen/Argon", bio: 0.7, minerals: 0.35, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Achernar Abyss",
+      x: 470,
+      y: 220,
+      starClass: "B",
+      starColor: "#88eeff",
+      descr: "Flattest and least spherical star in eastern galactic edge.",
+      planets: [
+        { name: "Achernar-I", radius: 50, speed: 0.016, color: "#88ccff", size: 14, gravity: 2.5, temp: 380, atmosphere: "Gas Plumes", bio: 0.0, minerals: 0.95, hasRuins: false, artifact: null },
+        { name: "Achernar-II", radius: 95, speed: 0.009, color: "#a5a5d8", size: 9, gravity: 0.9, temp: -45, atmosphere: "Frozen Nitrogen", bio: 0.2, minerals: 0.65, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Bellatrix Anomaly",
+      x: 230,
+      y: 390,
+      starClass: "B",
+      starColor: "#aaeedd",
+      descr: "Blue giant star surrounded by intense magnetic turbulence.",
+      planets: [
+        { name: "Bellatrix-I", radius: 45, speed: 0.019, color: "#88eedd", size: 11, gravity: 1.4, temp: 240, atmosphere: "Ion Gas", bio: 0.0, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Bellatrix-II", radius: 85, speed: 0.011, color: "#66bbaa", size: 10, gravity: 1.1, temp: 15, atmosphere: "Nitrogen/Oxygen", bio: 0.8, minerals: 0.4, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Mizar Rift",
+      x: 380,
+      y: 460,
+      starClass: "A",
+      starColor: "#ffffff",
+      descr: "Famous double binary star system in southeastern sector.",
+      planets: [
+        { name: "Mizar-A", radius: 50, speed: 0.017, color: "#ddddff", size: 10, gravity: 1.2, temp: 140, atmosphere: "Carbonic Gas", bio: 0.0, minerals: 0.8, hasRuins: false, artifact: null },
+        { name: "Mizar-B", radius: 90, speed: 0.01, color: "#77ccaa", size: 8, gravity: 0.85, temp: -25, atmosphere: "Thin Nitrogen", bio: 0.4, minerals: 0.6, hasRuins: false, artifact: null }
+      ]
+    },
+    {
+      name: "Alcor Basin",
+      x: 70,
+      y: 460,
+      starClass: "F",
+      starColor: "#ffffaa",
+      descr: "F-type companion star at southwestern boundary.",
+      planets: [
+        { name: "Alcor-I", radius: 40, speed: 0.02, color: "#eedd88", size: 9, gravity: 0.9, temp: 45, atmosphere: "Nitrogen", bio: 0.5, minerals: 0.5, hasRuins: false, artifact: null },
+        { name: "Alcor-II", radius: 80, speed: 0.012, color: "#66aacc", size: 12, gravity: 1.3, temp: -70, atmosphere: "Methane Ice", bio: 0.1, minerals: 0.75, hasRuins: true, artifact: null }
+      ]
+    },
+    {
+      name: "Sol Omega",
+      x: 300,
+      y: 300,
+      starClass: "G",
+      starColor: "#ffcc00",
+      descr: "Yellow G-class star with ancient terraformed ring planets.",
+      planets: [
+        { name: "Terra-Nova", radius: 45, speed: 0.018, color: "#44aaff", size: 10, gravity: 1.0, temp: 21, atmosphere: "Perfect Oxygen Matrix", bio: 0.9, minerals: 0.4, hasRuins: true, artifact: null },
+        { name: "Ares-II", radius: 85, speed: 0.011, color: "#ff6644", size: 8, gravity: 0.7, temp: -10, atmosphere: "Thin CO2", bio: 0.1, minerals: 0.85, hasRuins: false, artifact: null },
+        { name: "Chronos Gate", radius: 125, speed: 0.006, color: "#aaddaa", size: 12, gravity: 1.5, temp: -95, atmosphere: "Nitrogen/Helium", bio: 0.3, minerals: 0.65, hasRuins: true, artifact: null }
       ]
     }
   ],

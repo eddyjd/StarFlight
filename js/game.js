@@ -195,12 +195,17 @@ const GameManager = {
     if (this.viewState !== "navigation") return;
 
     if (this.spaceState === "hyper") {
-      // In Hyperspace: only docking at Starbase Prime is possible
-      if (Math.hypot(Navigation.shipX - 250.0, Navigation.shipY - 250.0) < 4.0) {
+      if (Navigation.nearbyDerelict) {
+        Navigation.boardNearbyDerelict();
+      } else if (Navigation.nearbyDistressSignal) {
+        Navigation.investigateDistressSignal();
+      } else if (Navigation.nearbyWormhole) {
+        Navigation.enterNearbyWormhole();
+      } else if (Math.hypot(Navigation.shipX - 250.0, Navigation.shipY - 250.0) < 4.0) {
         Navigation.enterSpacebase();
       } else {
         AudioController.playBeep('error');
-        UI.addLog("DOCKING UNAVAILABLE: FLY TO STARBASE PRIME AT (250, 250) TO DOCK.");
+        UI.addLog("DOCKING UNAVAILABLE: APPROACH STARBASE PRIME AT (250, 250), A DERELICT, WORMHOLE OR BEACON.");
       }
     } else if (this.spaceState === "system") {
       // In Solar System: landing on current planet

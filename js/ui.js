@@ -598,6 +598,131 @@ const UI = {
     }
   },
 
+  openDerelictModal(derelict) {
+    this.currentDerelict = derelict;
+    const modal = document.getElementById("derelict-modal");
+    if (!modal || !derelict) return;
+
+    document.getElementById("derelict-title").textContent = `🛰️ ${derelict.name.toUpperCase()}`;
+    document.getElementById("derelict-coords").textContent = `COORDINATES: (${derelict.x}, ${derelict.y})`;
+    document.getElementById("derelict-desc").textContent = derelict.desc;
+
+    const lootDetails = document.getElementById("derelict-loot-details");
+    const btnScavenge = document.getElementById("btnScavengeDerelict");
+
+    if (derelict.searched) {
+      lootDetails.innerHTML = `<span style="color: #ff5555;">[SALVAGED] Hull has already been completely stripped of useful energy and components.</span>`;
+      btnScavenge.disabled = true;
+      btnScavenge.textContent = "ALREADY SALVAGED";
+    } else {
+      lootDetails.innerHTML = `Sensors detect residual Endurium fuel cells, credits, and Precursor tech modules intact inside the hold.`;
+      btnScavenge.disabled = false;
+      btnScavenge.textContent = "SCAVENGE DERELICT HULL";
+    }
+
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  closeDerelictModal() {
+    const modal = document.getElementById("derelict-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  scavengeCurrentDerelict() {
+    if (!this.currentDerelict || this.currentDerelict.searched) return;
+    const der = this.currentDerelict;
+    const ship = window.game.ship;
+
+    der.searched = true;
+    const loot = der.loot;
+
+    // Award Endurium fuel & credits
+    if (loot.type === "endurium") {
+      ship.fuel = Math.min(ship.maxFuel, ship.fuel + loot.amount);
+    }
+    ship.credits += loot.credits;
+
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    this.addLog(`DERELICT SCAVENGED! SALVAGED ${loot.amount} ENDURIUM & ${loot.credits} M.U. CREDITS!`);
+
+    const lootDetails = document.getElementById("derelict-loot-details");
+    lootDetails.innerHTML = `<span style="color: #00ff66;">✓ SALVAGE COMPLETE!</span><br>+${loot.credits} Credits added to ship vault.<br>+${loot.amount} Endurium fuel unit units refilled into tanks.<br><em>Tech Artifact Logged: ${loot.tech}</em>`;
+
+    const btnScavenge = document.getElementById("btnScavengeDerelict");
+    btnScavenge.disabled = true;
+    btnScavenge.textContent = "ALREADY SALVAGED";
+  },
+
+  openDistressModal(signal) {
+    this.currentDistress = signal;
+    const modal = document.getElementById("distress-modal");
+    if (!modal || !signal) return;
+
+    document.getElementById("distress-title").textContent = `📡 ${signal.name.toUpperCase()}`;
+    document.getElementById("distress-coords").textContent = `COORDINATES: (${signal.x}, ${signal.y})`;
+    document.getElementById("distress-desc").textContent = signal.desc;
+
+    const optBox = document.getElementById("distress-options");
+    let html = "";
+
+    if (signal.event === "trade_rescue") {
+      html += `
+        <button class="glow-btn yellow-glow" onclick="UI.handleDistressOption('rescue_trade')">TRANSFER 10 ENDURIUM (REWARD: 1,000 M.U.)</button>
+        <button class="glow-btn" onclick="UI.handleDistressOption('ignore')">DECLINE ASSISTANCE</button>
+      `;
+    } else if (signal.event === "probe_salvage") {
+      html += `
+        <button class="glow-btn green-glow" onclick="UI.handleDistressOption('salvage_probe')">DOWNLOAD TELEMETRY LOGS (REWARD: +500 M.U. & MAP DISCOVERIES)</button>
+        <button class="glow-btn" onclick="UI.handleDistressOption('ignore')">IGNORE PROBE SIGNAL</button>
+      `;
+    } else if (signal.event === "rescue_pod") {
+      html += `
+        <button class="glow-btn blue-glow" onclick="UI.handleDistressOption('rescue_pod')">RETRIEVE CRYO-POD NAVIGATOR (REWARD: RECOVERED CREW DATA & 800 M.U.)</button>
+        <button class="glow-btn" onclick="UI.handleDistressOption('ignore')">LEAVE BEACON ACTIVE</button>
+      `;
+    }
+
+    optBox.innerHTML = html;
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  closeDistressModal() {
+    const modal = document.getElementById("distress-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  handleDistressOption(choiceKey) {
+    const sig = this.currentDistress;
+    const ship = window.game.ship;
+
+    if (choiceKey === "rescue_trade") {
+      if (ship.fuel >= 10) {
+        ship.fuel -= 10;
+        ship.credits += 1000;
+        if (sig) sig.active = false;
+        this.addLog("BEACON RESOLVED: Transferred 10 Endurium units to civilian trader. Received 1,000 M.U. reward!");
+        if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+      } else {
+        this.addLog("INSUFFICIENT FUEL: You need at least 10 units of fuel to assist!");
+        if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('error');
+      }
+    } else if (choiceKey === "salvage_probe") {
+      ship.credits += 500;
+      if (sig) sig.active = false;
+      this.addLog("PROBE SALVAGED: Downloaded ancient telemetry logs. Received 500 M.U. data bounty!");
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    } else if (choiceKey === "rescue_pod") {
+      ship.credits += 800;
+      if (sig) sig.active = false;
+      this.addLog("CRYO-POD RECOVERED: Rescued stranded specialist navigator. Received 800 M.U. Starbase bounty!");
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    }
+
+    this.closeDistressModal();
+  },
+
   cycleFontSize() {
     if (this.fontSizeMode === 'normal') {
       this.fontSizeMode = 'large';

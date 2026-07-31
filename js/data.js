@@ -132,8 +132,37 @@ const GameData = {
     { id: "wh_4", name: "Wormhole Beta-2", x: 80, y: 420, targetX: 420, targetY: 80, destName: "Wormhole Beta-1 (Northeast Horizon)" },
     { id: "wh_5", name: "Wormhole Gamma-1", x: 250, y: 50, targetX: 250, targetY: 450, destName: "Wormhole Gamma-2 (Galactic South)" },
     { id: "wh_6", name: "Wormhole Gamma-2", x: 250, y: 450, targetX: 250, targetY: 50, destName: "Wormhole Gamma-1 (Galactic North)" },
-    { id: "wh_7", name: "Wormhole Delta-1", x: 40, y: 250, targetX: 460, targetY: 250, destName: "Wormhole Delta-2 (Eastern Quadrant)" },
-    { id: "wh_8", name: "Wormhole Delta-2", x: 460, y: 250, targetX: 40, targetY: 250, destName: "Wormhole Delta-1 (Western Quadrant)" }
+  // Supermassive Black Holes & Gravitational Singularities
+  blackHoles: [
+    { id: "bh_1", name: "Cygnus Singularity", x: 210, y: 310, gravityRadius: 35, coreRadius: 4, pullForce: 45, destX: 450, destY: 120, desc: "Extreme gravitational distortion field. High risk of warp displacement!" },
+    { id: "bh_2", name: "Abyssal Gate Void", x: 410, y: 220, gravityRadius: 40, coreRadius: 5, pullForce: 50, destX: 90, destY: 380, desc: "Collapses space-time continuum. Teleports ships to remote southwest rim." },
+    { id: "bh_3", name: "Precursor Singularity", x: 120, y: 440, gravityRadius: 30, coreRadius: 4, pullForce: 40, destX: 300, destY: 300, desc: "Ancient artificial gravity well created by Precursors." }
+  ],
+
+  // Abandoned Derelict Space Stations & Starships
+  derelicts: [
+    { id: "der_1", name: "Derelict Station Kronos-9", x: 140, y: 290, searched: false, loot: { type: "endurium", amount: 25, credits: 450, artifact: null, tech: "Shield Overcharger" }, desc: "Abandoned military outpost. Inert power signature." },
+    { id: "der_2", name: "Precursor Quantum Relay", x: 310, y: 160, searched: false, loot: { type: "precursor_alloy", amount: 3, credits: 800, artifact: null, tech: "Sensor Amplifier" }, desc: "Massive ancient Precursor satellite matrix floating in high orbit." },
+    { id: "der_3", name: "Ghost Vessel Vanguard", x: 440, y: 180, searched: false, loot: { type: "platinum", amount: 4, credits: 600, artifact: null, tech: "Plasma Capacitors" }, desc: "Drifting Earth exploration cruiser from the early expansion era." },
+    { id: "der_4", name: "Spemin Abandoned Hub", x: 90, y: 110, searched: false, loot: { type: "alien_art", amount: 2, credits: 350, artifact: null, tech: "Cargo Injectors" }, desc: "Deserted Spemin trading outpost filled with uncollected goods." },
+    { id: "der_5", name: "Veloxi Dreadnought Wreck", x: 360, y: 390, searched: false, loot: { type: "endurium", amount: 40, credits: 1200, artifact: null, tech: "Heavy Armor Plating" }, desc: "Battle-scarred Veloxi flagship hull floating in deep space." },
+    { id: "der_6", name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
+  ],
+
+  // Deep Space Asteroid Mining Fields
+  asteroidFields: [
+    { id: "ast_1", name: "Sirius Asteroid Belt", x: 190, y: 200, count: 12, density: "High", ores: ["iron", "platinum", "endurium_ore"] },
+    { id: "ast_2", name: "Orion Debris Ring", x: 270, y: 130, count: 15, density: "Rich", ores: ["titanium", "gold", "endurium_ore"] },
+    { id: "ast_3", name: "Vega Shattered Moon", x: 350, y: 430, count: 10, density: "Medium", ores: ["platinum", "titanium"] },
+    { id: "ast_4", name: "Rigel Dust Belt", x: 420, y: 90, count: 14, density: "Rich", ores: ["gold", "endurium_ore", "platinum"] },
+    { id: "ast_5", name: "Western Frontier Rocks", x: 50, y: 220, count: 8, density: "Standard", ores: ["iron", "titanium"] }
+  ],
+
+  // Dynamic Subspace Distress Signals
+  distressSignals: [
+    { id: "sig_1", name: "Distress Beacon: Stranded Trader", x: 230, y: 170, active: true, event: "trade_rescue", desc: "Civilian cargo ship with disabled engines requesting 10 Endurium units for 1,000 M.U." },
+    { id: "sig_2", name: "Distress Beacon: Survey Probe", x: 380, y: 310, active: true, event: "probe_salvage", desc: "Automated telemetry probe transmitting corrupted precursor data logs." },
+    { id: "sig_3", name: "Distress Beacon: Escape Pod", x: 110, y: 390, active: true, event: "rescue_pod", desc: "Cryo-pod carrying an expert Specialist Navigator looking to join a crew!" }
   ],
 
   // 30+ Star Systems spanning the 500x500 Galaxy Quadrant

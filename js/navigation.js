@@ -82,6 +82,16 @@ const Navigation = {
           this.enterNearbyWormhole();
         }
       }
+      if (e.key === "b" || e.key === "B") {
+        if (this.nearbyDerelict) {
+          this.boardNearbyDerelict();
+        }
+      }
+      if (e.key === "e" || e.key === "E") {
+        if (this.nearbyDistressSignal) {
+          this.investigateDistressSignal();
+        }
+      }
       if (e.key === "f" || e.key === "F") {
         this.firePlayerBlaster();
       }
@@ -147,6 +157,99 @@ const Navigation = {
     this.shipVy = 0;
     window.game.ship.coordinates.x = this.shipX;
     window.game.ship.coordinates.y = this.shipY;
+  },
+
+  boardNearbyDerelict() {
+    if (!this.nearbyDerelict) return;
+    UI.openDerelictModal(this.nearbyDerelict);
+  },
+
+  investigateDistressSignal() {
+    if (!this.nearbyDistressSignal) return;
+    UI.openDistressModal(this.nearbyDistressSignal);
+  },
+
+  updateAsteroidMining(dt) {
+    if (!this.activeAsteroids) this.activeAsteroids = [];
+    if (!this.floatingOreChunks) this.floatingOreChunks = [];
+
+    // Populate active space asteroids if near asteroid fields
+    if (GameData.asteroidFields && this.activeAsteroids.length === 0) {
+      GameData.asteroidFields.forEach(field => {
+        const dist = Math.hypot(this.shipX - field.x, this.shipY - field.y);
+        if (dist < 25.0) {
+          for (let i = 0; i < field.count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * 18.0;
+            this.activeAsteroids.push({
+              id: `${field.id}_${i}`,
+              x: field.x + Math.cos(angle) * r,
+              y: field.y + Math.sin(angle) * r,
+              vx: (Math.random() - 0.5) * 0.4,
+              vy: (Math.random() - 0.5) * 0.4,
+              size: Math.random() * 6 + 6,
+              hp: 20,
+              ores: field.ores
+            });
+          }
+        }
+      });
+    }
+
+    // Move active asteroids
+    this.activeAsteroids.forEach(ast => {
+      ast.x += ast.vx * dt;
+      ast.y += ast.vy * dt;
+    });
+
+    // Check Projectile Hits on Asteroids
+    if (this.spaceProjectiles && this.spaceProjectiles.length > 0) {
+      this.spaceProjectiles.forEach(p => {
+        if (!p.isPlayer) return;
+        this.activeAsteroids.forEach(ast => {
+          if (ast.hp <= 0) return;
+          const dist = Math.hypot(p.x - ast.x, p.y - ast.y);
+          if (dist < (ast.size / 2.5)) {
+            ast.hp -= p.damage || 25;
+            p.lifetime = 0; // destroy projectile
+            if (ast.hp <= 0) {
+              if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("hit");
+              UI.addLog(`ASTEROID SHATTERED! ORE DEPOSIT DISLODGED INTO VACUUM!`);
+              // Spawn floating mineral ore chunk
+              const oreType = ast.ores[Math.floor(Math.random() * ast.ores.length)];
+              this.floatingOreChunks.push({
+                x: ast.x,
+                y: ast.y,
+                type: oreType,
+                lifetime: 20.0
+              });
+            }
+          }
+        });
+      });
+
+      // Filter out destroyed asteroids
+      this.activeAsteroids = this.activeAsteroids.filter(ast => ast.hp > 0);
+    }
+
+    // Update Floating Ore Chunks & Scoop into Cargo
+    this.floatingOreChunks = this.floatingOreChunks.filter(chunk => {
+      chunk.lifetime -= dt;
+      const shipDist = Math.hypot(this.shipX - chunk.x, this.shipY - chunk.y);
+      if (shipDist < 3.0) {
+        // Tractor Beam Scoop Ore Chunk into Cargo!
+        const ship = window.game.ship;
+        const typeName = chunk.type.replace("_ore", "").toUpperCase();
+        if (!ship.cargo) ship.cargo = {};
+        ship.cargo[chunk.type] = (ship.cargo[chunk.type] || 0) + 1;
+
+        if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
+        UI.addLog(`TRACTOR SCOOP: RECOVERED 1 UNIT OF ${typeName} ORE INTO CARGO!`);
+        UI.updateShip(ship);
+        return false;
+      }
+      return chunk.lifetime > 0;
+    });
   },
 
   // Twinkling background star coordinates (normalized 0.0 - 1.0 across full canvas)
@@ -268,6 +371,60 @@ const Navigation = {
     const secY = Math.floor(this.shipY / 25) * 25;
     ship.exploredSectors[`${secX}_${secY}`] = true;
 
+    // 1. Singularity Black Hole Gravitational Pull Physics
+    this.nearbyBlackHole = null;
+    if (GameData.blackHoles) {
+      GameData.blackHoles.forEach(bh => {
+        const dist = Math.hypot(this.shipX - bh.x, this.shipY - bh.y);
+        if (dist < bh.gravityRadius) {
+          this.nearbyBlackHole = bh;
+          // Apply continuous gravitational pull toward singularity core
+          const angle = Math.atan2(bh.y - this.shipY, bh.x - this.shipX);
+          const pullIntensity = (1 - (dist / bh.gravityRadius)) * bh.pullForce;
+          this.shipVx += Math.cos(angle) * pullIntensity * dt;
+          this.shipVy += Math.sin(angle) * pullIntensity * dt;
+
+          // Check if pulled inside event horizon core
+          if (dist < bh.coreRadius) {
+            if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
+            UI.addLog(`CRITICAL WARP DISPLACEMENT! PULLED INTO ${bh.name.toUpperCase()} EVENT HORIZON!`);
+            UI.addLog(`REEMERGED AT DISPLACED COORDINATES (${bh.destX}, ${bh.destY}).`);
+            this.shipX = bh.destX;
+            this.shipY = bh.destY;
+            this.shipVx = 0;
+            this.shipVy = 0;
+          }
+        }
+      });
+    }
+
+    // 2. Derelict Station Proximity
+    this.nearbyDerelict = null;
+    if (GameData.derelicts) {
+      GameData.derelicts.forEach(der => {
+        const dist = Math.hypot(this.shipX - der.x, this.shipY - der.y);
+        if (dist < 4.0) {
+          this.nearbyDerelict = der;
+        }
+      });
+    }
+
+    // 3. Subspace Distress Signal Proximity
+    this.nearbyDistressSignal = null;
+    if (GameData.distressSignals) {
+      GameData.distressSignals.forEach(sig => {
+        if (sig.active) {
+          const dist = Math.hypot(this.shipX - sig.x, this.shipY - sig.y);
+          if (dist < 4.0) {
+            this.nearbyDistressSignal = sig;
+          }
+        }
+      });
+    }
+
+    // 4. Update Asteroid Mining & Floating Mineral Ore Chunks
+    this.updateAsteroidMining(dt);
+
     // Check Proximity to Quantum Wormholes
     this.nearbyWormhole = null;
     if (GameData.wormholes) {
@@ -277,6 +434,23 @@ const Navigation = {
           this.nearbyWormhole = wh;
         }
       });
+    }
+
+    // Update Control Panel Buttons dynamically
+    if (UI.elements && UI.elements.btnEnterSystem) {
+      if (this.nearbyDerelict) {
+        UI.elements.btnEnterSystem.disabled = false;
+        UI.elements.btnEnterSystem.textContent = `BOARD DERELICT [B]`;
+      } else if (this.nearbyDistressSignal) {
+        UI.elements.btnEnterSystem.disabled = false;
+        UI.elements.btnEnterSystem.textContent = `INVESTIGATE SIGNAL [E]`;
+      } else if (this.nearbyWormhole) {
+        UI.elements.btnEnterSystem.disabled = false;
+        UI.elements.btnEnterSystem.textContent = `ENTER WORMHOLE [W]`;
+      } else if (Math.hypot(this.shipX - 250.0, this.shipY - 250.0) < 4.0) {
+        UI.elements.btnEnterSystem.disabled = false;
+        UI.elements.btnEnterSystem.textContent = `DOCK AT STARBASE [L]`;
+      }
     }
 
     // Automatic Proximity Star System Discovery
@@ -864,6 +1038,81 @@ const Navigation = {
       });
     }
 
+    // Draw Supermassive Black Holes on Star Map
+    if (GameData.blackHoles) {
+      GameData.blackHoles.forEach(bh => {
+        const bhPx = toCanvasX(bh.x);
+        const bhPy = toCanvasY(bh.y);
+        const gravRad = Math.max(12, bh.gravityRadius * (mapW / 500) * zScale);
+
+        const grad = ctx.createRadialGradient(bhPx, bhPy, 2, bhPx, bhPy, gravRad);
+        grad.addColorStop(0, "#000000");
+        grad.addColorStop(0.4, "rgba(180, 0, 255, 0.45)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(bhPx, bhPy, gravRad, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = `${fontSize + 2}px Share Tech Mono`;
+        ctx.fillStyle = "#d870ff";
+        ctx.fillText("🕳", bhPx - (fontSize / 2), bhPy + (fontSize / 3));
+
+        this.mapTargets.push({
+          type: "blackhole",
+          x: bhPx, y: bhPy, radius: gravRad,
+          title: `🕳 BLACK HOLE: ${bh.name.toUpperCase()}`,
+          details: `Location: (${bh.x}, ${bh.y})\nHazard: Extreme Gravitational Core\nProperties: ${bh.desc}`
+        });
+      });
+    }
+
+    // Draw Derelict Space Stations on Star Map
+    if (GameData.derelicts) {
+      GameData.derelicts.forEach(der => {
+        const derPx = toCanvasX(der.x);
+        const derPy = toCanvasY(der.y);
+
+        ctx.font = `${fontSize + 3}px Share Tech Mono`;
+        ctx.fillStyle = der.searched ? "#888888" : "#00e5ff";
+        ctx.fillText("🛰️", derPx - (fontSize / 2), derPy + (fontSize / 3));
+
+        this.mapTargets.push({
+          type: "derelict",
+          x: derPx, y: derPy, radius: 12 * zScale,
+          title: `🛰️ PRECURSOR DERELICT: ${der.name.toUpperCase()}`,
+          details: `Location: (${der.x}, ${der.y})\nStatus: ${der.searched ? 'Salvaged' : 'Unsearched Artifact Vault'}\nDetails: ${der.desc}`
+        });
+      });
+    }
+
+    // Draw Subspace Distress Beacons on Star Map
+    if (GameData.distressSignals) {
+      GameData.distressSignals.forEach(sig => {
+        if (!sig.active) return;
+        const sigPx = toCanvasX(sig.x);
+        const sigPy = toCanvasY(sig.y);
+        const pulse = (6 + Math.abs(Math.sin(Date.now() / 250)) * 4) * zScale;
+
+        ctx.strokeStyle = "#ffaa33";
+        ctx.lineWidth = Math.max(1, 1.5 * zScale);
+        ctx.beginPath();
+        ctx.arc(sigPx, sigPy, pulse, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.font = `${fontSize + 2}px Share Tech Mono`;
+        ctx.fillStyle = "#ffaa33";
+        ctx.fillText("📡", sigPx - (fontSize / 2), sigPy + (fontSize / 3));
+
+        this.mapTargets.push({
+          type: "distress",
+          x: sigPx, y: sigPy, radius: 12 * zScale,
+          title: `📡 DISTRESS BEACON: ${sig.name.toUpperCase()}`,
+          details: `Location: (${sig.x}, ${sig.y})\nBroadcast: ${sig.desc}`
+        });
+      });
+    }
+
     // Check if any star system in a sector is discovered
     const systemInSectorDiscovered = (sx, sy) => {
       return GameData.starSystems.some(sys => {
@@ -1245,6 +1494,144 @@ const Navigation = {
         }
       }
     });
+
+    // Render Supermassive Black Holes in Viewport
+    if (GameData.blackHoles) {
+      GameData.blackHoles.forEach(bh => {
+        const dx = (bh.x - this.shipX) * scale;
+        const dy = (bh.y - this.shipY) * scale;
+        const px = centerX + dx;
+        const py = centerY + dy;
+
+        if (px > -100 && px < viewWidth + 100 && py > -100 && py < viewHeight + 100) {
+          const gravRadPx = bh.gravityRadius * scale * 0.4;
+          const coreRadPx = bh.coreRadius * scale * 0.4;
+
+          // Accretion disk distortion gradient
+          const grad = this.ctx.createRadialGradient(px, py, 2, px, py, gravRadPx);
+          grad.addColorStop(0, "#000000");
+          grad.addColorStop(0.3, "rgba(180, 0, 255, 0.4)");
+          grad.addColorStop(0.7, "rgba(0, 229, 255, 0.2)");
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          this.ctx.fillStyle = grad;
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, gravRadPx, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          // Black hole core horizon
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, coreRadPx, 0, Math.PI * 2);
+          this.ctx.fillStyle = "#000000";
+          this.ctx.strokeStyle = "#a020f0";
+          this.ctx.lineWidth = 3;
+          this.ctx.shadowBlur = 15;
+          this.ctx.shadowColor = "#a020f0";
+          this.ctx.fill();
+          this.ctx.stroke();
+          this.ctx.shadowBlur = 0;
+
+          this.ctx.font = "bold 10px Share Tech Mono";
+          this.ctx.fillStyle = "#d870ff";
+          this.ctx.fillText(`🕳 ${bh.name.toUpperCase()} (${bh.x}, ${bh.y})`, px + coreRadPx + 6, py + 3);
+        }
+      });
+    }
+
+    // Render Derelict Space Stations in Viewport
+    if (GameData.derelicts) {
+      GameData.derelicts.forEach(der => {
+        const dx = (der.x - this.shipX) * scale;
+        const dy = (der.y - this.shipY) * scale;
+        const px = centerX + dx;
+        const py = centerY + dy;
+
+        if (px > -40 && px < viewWidth + 40 && py > -40 && py < viewHeight + 40) {
+          this.ctx.font = "16px Share Tech Mono";
+          this.ctx.fillStyle = der.searched ? "#888888" : "#00e5ff";
+          this.ctx.shadowBlur = der.searched ? 0 : 10;
+          this.ctx.shadowColor = "#00e5ff";
+          this.ctx.fillText("🛰️", px - 8, py + 6);
+          this.ctx.shadowBlur = 0;
+
+          this.ctx.font = "bold 10px Share Tech Mono";
+          this.ctx.fillStyle = der.searched ? "#888888" : "#00e5ff";
+          this.ctx.fillText(`${der.name.toUpperCase()} ${der.searched ? '[SALVAGED]' : ''}`, px + 12, py + 3);
+        }
+      });
+    }
+
+    // Render Subspace Distress Beacons in Viewport
+    if (GameData.distressSignals) {
+      GameData.distressSignals.forEach(sig => {
+        if (!sig.active) return;
+        const dx = (sig.x - this.shipX) * scale;
+        const dy = (sig.y - this.shipY) * scale;
+        const px = centerX + dx;
+        const py = centerY + dy;
+
+        if (px > -40 && px < viewWidth + 40 && py > -40 && py < viewHeight + 40) {
+          const pulse = 8 + Math.abs(Math.sin(Date.now() / 200)) * 6;
+          this.ctx.strokeStyle = "#ffaa33";
+          this.ctx.lineWidth = 1.5;
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, pulse, 0, Math.PI * 2);
+          this.ctx.stroke();
+
+          this.ctx.font = "14px Share Tech Mono";
+          this.ctx.fillStyle = "#ffaa33";
+          this.ctx.fillText("📡", px - 7, py + 5);
+
+          this.ctx.font = "bold 10px Share Tech Mono";
+          this.ctx.fillStyle = "#ffaa33";
+          this.ctx.fillText(`DISTRESS SIGNAL (${sig.x}, ${sig.y})`, px + 12, py + 3);
+        }
+      });
+    }
+
+    // Render Active Asteroids in Viewport
+    if (this.activeAsteroids) {
+      this.activeAsteroids.forEach(ast => {
+        const dx = (ast.x - this.shipX) * scale;
+        const dy = (ast.y - this.shipY) * scale;
+        const px = centerX + dx;
+        const py = centerY + dy;
+
+        if (px > -20 && px < viewWidth + 20 && py > -20 && py < viewHeight + 20) {
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, ast.size, 0, Math.PI * 2);
+          this.ctx.fillStyle = "#776655";
+          this.ctx.strokeStyle = "#aa9988";
+          this.ctx.lineWidth = 1.5;
+          this.ctx.fill();
+          this.ctx.stroke();
+        }
+      });
+    }
+
+    // Render Floating Ore Chunks in Viewport
+    if (this.floatingOreChunks) {
+      this.floatingOreChunks.forEach(chunk => {
+        const dx = (chunk.x - this.shipX) * scale;
+        const dy = (chunk.y - this.shipY) * scale;
+        const px = centerX + dx;
+        const py = centerY + dy;
+
+        if (px > -20 && px < viewWidth + 20 && py > -20 && py < viewHeight + 20) {
+          const pulse = 4 + Math.abs(Math.sin(Date.now() / 150)) * 2;
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, pulse, 0, Math.PI * 2);
+          this.ctx.fillStyle = "#ffcc00";
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = "#ffcc00";
+          this.ctx.fill();
+          this.ctx.shadowBlur = 0;
+
+          this.ctx.font = "bold 9px Share Tech Mono";
+          this.ctx.fillStyle = "#ffcc00";
+          this.ctx.fillText(`⛏ ${chunk.type.replace('_ore','').toUpperCase()}`, px + 6, py + 3);
+        }
+      });
+    }
 
     // Draw Alien Spacecraft flying in space viewport
     this.alienShips.forEach(alien => {

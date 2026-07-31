@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.8.1</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.8.1</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.0</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.0</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -525,14 +525,71 @@
     </div>
   </div>
 
+  <!-- Derelict Precursor Station Scavenge Modal -->
+  <div id="derelict-modal" class="modal hidden">
+    <div class="modal-content" style="width: 640px; max-width: 95%; padding: 16px; box-sizing: border-box;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 12px;">
+        <h2 id="derelict-title" style="color: #00e5ff; margin: 0; border: none; padding: 0;">🛰️ PRECURSOR DERELICT STATION</h2>
+        <span id="derelict-coords" style="font-size: 11px; color: #88ccaa;">COORDINATES: (---, ---)</span>
+      </div>
+
+      <div class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span>DERELICT SENSOR DIAGNOSTIC</span></div>
+        <div id="derelict-desc" class="log-card-body" style="font-size: 13px; line-height: 1.6;">
+          Scanners detect an un-powered ancient hull drifting in vacuum. Hull integrity stable.
+        </div>
+      </div>
+
+      <div id="derelict-loot-section" class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span style="color: #ffcc00;">RECOVERED SALVAGE MANIFEST</span></div>
+        <div id="derelict-loot-details" class="log-card-body" style="font-size: 13px; line-height: 1.8;">
+          Ready to initiate salvage scan protocol...
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+        <button id="btnScavengeDerelict" class="glow-btn green-glow btn-large" onclick="UI.scavengeCurrentDerelict()">SCAVENGE DERELICT HULL</button>
+        <button class="glow-btn btn-large" onclick="UI.closeDerelictModal()">DISENGAGE & EXIT [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subspace Distress Signal Event Modal -->
+  <div id="distress-modal" class="modal hidden">
+    <div class="modal-content" style="width: 640px; max-width: 95%; padding: 16px; box-sizing: border-box;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 12px;">
+        <h2 id="distress-title" style="color: #ffaa33; margin: 0; border: none; padding: 0;">📡 SUBSPACE DISTRESS BEACON</h2>
+        <span id="distress-coords" style="font-size: 11px; color: #ffcc00;">FREQUENCY: BROADCAST 440.8 MHz</span>
+      </div>
+
+      <div class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span>INCOMING BEACON SIGNAL</span></div>
+        <div id="distress-desc" class="log-card-body" style="font-size: 13px; line-height: 1.6;">
+          Mayday broadcast intercepted. Vessel requesting immediate assistance.
+        </div>
+      </div>
+
+      <div id="distress-action-box" class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span style="color: #00ff66;">AVAILABLE RESPONSE PROTOCOLS</span></div>
+        <div id="distress-options" class="log-card-body" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+        <button class="glow-btn btn-large" onclick="UI.closeDistressModal()">DISENGAGE FREQUENCY [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.8.1"></script>
-  <script src="js/audio.js?v=1.8.1"></script>
-  <script src="js/ui.js?v=1.8.1"></script>
-  <script src="js/spaceport.js?v=1.8.1"></script>
-  <script src="js/navigation.js?v=1.8.1"></script>
-  <script src="js/planet.js?v=1.8.1"></script>
-  <script src="js/encounter.js?v=1.8.1"></script>
-  <script src="js/game.js?v=1.8.1"></script>
+  <script src="js/data.js?v=1.9.0"></script>
+  <script src="js/audio.js?v=1.9.0"></script>
+  <script src="js/ui.js?v=1.9.0"></script>
+  <script src="js/spaceport.js?v=1.9.0"></script>
+  <script src="js/navigation.js?v=1.9.0"></script>
+  <script src="js/planet.js?v=1.9.0"></script>
+  <script src="js/encounter.js?v=1.9.0"></script>
+  <script src="js/game.js?v=1.9.0"></script>
 </body>
 </html>

@@ -155,6 +155,19 @@ const Navigation = {
     }
   },
 
+  // Has the player actually swept this part of space? Mirrors the same fog-of-war
+  // rule the star systems use: the 25 LY sector must be logged in
+  // ship.exploredSectors, or it must sit inside the charted home region.
+  isMapSectorKnown(x, y) {
+    const ship = window.game && window.game.ship;
+    if (!ship) return false;
+    if (Math.hypot(x - 250, y - 250) < 40) return true; // charted home space
+    if (!ship.exploredSectors) return false;
+    const sx = Math.floor(x / 25) * 25;
+    const sy = Math.floor(y / 25) * 25;
+    return !!ship.exploredSectors[`${sx}_${sy}`];
+  },
+
   // Find the marker under the cursor. mapTargets holds canvas-space pixel
   // coordinates, so mouse position must be scaled from CSS pixels to the
   // canvas backing store before comparing.
@@ -174,6 +187,7 @@ const Navigation = {
     // wins, ties broken by distance to centre.
     let best = null, bestR = Infinity, bestDist = Infinity;
     this.mapTargets.forEach(t => {
+      if (!t.known) return; // undetected contacts stay unidentified - no readout
       const hitR = Math.max(10, t.radius || 10);
       const d = Math.hypot(mx - t.x, my - t.y);
       if (d > hitR) return;
@@ -190,25 +204,40 @@ const Navigation = {
     const target = this.findStarMapTargetAt(e);
     if (!target) { this.hideStarMapTooltip(); return; }
 
+    // The readout is anchored to the marker, not the cursor. Re-render only when
+    // the hovered contact actually changes, so it stays put while the mouse moves
+    // around inside the same icon instead of trailing the pointer.
+    const key = `${target.type}|${target.title}|${Math.round(target.x)}|${Math.round(target.y)}`;
+    if (this.hoveredTargetKey === key) return;
+    this.hoveredTargetKey = key;
+
     tip.innerHTML = `<strong>${target.title || "UNKNOWN CONTACT"}</strong><span class="subtext">${(target.details || "").replace(/</g, "&lt;")}</span>`;
     tip.classList.remove("hidden");
 
-    // Position inside the map container, flipping near the right/bottom edges
+    // Anchor beside the marker itself, converting canvas pixels back to CSS pixels
     const host = canvas.parentElement;
     const hostRect = host.getBoundingClientRect();
-    let left = e.clientX - hostRect.left + 16;
-    let top = e.clientY - hostRect.top + 16;
+    const rect = canvas.getBoundingClientRect();
+    const sx = rect.width / canvas.width;
+    const sy = rect.height / canvas.height;
+    const markerLeft = (rect.left - hostRect.left) + target.x * sx;
+    const markerTop = (rect.top - hostRect.top) + target.y * sy;
+    const gap = Math.max(12, (target.radius || 10) * sx * 0.6);
+
+    let left = markerLeft + gap;
+    let top = markerTop + gap;
 
     const tw = tip.offsetWidth, th = tip.offsetHeight;
-    if (left + tw > hostRect.width) left = Math.max(4, left - tw - 32);
-    if (top + th > hostRect.height) top = Math.max(4, top - th - 32);
+    if (left + tw > hostRect.width) left = Math.max(4, markerLeft - gap - tw);
+    if (top + th > hostRect.height) top = Math.max(4, markerTop - gap - th);
 
-    tip.style.left = left + "px";
-    tip.style.top = top + "px";
+    tip.style.left = Math.round(left) + "px";
+    tip.style.top = Math.round(top) + "px";
     canvas.style.cursor = "pointer";
   },
 
   hideStarMapTooltip() {
+    this.hoveredTargetKey = null;
     const tip = document.getElementById("starmap-tooltip");
     if (tip) tip.classList.add("hidden");
     const canvas = document.getElementById("starmapCanvas");
@@ -1019,6 +1048,11 @@ const Navigation = {
   drawStarMapCanvas() {
     const canvas = document.getElementById("starmapCanvas");
     if (!canvas) return;
+
+    // Any redraw (open, zoom, pan, center, reset) moves every marker, so the
+    // anchored readout is stale by definition - drop it and let the next
+    // mousemove re-acquire whatever is now under the cursor.
+    this.hideStarMapTooltip();
     
     // Sync pixel resolution with container element dimensions
     if (canvas.parentElement) {
@@ -1114,6 +1148,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "nebula",
+          known: this.isMapSectorKnown(neb.x, neb.y),
           x: nx, y: ny, radius: nr,
           title: `☁ NEBULA: ${neb.name.toUpperCase()}`,
           details: `Location: (${neb.x}, ${neb.y})\nType: Deep Space Cloud Field\nProperties: ${neb.desc}`
@@ -1143,6 +1178,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "wormhole",
+          known: this.isMapSectorKnown(wh.x, wh.y),
           x: whPx, y: whPy, radius: 14 * zScale,
           title: `🌀 QUANTUM WORMHOLE: ${wh.name.toUpperCase()}`,
           details: `Coordinates: (${wh.x}, ${wh.y})\nTarget Jump Destination: ${wh.destName}\nStatus: Active Space-Time Fold Portal`
@@ -1172,6 +1208,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "blackhole",
+          known: this.isMapSectorKnown(bh.x, bh.y),
           x: bhPx, y: bhPy, radius: gravRad,
           title: `🕳 BLACK HOLE: ${bh.name.toUpperCase()}`,
           details: `Location: (${bh.x}, ${bh.y})\nHazard: Extreme Gravitational Core\nProperties: ${bh.desc}`
@@ -1191,6 +1228,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "derelict",
+          known: this.isMapSectorKnown(der.x, der.y),
           x: derPx, y: derPy, radius: 12 * zScale,
           title: `🛰️ PRECURSOR DERELICT: ${der.name.toUpperCase()}`,
           details: `Location: (${der.x}, ${der.y})\nStatus: ${der.searched ? 'Salvaged' : 'Unsearched Artifact Vault'}\nDetails: ${der.desc}`
@@ -1210,6 +1248,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "space_wreck",
+          known: this.isMapSectorKnown(sw.x, sw.y),
           x: swPx, y: swPy, radius: 12 * zScale,
           title: `🛸 ALIEN WRECK: ${sw.name.toUpperCase()}`,
           details: `Location: (${sw.x}, ${sw.y})\nStatus: ${sw.searched ? 'Salvaged' : 'Unsearched Tech Component Wreck'}`
@@ -1237,6 +1276,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "distress",
+          known: this.isMapSectorKnown(sig.x, sig.y),
           x: sigPx, y: sigPy, radius: 12 * zScale,
           title: `📡 DISTRESS BEACON: ${sig.name.toUpperCase()}`,
           details: `Location: (${sig.x}, ${sig.y})\nBroadcast: ${sig.desc}`
@@ -1302,6 +1342,7 @@ const Navigation = {
 
           this.mapTargets.push({
             type: "system",
+            known: true,
             x: sysPx, y: sysPy, radius: (baseRadius + 6) * zScale,
             title: "★ STARBASE PRIME HQ",
             details: `Location: (250.0, 250.0)\nStatus: Operational Galactic Hub\nFacility: Refuel, Repairs, Upgrades & Personnel Command`
@@ -1322,6 +1363,7 @@ const Navigation = {
 
           this.mapTargets.push({
             type: "system",
+            known: true,
             x: sysPx, y: sysPy, radius: (starRadius + 6) * zScale,
             title: `⭐ STAR SYSTEM: ${sys.name.toUpperCase()}`,
             details: `Location: (${sys.x}, ${sys.y})\nPrimary Bodies: ${sys.planets ? sys.planets.length : 'Uncharted'} Planets`
@@ -1354,6 +1396,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "encounter",
+          known: true,
           x: encPx, y: encPy, radius: 12 * zScale,
           title: `⚔ LOGGED ALIEN CONTACT: ${enc.raceName.toUpperCase()}`,
           details: `Coordinates: (${enc.x.toFixed(1)}, ${enc.y.toFixed(1)})\nClassification: Subspace Meeting Log\nStatus: Verified Record`
@@ -1392,6 +1435,7 @@ const Navigation = {
 
       this.mapTargets.push({
         type: "alien",
+        known: true,
         x: alienPx, y: alienPy, radius: 14 * zScale,
         title: `🛸 ACTIVE ALIEN VESSEL: ${alien.name.toUpperCase()}`,
         details: `Coordinates: (${alien.x.toFixed(1)}, ${alien.y.toFixed(1)})\nSpecies: ${alien.raceKey.toUpperCase()}\nStatus: Active Space Trajectory`
@@ -1425,6 +1469,7 @@ const Navigation = {
 
     this.mapTargets.push({
       type: "ship",
+      known: true,
       x: shipPx, y: shipPy, radius: 16 * zScale,
       title: "🚀 ISS ODYSSEY (FLAGSHIP)",
       details: `Current Coords: (${galCoords.x.toFixed(1)}, ${galCoords.y.toFixed(1)})\nNavigation State: ${window.game.spaceState.toUpperCase()}`

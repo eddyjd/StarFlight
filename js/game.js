@@ -73,19 +73,96 @@ const GameManager = {
   },
 
   init() {
-    this.loadGame();
-    UI.init();
-    AudioController.init();
-    Spaceport.init();
-    Navigation.init();
-    PlanetExploration.init();
-    Encounter.init();
+    const errors = [];
 
-    this.setupGlobalListeners();
+    try { this.loadGame(); } catch (e) { errors.push("loadGame: " + e.message); console.error("loadGame error:", e); }
+    try { UI.init(); } catch (e) { errors.push("UI.init: " + e.message); console.error("UI.init error:", e); }
+    try { AudioController.init(); } catch (e) { errors.push("AudioController.init: " + e.message); console.error("AudioController.init error:", e); }
+    try { Spaceport.init(); } catch (e) { errors.push("Spaceport.init: " + e.message); console.error("Spaceport.init error:", e); }
+    try { Navigation.init(); } catch (e) { errors.push("Navigation.init: " + e.message); console.error("Navigation.init error:", e); }
+    try { PlanetExploration.init(); } catch (e) { errors.push("PlanetExploration.init: " + e.message); console.error("PlanetExploration.init error:", e); }
+    try { Encounter.init(); } catch (e) { errors.push("Encounter.init: " + e.message); console.error("Encounter.init error:", e); }
+
+    try { this.setupGlobalListeners(); } catch (e) { errors.push("setupGlobalListeners: " + e.message); console.error("setupGlobalListeners error:", e); }
+
+    if (errors.length > 0) {
+      document.title = "INIT ERRORS: " + errors.join(" | ");
+      console.error("=== STARFLIGHT INIT ERRORS ===", errors);
+    }
 
     // Start main game ticking loop
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.tick(t));
+  },
+
+  // Standalone launch method callable from inline onclick
+  dispatchLaunch() {
+    try {
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+        AudioController.playBeep('success');
+      }
+    } catch (e) {}
+
+    if (!this.ship.crew) this.ship.crew = {};
+    if (!this.ship.crew.captain) {
+      this.ship.crew.captain = { id: "starter_cap", name: "Capt. Vance", race: "Human", role: "Captain", skill: 70, hp: 100, maxHp: 100 };
+    }
+    if (!this.ship.crew.navigator) {
+      this.ship.crew.navigator = { id: "starter_nav", name: "Nav. Kren", race: "Human", role: "Navigator", skill: 65, hp: 100, maxHp: 100 };
+    }
+
+    this.ship.isInSpacebase = false;
+    if (!this.ship.coordinates || isNaN(this.ship.coordinates.x)) {
+      this.ship.coordinates = { x: 250.0, y: 250.0 };
+    }
+
+    this.viewState = "navigation";
+    this.spaceState = "hyper";
+
+    if (typeof Navigation !== 'undefined') {
+      Navigation.shipX = this.ship.coordinates.x;
+      Navigation.shipY = this.ship.coordinates.y;
+      Navigation.shipVx = 0;
+      Navigation.shipVy = 0;
+      Navigation.shipAngle = -Math.PI / 2;
+    }
+
+    if (typeof UI !== 'undefined') {
+      UI.switchView("navigation");
+      try { UI.updateControlPanel(true, null, this.ship.shieldsActive, this.ship.weaponsArmed); } catch (e) {}
+      try { UI.updateCrew(this.ship); } catch (e) {}
+      try { UI.updateShip(this.ship); } catch (e) {}
+      try { UI.addLog("DISPATCH JUMP INITIALIZED. ISS ODYSSEY LAUNCHED FROM STARBASE PRIME."); } catch (e) {}
+    }
+
+    try {
+      if (typeof AudioController !== 'undefined' && AudioController.startEngine) {
+        AudioController.startEngine();
+      }
+    } catch (e) {}
+
+    try { this.saveGame(); } catch (e) {}
+  },
+
+  // Standalone starport entry callable from inline onclick
+  enterStarport() {
+    try {
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+        AudioController.playBeep('click');
+      }
+    } catch (e) {}
+
+    this.ship.isInSpacebase = true;
+    this.viewState = "spaceport";
+
+    if (typeof UI !== 'undefined') {
+      UI.switchView("spaceport");
+      try { UI.updateCrew(this.ship); } catch (e) {}
+      try { UI.updateShip(this.ship); } catch (e) {}
+    }
+    if (typeof Spaceport !== 'undefined') {
+      try { Spaceport.renderAll(); } catch (e) {}
+    }
   },
 
   setupGlobalListeners() {

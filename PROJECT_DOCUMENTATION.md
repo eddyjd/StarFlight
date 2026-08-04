@@ -240,6 +240,9 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Initialize Dispatch Jump (`js/game.js`)**: Fixed `startGameBtn` on intro screen. Added auto-assigning starter Captain & Navigator so game launch is never blocked. Wrapped audio and view transitions in error handlers.
     * **Spaceport Launch Alias (`js/spaceport.js`)**: Added `Spaceport.launchVessel()` alias to match `Spaceport.launchShip()`. Auto-assigns starter Captain & Navigator if unassigned so launching from Starbase is always smooth.
     * **Control Bar Buttons (`js/ui.js` & `js/navigation.js`)**: Fixed button delegation for `TOGGLE SHIELDS [K]`, `WEAPONS READY [F]`, and `LAND VEHICLE [L] / DOCK AT STARBASE` to delegate directly to `GameManager` and handle all landing/docking/space-wreck states. Added fallback delegators to `Navigation`.
+52. **Title Screen Direct Space Launch & Hardened Web Audio Launch (v1.9.7)**:
+    * **Direct Space Launch Button (`index.html` & `js/game.js`)**: Updated `INITIALIZE DISPATCH JUMP (LAUNCH INTO SPACE)` 🚀 to launch directly into space flight at Starbase Prime `(250, 250)`. Added a dedicated `ENTER STARPORT FACILITY` 🏢 button to access ship upgrades and personnel.
+    * **Hardened Audio Launch (`js/spaceport.js`)**: Wrapped Web Audio API calls during `Spaceport.launchShip()` in safe error handlers to prevent suspended AudioContext states from hanging the launch sequence in Chrome/Edge browsers.
 
 ---
 

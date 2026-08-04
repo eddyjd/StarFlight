@@ -62,6 +62,12 @@ const GameManager = {
     exploredSectors: { "250_250": true },
     encounterHistory: [],
 
+    // Persistent world state for one-shot deep space sites (derelicts, alien
+    // wrecks, distress beacons) keyed by their GameData id, e.g. { der_1: true }.
+    // Lives on ship so it is written to the save file - the `searched` / `active`
+    // flags on GameData itself are in-memory only and reset on every page load.
+    salvagedIds: {},
+
     launchConfig: {
       autoShields: true,
       autoWeapons: true
@@ -93,6 +99,31 @@ const GameManager = {
     // Start main game ticking loop
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.tick(t));
+  },
+
+  // Record a one-shot deep space site as consumed, and persist it immediately.
+  markSalvaged(id) {
+    if (!id) return;
+    if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
+    this.ship.salvagedIds[id] = true;
+    this.saveGame();
+  },
+
+  // Rehydrate the in-memory GameData flags from the save. Must run after any load,
+  // import or reset, otherwise looted sites come back to life on every reload.
+  applySalvageState() {
+    if (typeof GameData === "undefined") return;
+    const salvaged = (this.ship && this.ship.salvagedIds) || {};
+
+    if (GameData.derelicts) {
+      GameData.derelicts.forEach(der => { der.searched = !!salvaged[der.id]; });
+    }
+    if (GameData.spaceWrecks) {
+      GameData.spaceWrecks.forEach(sw => { sw.searched = !!salvaged[sw.id]; });
+    }
+    if (GameData.distressSignals) {
+      GameData.distressSignals.forEach(sig => { sig.active = !salvaged[sig.id]; });
+    }
   },
 
   // Standalone launch method callable from inline onclick
@@ -298,7 +329,9 @@ const GameManager = {
         if (e.key === "s" || e.key === "S") this.triggerScan();
         else if (e.key === "l" || e.key === "L") this.triggerLanding();
         else if (e.key === "k" || e.key === "K") this.toggleShields();
-        else if (e.key === "f" || e.key === "F") this.toggleWeapons();
+        // NOTE: [F] fires the phaser blasters (Navigation.firePlayerBlaster) and must NOT
+        // also toggle the armed/safe state - arming is done from the WEAPONS control
+        // button or automatically at launch via ship.launchConfig.autoWeapons.
         else if (e.key === "m" || e.key === "M") Navigation.openStarMapModal();
         else if (e.key === "i" || e.key === "I") UI.openCargoModal();
       }
@@ -552,6 +585,8 @@ const GameManager = {
         // Reset runtime states
         this.resetGameData();
         this.ship = Object.assign({}, this.ship, shipData);
+        if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
+        this.applySalvageState();
 
         if (this.ship.isInSpacebase || this.spaceState === "hyper") {
           this.ship.currentPlanet = null;
@@ -633,6 +668,9 @@ const GameManager = {
           this.ship.blasterLevel = 1;
         }
 
+        // Migration: saves from before v1.9.10 have no salvage ledger
+        if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
+
         // Sync navigation ship positions
         Navigation.shipX = this.ship.coordinates.x || 250.0;
         Navigation.shipY = this.ship.coordinates.y || 250.0;
@@ -642,6 +680,9 @@ const GameManager = {
     } catch (e) {
       console.warn("Failed to load progress", e);
     }
+
+    // Always run, even with no save present, so a fresh galaxy starts un-looted
+    try { this.applySalvageState(); } catch (e) { console.warn("applySalvageState failed", e); }
   },
 
   resetGame() {
@@ -677,10 +718,19 @@ const GameManager = {
         cargo: {},
         artifactsCollected: [],
         crew: { captain: null, science: null, navigator: null, engineer: null, comm: null, doctor: null },
+        discoveredSystems: { "Starbase Prime": true },
+        exploredSectors: { "250_250": true },
+        encounterHistory: [],
+        exploredPlanets: {},
+        salvagedIds: {},
+        launchConfig: { autoShields: true, autoWeapons: true },
         isInSpacebase: true,
         currentSystem: null,
         currentPlanet: null
       };
+
+      // Refill every derelict, wreck and distress beacon for the new game
+      this.applySalvageState();
 
       // Reset navigation and system physics
       this.spaceState = "hyper";

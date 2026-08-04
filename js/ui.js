@@ -503,14 +503,15 @@ const UI = {
     // Weapons ready
     const hasWeapons = game.ship.blasterLevel > 0 || game.ship.missileLevel > 0;
     this.elements.btnWeapons.disabled = !hasWeapons || isDocked;
+    // NOTE: no [F] hint - [F] fires the blasters. Arming is button / launch-config only.
     if (isDocked) {
-      this.elements.btnWeapons.textContent = "WEAPONS LOCKED [F]";
+      this.elements.btnWeapons.textContent = "WEAPONS LOCKED";
       this.elements.btnWeapons.classList.remove("red-glow");
     } else if (hasWeapons) {
-      this.elements.btnWeapons.textContent = weaponsArmed ? "WEAPONS SAFE [F]" : "ARM WEAPONS [F]";
+      this.elements.btnWeapons.textContent = weaponsArmed ? "WEAPONS SAFE" : "ARM WEAPONS";
       this.elements.btnWeapons.classList.toggle("red-glow", weaponsArmed);
     } else {
-      this.elements.btnWeapons.textContent = "NO WEAPONS [F]";
+      this.elements.btnWeapons.textContent = "NO WEAPONS";
     }
 
     // Starmap toggles
@@ -619,6 +620,7 @@ const UI = {
     const ship = window.game.ship;
 
     der.searched = true;
+    if (window.game && window.game.markSalvaged) window.game.markSalvaged(der.id);
     const loot = der.loot;
 
     // Award Endurium fuel & credits
@@ -685,7 +687,7 @@ const UI = {
       if (ship.fuel >= 10) {
         ship.fuel -= 10;
         ship.credits += 1000;
-        if (sig) sig.active = false;
+        if (sig) { sig.active = false; if (window.game && window.game.markSalvaged) window.game.markSalvaged(sig.id); }
         this.addLog("BEACON RESOLVED: Transferred 10 Endurium units to civilian trader. Received 1,000 M.U. reward!");
         if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
       } else {
@@ -694,12 +696,12 @@ const UI = {
       }
     } else if (choiceKey === "salvage_probe") {
       ship.credits += 500;
-      if (sig) sig.active = false;
+      if (sig) { sig.active = false; if (window.game && window.game.markSalvaged) window.game.markSalvaged(sig.id); }
       this.addLog("PROBE SALVAGED: Downloaded ancient telemetry logs. Received 500 M.U. data bounty!");
       if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
     } else if (choiceKey === "rescue_pod") {
       ship.credits += 800;
-      if (sig) sig.active = false;
+      if (sig) { sig.active = false; if (window.game && window.game.markSalvaged) window.game.markSalvaged(sig.id); }
       this.addLog("CRYO-POD RECOVERED: Rescued stranded specialist navigator. Received 800 M.U. Starbase bounty!");
       if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
     }

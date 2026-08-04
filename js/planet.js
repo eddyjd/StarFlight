@@ -1165,12 +1165,17 @@ const PlanetExploration = {
         UI.updateShip(ship);
         this.renderTransferModal();
       }
+    } else {
+      // Never fail silently - the player clicked a button and deserves a reason
+      AudioController.playBeep('error');
+      UI.addLog(`TRANSFER BLOCKED: ${item.name.toUpperCase()} NEEDS ${item.mass} T BUT ONLY ${(ship.cargoCap - currentShipMass).toFixed(1)} T OF HOLD REMAINS.`);
     }
   },
 
   transferAllOfKeyToShip(key) {
     const ship = window.game.ship;
     const item = GameData.commodities[key] || { name: key, mass: 1 };
+    let moved = 0;
 
     while (this.cargo.includes(key)) {
       const currentShipMass = UI.calculateCargoMass(ship.cargo);
@@ -1178,15 +1183,29 @@ const PlanetExploration = {
         const idx = this.cargo.indexOf(key);
         this.cargo.splice(idx, 1);
         ship.cargo[key] = (ship.cargo[key] || 0) + 1;
+        moved++;
       } else {
         break; // Ship full
       }
     }
+
+    const stillLeft = this.cargo.filter(k => k === key).length;
+    if (moved > 0) {
+      AudioController.playBeep('success');
+      UI.addLog(`TRANSFERRED ${moved} x ${item.name.toUpperCase()} INTO SHIP HOLD.`);
+      if (stillLeft > 0) UI.addLog(`HOLD FULL: ${stillLeft} x ${item.name.toUpperCase()} REMAIN IN THE ROVER BED.`);
+    } else {
+      AudioController.playBeep('error');
+      UI.addLog(`TRANSFER BLOCKED: NO ROOM FOR ${item.name.toUpperCase()} (${item.mass} T EACH).`);
+    }
+
     UI.updateShip(ship);
     this.renderTransferModal();
   },
 
-  transferAllFittingToShip() {
+  // Shared mover: shifts every Rover sample that still fits into the ship hold.
+  // Returns { moved, left } so callers can report honestly instead of claiming success.
+  moveFittingCargoToShip() {
     const ship = window.game.ship;
     let moved = 0;
 
@@ -1202,10 +1221,24 @@ const PlanetExploration = {
       }
     }
 
-    if (moved > 0) {
-      UI.updateShip(ship);
-      this.renderTransferModal();
+    return { moved: moved, left: this.cargo.length };
+  },
+
+  transferAllFittingToShip() {
+    const ship = window.game.ship;
+    const res = this.moveFittingCargoToShip();
+
+    if (res.moved > 0) {
+      AudioController.playBeep('success');
+      UI.addLog(`TRANSFER COMPLETED: ${res.moved} SAMPLES MOVED INTO SHIP HOLD.`);
+      if (res.left > 0) UI.addLog(`${res.left} SAMPLES DID NOT FIT AND REMAIN IN THE ROVER BED.`);
+    } else {
+      AudioController.playBeep('error');
+      UI.addLog("TRANSFER BLOCKED: SHIP HOLD IS FULL. JETTISON CARGO TO MAKE ROOM.");
     }
+
+    UI.updateShip(ship);
+    this.renderTransferModal();
   },
 
   jettisonShipItemInTransfer(key) {
@@ -1214,29 +1247,49 @@ const PlanetExploration = {
   },
 
   confirmTransferAndStay() {
+    const ship = window.game.ship;
+
+    // Actually move the cargo. This button is labelled UNLOAD - it must unload.
+    const res = this.moveFittingCargoToShip();
+
     const modal = document.getElementById("transfer-modal");
     if (modal) modal.classList.add("hidden");
 
-    const ship = window.game.ship;
-    AudioController.playBeep('success');
-    UI.addLog(`UNLOAD COMPLETED. ROVER REMAINS ACTIVE ON SURFACE.`);
+    AudioController.playBeep(res.moved > 0 ? 'success' : 'error');
+    if (res.moved > 0) {
+      UI.addLog(`UNLOAD COMPLETED: ${res.moved} SAMPLES MOVED INTO SHIP HOLD. ROVER REMAINS ACTIVE ON SURFACE.`);
+    } else {
+      UI.addLog("UNLOAD FAILED: SHIP HOLD IS FULL. NOTHING WAS TRANSFERRED.");
+    }
+    if (res.left > 0) {
+      UI.addLog(`ROVER STORAGE: ${res.left} SAMPLES DID NOT FIT AND REMAIN IN THE ROVER BED.`);
+    }
+
     UI.updateShip(ship);
     window.game.saveGame();
   },
 
   confirmTransferAndAscend() {
+    const ship = window.game.ship;
+
+    // Actually move the cargo before lifting off, otherwise samples silently
+    // ride back up still sitting in the Rover bed.
+    const res = this.moveFittingCargoToShip();
+
     const modal = document.getElementById("transfer-modal");
     if (modal) modal.classList.add("hidden");
 
-    const ship = window.game.ship;
     this.active = false;
     window.game.viewState = "navigation";
     UI.switchView("navigation");
 
     AudioController.playBeep('success');
+    if (res.moved > 0) {
+      UI.addLog(`UNLOAD COMPLETED: ${res.moved} SAMPLES MOVED INTO SHIP HOLD.`);
+    }
     UI.addLog("LAUNCHING LANDER VESSEL. DOCKING COMPLETED IN SYSTEM ORBIT.");
-    if (this.cargo.length > 0) {
-      UI.addLog(`ROVER STORAGE: ${this.cargo.length} samples remain stored in Rover for future descent.`);
+    if (res.left > 0) {
+      UI.addLog(`ROVER STORAGE: ${res.left} SAMPLES DID NOT FIT AND REMAIN STORED IN THE ROVER FOR FUTURE DESCENT.`);
     }
     UI.updateShip(ship);
     window.game.saveGame();

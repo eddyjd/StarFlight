@@ -74,9 +74,8 @@ const Navigation = {
       if (e.key === "g" || e.key === "G") {
         UI.openCaptainsLogModal();
       }
-      if (e.key === "k" || e.key === "K") {
-        UI.openLegendModal();
-      }
+      // NOTE: [K] is reserved for TOGGLE SHIELDS (routed via GameManager). The surface
+      // icon legend opens from its LEGEND header button - do not bind it to a gameplay key.
       if (e.key === "w" || e.key === "W") {
         if (this.nearbyWormhole) {
           this.enterNearbyWormhole();
@@ -124,27 +123,96 @@ const Navigation = {
         e.preventDefault();
         const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
         this.mapZoom = Math.max(0.4, Math.min(4.0, this.mapZoom * zoomFactor));
-        this.drawStarMap();
+        this.drawStarMapCanvas();
       });
 
       starmapCanvas.addEventListener("mousedown", (e) => {
         this.isDraggingMap = true;
         this.dragStartX = e.clientX - this.mapOffsetX;
         this.dragStartY = e.clientY - this.mapOffsetY;
+        this.hideStarMapTooltip();
       });
 
       window.addEventListener("mousemove", (e) => {
         if (this.isDraggingMap) {
           this.mapOffsetX = e.clientX - this.dragStartX;
           this.mapOffsetY = e.clientY - this.dragStartY;
-          this.drawStarMap();
+          this.drawStarMapCanvas();
         }
       });
+
+      // Hover inspection: hit-test the markers collected by drawStarMapCanvas()
+      starmapCanvas.addEventListener("mousemove", (e) => {
+        if (this.isDraggingMap) return;
+        this.updateStarMapTooltip(e);
+      });
+
+      starmapCanvas.addEventListener("mouseleave", () => this.hideStarMapTooltip());
 
       window.addEventListener("mouseup", () => {
         this.isDraggingMap = false;
       });
     }
+  },
+
+  // Find the marker under the cursor. mapTargets holds canvas-space pixel
+  // coordinates, so mouse position must be scaled from CSS pixels to the
+  // canvas backing store before comparing.
+  findStarMapTargetAt(e) {
+    const canvas = document.getElementById("starmapCanvas");
+    if (!canvas || !this.mapTargets || !this.mapTargets.length) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    // Prefer the most specific marker: a small point icon must win over a huge
+    // nebula cloud drawn around the same coordinates (e.g. Precursor Core Mist
+    // sits directly on top of Starbase Prime at 250,250). Smallest hit radius
+    // wins, ties broken by distance to centre.
+    let best = null, bestR = Infinity, bestDist = Infinity;
+    this.mapTargets.forEach(t => {
+      const hitR = Math.max(10, t.radius || 10);
+      const d = Math.hypot(mx - t.x, my - t.y);
+      if (d > hitR) return;
+      if (hitR < bestR || (hitR === bestR && d < bestDist)) { bestR = hitR; bestDist = d; best = t; }
+    });
+    return best;
+  },
+
+  updateStarMapTooltip(e) {
+    const tip = document.getElementById("starmap-tooltip");
+    const canvas = document.getElementById("starmapCanvas");
+    if (!tip || !canvas) return;
+
+    const target = this.findStarMapTargetAt(e);
+    if (!target) { this.hideStarMapTooltip(); return; }
+
+    tip.innerHTML = `<strong>${target.title || "UNKNOWN CONTACT"}</strong><span class="subtext">${(target.details || "").replace(/</g, "&lt;")}</span>`;
+    tip.classList.remove("hidden");
+
+    // Position inside the map container, flipping near the right/bottom edges
+    const host = canvas.parentElement;
+    const hostRect = host.getBoundingClientRect();
+    let left = e.clientX - hostRect.left + 16;
+    let top = e.clientY - hostRect.top + 16;
+
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    if (left + tw > hostRect.width) left = Math.max(4, left - tw - 32);
+    if (top + th > hostRect.height) top = Math.max(4, top - th - 32);
+
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+    canvas.style.cursor = "pointer";
+  },
+
+  hideStarMapTooltip() {
+    const tip = document.getElementById("starmap-tooltip");
+    if (tip) tip.classList.add("hidden");
+    const canvas = document.getElementById("starmapCanvas");
+    if (canvas) canvas.style.cursor = "crosshair";
   },
 
   enterNearbyWormhole() {
@@ -170,6 +238,7 @@ const Navigation = {
     if (!this.nearbySpaceWreck || this.nearbySpaceWreck.searched) return;
     const sw = this.nearbySpaceWreck;
     sw.searched = true;
+    if (window.game && window.game.markSalvaged) window.game.markSalvaged(sw.id);
     const part = GameData.techParts[sw.techPartKey] || GameData.techParts.warp_conduit;
     UI.openTechPartModal(part);
   },
@@ -828,12 +897,12 @@ const Navigation = {
     const game = window.game;
     const ship = game.ship;
     if (game.viewState !== "navigation") return;
-    if (!ship.missiles || ship.missiles <= 0) {
+    if (!ship.missilesAmmo || ship.missilesAmmo <= 0) {
       if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('error');
       UI.addLog("WEAPON ALERT: Out of homing missiles.");
       return;
     }
-    ship.missiles -= 1;
+    ship.missilesAmmo -= 1;
     if (typeof AudioController !== 'undefined' && AudioController.playExplosion) AudioController.playExplosion();
     const speed = 18.0;
     if (!this.spaceProjectiles) this.spaceProjectiles = [];
@@ -848,7 +917,7 @@ const Navigation = {
       lifetime: 3.5,
       damage: 35
     });
-    UI.addLog(`TACTICAL: HOMING MISSILE LAUNCHED! (REMAINING: ${ship.missiles})`);
+    UI.addLog(`TACTICAL: HOMING MISSILE LAUNCHED! (REMAINING: ${ship.missilesAmmo})`);
     UI.updateShip(ship);
   },
 
@@ -931,14 +1000,20 @@ const Navigation = {
     const modal = document.getElementById("starmap-modal");
     if (!modal) return;
 
-    this.drawStarMapCanvas();
+    // Unhide FIRST. `.modal.hidden` is `display:none`, so while hidden the canvas
+    // container reports clientWidth/Height of 0, the resize guard in
+    // drawStarMapCanvas() is skipped, and the canvas keeps its default 300x150
+    // backing store - which CSS then stretches to full screen, producing a
+    // massively zoomed in, blurry map on first open.
     modal.classList.remove("hidden");
+    this.drawStarMapCanvas();
   },
 
   closeStarMapModal() {
     AudioController.playBeep('click');
     const modal = document.getElementById("starmap-modal");
     if (modal) modal.classList.add("hidden");
+    this.hideStarMapTooltip();
   },
 
   drawStarMapCanvas() {

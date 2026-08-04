@@ -23,6 +23,7 @@ const Navigation = {
   // Radar sonar sweep
   sonarRadius: 0,
   sonarActive: false,
+  longScanCooldown: 0,
 
   // Active Alien Spacecraft flying in space
   alienShips: [
@@ -80,6 +81,10 @@ const Navigation = {
         if (this.nearbyWormhole) {
           this.enterNearbyWormhole();
         }
+      }
+      if ((e.key === "s" || e.key === "S") && e.shiftKey) {
+        e.preventDefault();
+        this.triggerLongRangeScan();
       }
       if (e.key === "b" || e.key === "B") {
         if (this.nearbySpaceWreck) {
@@ -153,6 +158,146 @@ const Navigation = {
         this.isDraggingMap = false;
       });
     }
+  },
+
+  // Sensor reach. Range scales with the assigned Navigator's skill and with the
+  // Scanner module fitted at the Depot, so both upgrade paths stack:
+  //   nav 65 + scanner 1  ->  short  41 LY | long 116 LY
+  //   nav 95 + scanner 4  ->  short  97 LY | long 273 LY
+  getScanRanges() {
+    const ship = (window.game && window.game.ship) || {};
+    const nav = (ship.crew && ship.crew.navigator) ? ship.crew.navigator.skill : 30;
+    const lvl = Math.max(1, Math.min(4, ship.scannerLevel || 1));
+    const scannerMult = 1 + (lvl - 1) / 3; // 1.00, 1.33, 1.67, 2.00
+    const navBonus = 1 + nav / 100;
+    return {
+      short: 25 * scannerMult * navBonus,
+      long: 70 * scannerMult * navBonus,
+      navSkill: nav,
+      scannerLevel: lvl
+    };
+  },
+
+  // Every scannable deep space object, flattened with a stable id.
+  getDeepSpaceContacts() {
+    const D = GameData, out = [];
+    const add = (arr, label) => {
+      if (!arr) return;
+      arr.forEach(o => out.push({ id: o.id, x: o.x, y: o.y, name: o.name, label: label, obj: o }));
+    };
+    add(D.derelicts, "DERELICT STATION");
+    add(D.spaceWrecks, "ALIEN WRECK");
+    add(D.distressSignals, "DISTRESS BEACON");
+    add(D.wormholes, "QUANTUM WORMHOLE");
+    add(D.blackHoles, "GRAVITATIONAL SINGULARITY");
+    add(D.nebulae, "NEBULA FIELD");
+    return out;
+  },
+
+  // Identification tier for a deep space contact:
+  //   0 = never picked up      -> not drawn on the star map at all
+  //   1 = long range contact   -> dim grey unlabelled blip
+  //   2 = short range identify -> full icon, name and readout
+  getContactTier(id, x, y) {
+    const ship = window.game && window.game.ship;
+    if (!ship) return 0;
+    if (this.isMapSectorKnown(x, y)) return 2; // flew straight through it
+    return (ship.contactLog && ship.contactLog[id]) || 0;
+  },
+
+  // Tier 1 render: a long range sweep tells you something is out there and nothing
+  // else. Dim grey, no icon, no name - and a readout that refuses to identify it.
+  drawUnknownContact(ctx, px, py, zScale, gx, gy) {
+    const r = Math.max(3, 4 * zScale);
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = "#7a8a80";
+    ctx.fillStyle = "rgba(120, 138, 128, 0.20)";
+    ctx.lineWidth = Math.max(1, 1.2 * zScale);
+    ctx.setLineDash([3 * zScale, 3 * zScale]);
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#9aa8a0";
+    ctx.font = `bold ${Math.max(8, Math.round(9 * zScale))}px Share Tech Mono`;
+    ctx.textAlign = "center";
+    ctx.fillText("?", px, py + r * 0.55);
+    ctx.textAlign = "left";
+    ctx.restore();
+
+    this.mapTargets.push({
+      type: "unknown",
+      known: true, // the blip itself is a known sensor return
+      x: px, y: py, radius: Math.max(9, r + 4),
+      title: "? UNIDENTIFIED CONTACT",
+      details: `Approximate Position: (${Math.round(gx)}, ${Math.round(gy)})\nClassification: UNKNOWN\nLong range sensors registered a return here.\nClose to short range and run SCAN [S] to identify.`
+    });
+  },
+
+  markContact(id, level) {
+    const ship = window.game && window.game.ship;
+    if (!ship || !id) return false;
+    if (!ship.contactLog) ship.contactLog = {};
+    if ((ship.contactLog[id] || 0) < level) {
+      ship.contactLog[id] = level;
+      return true; // newly upgraded
+    }
+    return false;
+  },
+
+  // Wide sweep: paints distant objects as unidentified contacts only. You learn
+  // that something is out there, not what it is - fly closer and short-scan to ID.
+  triggerLongRangeScan() {
+    const game = window.game;
+    if (game.viewState !== "navigation" || game.spaceState !== "hyper") {
+      AudioController.playBeep('error');
+      UI.addLog("LONG RANGE SWEEP UNAVAILABLE: DEEP SPACE SENSORS REQUIRE HYPERSPACE.");
+      return;
+    }
+    if (this.longScanCooldown > 0) {
+      AudioController.playBeep('error');
+      UI.addLog(`SENSOR ARRAY RECHARGING... ${this.longScanCooldown.toFixed(1)}s REMAINING.`);
+      return;
+    }
+
+    const r = this.getScanRanges();
+    this.longScanCooldown = 6.0;
+    this.sonarActive = true;
+    this.sonarRadius = 0;
+    AudioController.playScan();
+
+    UI.addLog(`LONG RANGE SWEEP EMITTED. RANGE ${r.long.toFixed(1)} LY (NAV SKILL ${r.navSkill} / SCANNER CLASS ${r.scannerLevel}).`);
+
+    let fresh = 0, already = 0;
+    this.getDeepSpaceContacts().forEach(c => {
+      const dist = Math.hypot(this.shipX - c.x, this.shipY - c.y);
+      if (dist > r.long) return;
+      if (this.getContactTier(c.id, c.x, c.y) >= 2) { already++; return; }
+      if (this.markContact(c.id, 1)) {
+        fresh++;
+        const bearing = Math.round(((Math.atan2(c.y - this.shipY, c.x - this.shipX) * 180 / Math.PI) + 360) % 360);
+        UI.addLog(`UNIDENTIFIED CONTACT LOGGED: BEARING ${bearing}° - RANGE ${dist.toFixed(1)} LY.`);
+      } else already++;
+    });
+
+    // Distant stars register as contacts too, but stay unnamed until identified
+    let sysFresh = 0;
+    GameData.starSystems.forEach(sys => {
+      const dist = Math.hypot(this.shipX - sys.x, this.shipY - sys.y);
+      if (dist <= r.long && !game.ship.discoveredSystems[sys.name]) {
+        if (this.markContact("sys_" + sys.name, 1)) sysFresh++;
+      }
+    });
+
+    if (fresh + sysFresh > 0) {
+      AudioController.playBeep('success');
+      UI.addLog(`SWEEP COMPLETE: ${fresh + sysFresh} NEW UNIDENTIFIED CONTACT(S). CLOSE TO ${r.short.toFixed(0)} LY AND RUN A SHORT RANGE SCAN TO IDENTIFY.`);
+    } else {
+      UI.addLog(`SWEEP COMPLETE: NO NEW CONTACTS WITHIN ${r.long.toFixed(1)} LY.`);
+    }
+    game.saveGame();
   },
 
   // Has the player actually swept this part of space? Mirrors the same fog-of-war
@@ -416,6 +561,11 @@ const Navigation = {
       this.updateSystem(dt);
     }
 
+    // Long range sensor array recharge
+    if (this.longScanCooldown > 0) {
+      this.longScanCooldown = Math.max(0, this.longScanCooldown - dt);
+    }
+
     // Sonar sweep update
     if (this.sonarActive) {
       this.sonarRadius += 300 * dt;
@@ -557,25 +707,16 @@ const Navigation = {
       });
     }
 
-    // Update Control Panel Buttons dynamically
-    if (UI.elements && UI.elements.btnEnterSystem) {
-      if (this.nearbySpaceWreck) {
-        UI.elements.btnEnterSystem.disabled = false;
-        UI.elements.btnEnterSystem.textContent = `SALVAGE ALIEN WRECK [B]`;
-      } else if (this.nearbyDerelict) {
-        UI.elements.btnEnterSystem.disabled = false;
-        UI.elements.btnEnterSystem.textContent = `BOARD DERELICT [B]`;
-      } else if (this.nearbyDistressSignal) {
-        UI.elements.btnEnterSystem.disabled = false;
-        UI.elements.btnEnterSystem.textContent = `INVESTIGATE SIGNAL [E]`;
-      } else if (this.nearbyWormhole) {
-        UI.elements.btnEnterSystem.disabled = false;
-        UI.elements.btnEnterSystem.textContent = `ENTER WORMHOLE [W]`;
-      } else if (Math.hypot(this.shipX - 250.0, this.shipY - 250.0) < 4.0) {
-        UI.elements.btnEnterSystem.disabled = false;
-        UI.elements.btnEnterSystem.textContent = `DOCK AT STARBASE [L]`;
-      }
-    }
+    // Anything close enough to board is close enough to identify outright
+    if (this.nearbySpaceWreck) this.markContact(this.nearbySpaceWreck.id, 2);
+    if (this.nearbyDerelict) this.markContact(this.nearbyDerelict.id, 2);
+    if (this.nearbyDistressSignal) this.markContact(this.nearbyDistressSignal.id, 2);
+    if (this.nearbyWormhole) this.markContact(this.nearbyWormhole.id, 2);
+    if (this.nearbyBlackHole) this.markContact(this.nearbyBlackHole.id, 2);
+
+    // NOTE: the deep space interaction prompt is applied further down, inside the
+    // nearStarbase / nearSystem / nearbyAlien chain. Setting it here does not work -
+    // that chain's trailing `else` unconditionally re-disables btnLand every frame.
 
     // Automatic Proximity Star System Discovery
     GameData.starSystems.forEach(sys => {
@@ -709,6 +850,17 @@ const Navigation = {
       }
     });
 
+    // A boardable deep space object in range claims the LAND control. Previously
+    // this prompt was written to UI.elements.btnEnterSystem, an element that has
+    // never existed, so salvaging and boarding were reachable only via undocumented
+    // [B]/[E]/[W] keys with nothing on screen to hint at them.
+    const deepActionLabel =
+        this.nearbySpaceWreck     ? "SALVAGE ALIEN WRECK [B]"
+      : this.nearbyDerelict       ? "BOARD DERELICT [B]"
+      : this.nearbyDistressSignal ? "INVESTIGATE SIGNAL [E]"
+      : this.nearbyWormhole       ? "ENTER WORMHOLE [W]"
+      : null;
+
     if (nearStarbase) {
       UI.elements.btnLand.disabled = false;
       UI.elements.btnLand.textContent = "DOCK AT BASE [L]";
@@ -722,6 +874,17 @@ const Navigation = {
         return;
       }
       if (this.keys["Enter"]) {
+        this.keys["Enter"] = false;
+        this.enterSystem(nearSystem);
+        return;
+      }
+    } else if (deepActionLabel) {
+      UI.elements.btnLand.disabled = false;
+      UI.elements.btnLand.textContent = deepActionLabel;
+      UI.elements.btnScan.disabled = false;
+      UI.elements.btnScan.textContent = nearSystem ? "ENTER SYSTEM [ENTER]" : "RADAR SCAN [S]";
+
+      if (nearSystem && this.keys["Enter"]) {
         this.keys["Enter"] = false;
         this.enterSystem(nearSystem);
         return;
@@ -1132,6 +1295,9 @@ const Navigation = {
       GameData.nebulae.forEach(neb => {
         const nx = toCanvasX(neb.x);
         const ny = toCanvasY(neb.y);
+        const tier = this.getContactTier(neb.id, neb.x, neb.y);
+        if (tier === 0) return;
+        if (tier === 1) { this.drawUnknownContact(ctx, nx, ny, zScale, neb.x, neb.y); return; }
         const nr = Math.max(15, neb.radius * (mapW / 500) * zScale);
 
         const grad = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
@@ -1161,6 +1327,9 @@ const Navigation = {
       GameData.wormholes.forEach(wh => {
         const whPx = toCanvasX(wh.x);
         const whPy = toCanvasY(wh.y);
+        const tier = this.getContactTier(wh.id, wh.x, wh.y);
+        if (tier === 0) return;
+        if (tier === 1) { this.drawUnknownContact(ctx, whPx, whPy, zScale, wh.x, wh.y); return; }
         const pulseRad = (7 + Math.abs(Math.sin(Date.now() / 250)) * 4) * zScale;
 
         ctx.strokeStyle = "#00e5ff";
@@ -1191,6 +1360,9 @@ const Navigation = {
       GameData.blackHoles.forEach(bh => {
         const bhPx = toCanvasX(bh.x);
         const bhPy = toCanvasY(bh.y);
+        const tier = this.getContactTier(bh.id, bh.x, bh.y);
+        if (tier === 0) return;
+        if (tier === 1) { this.drawUnknownContact(ctx, bhPx, bhPy, zScale, bh.x, bh.y); return; }
         const gravRad = Math.max(12, bh.gravityRadius * (mapW / 500) * zScale);
 
         const grad = ctx.createRadialGradient(bhPx, bhPy, 2, bhPx, bhPy, gravRad);
@@ -1221,6 +1393,9 @@ const Navigation = {
       GameData.derelicts.forEach(der => {
         const derPx = toCanvasX(der.x);
         const derPy = toCanvasY(der.y);
+        const tier = this.getContactTier(der.id, der.x, der.y);
+        if (tier === 0) return;
+        if (tier === 1) { this.drawUnknownContact(ctx, derPx, derPy, zScale, der.x, der.y); return; }
 
         ctx.font = `${fontSize + 3}px Share Tech Mono`;
         ctx.fillStyle = der.searched ? "#888888" : "#00e5ff";
@@ -1241,6 +1416,9 @@ const Navigation = {
       GameData.spaceWrecks.forEach(sw => {
         const swPx = toCanvasX(sw.x);
         const swPy = toCanvasY(sw.y);
+        const tier = this.getContactTier(sw.id, sw.x, sw.y);
+        if (tier === 0) return;
+        if (tier === 1) { this.drawUnknownContact(ctx, swPx, swPy, zScale, sw.x, sw.y); return; }
 
         ctx.font = `${fontSize + 3}px Share Tech Mono`;
         ctx.fillStyle = sw.searched ? "#777777" : "#00ffcc";
@@ -1262,6 +1440,9 @@ const Navigation = {
         if (!sig.active) return;
         const sigPx = toCanvasX(sig.x);
         const sigPy = toCanvasY(sig.y);
+        const tier = this.getContactTier(sig.id, sig.x, sig.y);
+        if (tier === 0) return;
+        if (tier === 1) { this.drawUnknownContact(ctx, sigPx, sigPy, zScale, sig.x, sig.y); return; }
         const pulse = (6 + Math.abs(Math.sin(Date.now() / 250)) * 4) * zScale;
 
         ctx.strokeStyle = "#ffaa33";
@@ -1319,6 +1500,15 @@ const Navigation = {
       const secY = Math.floor(sys.y / 25) * 25;
       const isDiscovered = ship.discoveredSystems && ship.discoveredSystems[sys.name];
       const isExplored = isDiscovered || ship.exploredSectors[`${secX}_${secY}`] || (Math.hypot(sys.x - 250, sys.y - 250) < 40);
+
+      // A long range sweep registers a distant star as an unidentified return.
+      // It stays a dim grey blip until a short range scan classifies it.
+      if (!isExplored && !isDiscovered) {
+        if ((ship.contactLog && ship.contactLog["sys_" + sys.name]) === 1) {
+          this.drawUnknownContact(ctx, toCanvasX(sys.x), toCanvasY(sys.y), zScale, sys.x, sys.y);
+        }
+        return;
+      }
 
       if (isExplored || isDiscovered) {
         const sysPx = toCanvasX(sys.x);
@@ -1498,10 +1688,13 @@ const Navigation = {
 
     // Scan coordinates
     if (game.spaceState === "hyper") {
-      UI.addLog("RADAR SCAN EMITTED... SCANNING FOR LOCAL STAR SYSTEM VECTORS & ALIEN SIGNATURES.");
+      const r = this.getScanRanges();
+      UI.addLog(`SHORT RANGE SCAN EMITTED. RANGE ${r.short.toFixed(1)} LY (NAV SKILL ${r.navSkill} / SCANNER CLASS ${r.scannerLevel}).`);
+
       GameData.starSystems.forEach(sys => {
         const dist = Math.hypot(this.shipX - sys.x, this.shipY - sys.y);
-        if (dist < 35.0) {
+        if (dist < r.short) {
+          this.markContact("sys_" + sys.name, 2);
           if (!game.ship.discoveredSystems[sys.name]) {
             game.ship.discoveredSystems[sys.name] = true;
             AudioController.playBeep('success');
@@ -1512,14 +1705,30 @@ const Navigation = {
         }
       });
 
+      // Resolve deep space contacts inside short range into full identifications
+      let identified = 0;
+      this.getDeepSpaceContacts().forEach(c => {
+        const dist = Math.hypot(this.shipX - c.x, this.shipY - c.y);
+        if (dist > r.short) return;
+        const wasNew = this.markContact(c.id, 2);
+        if (wasNew) {
+          identified++;
+          const bearing = Math.round(((Math.atan2(c.y - this.shipY, c.x - this.shipX) * 180 / Math.PI) + 360) % 360);
+          UI.addLog(`CONTACT IDENTIFIED - ${c.label}: ${c.name.toUpperCase()} AT (${c.x}, ${c.y}) - ${dist.toFixed(1)} LY BEARING ${bearing}°`);
+        }
+      });
+      if (identified > 0) AudioController.playBeep('success');
+
       // Scan active alien spacecraft in space
       this.alienShips.forEach(alien => {
         const dist = Math.hypot(this.shipX - alien.x, this.shipY - alien.y);
-        if (dist < 40.0) {
+        if (dist < r.short * 1.15) {
           const bearing = Math.round(((Math.atan2(alien.y - this.shipY, alien.x - this.shipX) * 180 / Math.PI) + 360) % 360);
           UI.addLog(`RADAR CONTACT: ${alien.name.toUpperCase()} DETECTED AT (COORD: X ${alien.x.toFixed(1)}, Y ${alien.y.toFixed(1)}) - DIST ${dist.toFixed(1)} LY - BEARING ${bearing}°`);
         }
       });
+
+      game.saveGame();
     } else {
       const sys = game.ship.currentSystem;
       UI.addLog(`SCANNING SOLAR BODIES IN ${sys.name.toUpperCase()} ORBIT:`);

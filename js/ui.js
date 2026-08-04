@@ -46,6 +46,7 @@ const UI = {
       btnWeapons: document.getElementById("ctrl-weapons"),
       btnCargo: document.getElementById("ctrl-cargo"),
       btnStarmap: document.getElementById("ctrl-starmap"),
+      btnLongScan: document.getElementById("ctrl-longscan"),
 
       // Cargo Modal
       cargoModal: document.getElementById("cargo-modal"),
@@ -154,6 +155,14 @@ const UI = {
               Navigation.triggerSonar();
             }
           }
+        }
+      });
+    }
+
+    if (this.elements.btnLongScan) {
+      this.elements.btnLongScan.addEventListener("click", () => {
+        if (typeof Navigation !== 'undefined' && Navigation.triggerLongRangeScan) {
+          Navigation.triggerLongRangeScan();
         }
       });
     }
@@ -512,6 +521,18 @@ const UI = {
       this.elements.btnWeapons.classList.toggle("red-glow", weaponsArmed);
     } else {
       this.elements.btnWeapons.textContent = "NO WEAPONS";
+    }
+
+    // Long range sweep: hyperspace only, and shows its own recharge timer
+    if (this.elements.btnLongScan && typeof Navigation !== 'undefined') {
+      const inHyper = (game.viewState === "navigation" && game.spaceState === "hyper");
+      const cd = Navigation.longScanCooldown || 0;
+      this.elements.btnLongScan.disabled = !inHyper || cd > 0;
+      if (cd > 0) {
+        this.elements.btnLongScan.textContent = `SENSORS RECHARGING ${cd.toFixed(1)}s`;
+      } else if (Navigation.getScanRanges) {
+        this.elements.btnLongScan.textContent = `LONG RANGE SWEEP ${Navigation.getScanRanges().long.toFixed(0)} LY [SHIFT+S]`;
+      }
     }
 
     // Starmap toggles

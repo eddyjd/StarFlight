@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.13</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.13</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.14</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.14</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -266,6 +266,7 @@
       <!-- Bottom Control Actions Bar -->
       <section class="system-controls">
         <button id="ctrl-scan" class="nav-control-btn" disabled>SCAN PLANET [S]</button>
+        <button id="ctrl-longscan" class="nav-control-btn">LONG RANGE SWEEP [SHIFT+S]</button>
         <button id="ctrl-land" class="nav-control-btn" disabled>LAND VEHICLE [L]</button>
         <button id="ctrl-comms" class="nav-control-btn" disabled>COMMUNICATIONS [C]</button>
         <button id="ctrl-shields" class="nav-control-btn" disabled>TOGGLE SHIELDS [K]</button>
@@ -425,6 +426,12 @@
             <strong>D / RIGHT ARROW</strong>: Rotate ship nose right.<br>
             <strong>SHIFT</strong>: Engage Impulse Overdrive for high-speed evasion boost.<br>
             <strong>ENTER</strong>: Enter Star System or Planet Orbit when near orbital marker.<br>
+            <strong>S</strong>: Short-range scan. Fully identifies and logs every contact within sensor range.<br>
+            <strong>SHIFT + S</strong>: Long-range sweep. Paints distant objects as <strong>? unidentified contacts</strong> on the Star Map - you must close to short range and scan again to identify them. Recharges for 6 seconds.<br>
+            <span style="color:#ffcc00;">SENSOR RANGE</span> scales with your <strong>Navigator's skill</strong> and the <strong>Scanner module</strong> fitted at the Depot. A rookie navigator with a Standard Scanner reaches ~41 LY short / ~116 LY long; an expert with a Mineral Resonance Scan reaches ~97 LY / ~273 LY.<br>
+            <strong>B</strong>: Board a derelict station or salvage an alien wreck when in range.<br>
+            <strong>E</strong>: Investigate a subspace distress beacon.<br>
+            <strong>W</strong>: Enter a quantum wormhole. The <strong>LAND</strong> control also performs whichever of these is in range.<br>
             <strong>L</strong>: Dock at Starbase Prime (at 100, 100) or launch Terrain Lander on planet surface.<br>
             <strong>M</strong>: Toggle Fullscreen Interactive Star Map with zoom & pan.<br>
             <strong>G</strong>: Open Captain's Exploration Log & Survey History Archive.<br>
@@ -614,13 +621,13 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.9.13"></script>
-  <script src="js/audio.js?v=1.9.13"></script>
-  <script src="js/ui.js?v=1.9.13"></script>
-  <script src="js/spaceport.js?v=1.9.13"></script>
-  <script src="js/navigation.js?v=1.9.13"></script>
-  <script src="js/planet.js?v=1.9.13"></script>
-  <script src="js/encounter.js?v=1.9.13"></script>
-  <script src="js/game.js?v=1.9.13"></script>
+  <script src="js/data.js?v=1.9.14"></script>
+  <script src="js/audio.js?v=1.9.14"></script>
+  <script src="js/ui.js?v=1.9.14"></script>
+  <script src="js/spaceport.js?v=1.9.14"></script>
+  <script src="js/navigation.js?v=1.9.14"></script>
+  <script src="js/planet.js?v=1.9.14"></script>
+  <script src="js/encounter.js?v=1.9.14"></script>
+  <script src="js/game.js?v=1.9.14"></script>
 </body>
 </html>

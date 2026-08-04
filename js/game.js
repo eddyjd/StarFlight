@@ -68,6 +68,9 @@ const GameManager = {
     // flags on GameData itself are in-memory only and reset on every page load.
     salvagedIds: {},
 
+    // Deep space sensor log: id -> 1 (long range contact) | 2 (identified)
+    contactLog: {},
+
     launchConfig: {
       autoShields: true,
       autoWeapons: true
@@ -326,7 +329,10 @@ const GameManager = {
       }
 
       if (this.viewState === "navigation") {
-        if (e.key === "s" || e.key === "S") this.triggerScan();
+        if (e.key === "s" || e.key === "S") {
+          // SHIFT+S is the long range sweep, handled in Navigation
+          if (!e.shiftKey) this.triggerScan();
+        }
         else if (e.key === "l" || e.key === "L") this.triggerLanding();
         else if (e.key === "k" || e.key === "K") this.toggleShields();
         // NOTE: [F] fires the phaser blasters (Navigation.firePlayerBlaster) and must NOT
@@ -670,6 +676,7 @@ const GameManager = {
 
         // Migration: saves from before v1.9.10 have no salvage ledger
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
+        if (!this.ship.contactLog) this.ship.contactLog = {};
 
         // Sync navigation ship positions
         Navigation.shipX = this.ship.coordinates.x || 250.0;
@@ -723,6 +730,7 @@ const GameManager = {
         encounterHistory: [],
         exploredPlanets: {},
         salvagedIds: {},
+        contactLog: {},
         launchConfig: { autoShields: true, autoWeapons: true },
         isInSpacebase: true,
         currentSystem: null,

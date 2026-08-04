@@ -265,12 +265,10 @@ const GameManager = {
       this.resetGame();
     });
 
-    // Dashboard navigation control buttons clicks
-    document.getElementById("ctrl-scan").addEventListener("click", () => this.triggerScan());
-    document.getElementById("ctrl-land").addEventListener("click", () => this.triggerLanding());
-    document.getElementById("ctrl-shields").addEventListener("click", () => this.toggleShields());
-    document.getElementById("ctrl-weapons").addEventListener("click", () => this.toggleWeapons());
-    document.getElementById("ctrl-starmap").addEventListener("click", () => Navigation.openStarMapModal());
+    // NOTE: The bottom control bar buttons (ctrl-scan, ctrl-land, ctrl-shields, ctrl-weapons,
+    // ctrl-starmap) are bound ONCE, in UI.setupListeners(). Do not bind them here as well —
+    // a second listener makes every click fire twice, which reads as a toggle flipping
+    // off and straight back on. Keyboard shortcuts below still route through this object.
 
     // Keyboard Shortcuts
     window.addEventListener("keydown", (e) => {

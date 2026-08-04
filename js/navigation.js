@@ -759,17 +759,25 @@ const Navigation = {
     UI.updateControlPanel(true, ship.currentPlanet, ship.shieldsActive, ship.weaponsArmed);
   },
 
-  // Dock at base (resets fuel, resets velocity vectors, loads Spaceport View)
+  // Dock at base (repairs hull, treats crew, locks tactical systems, loads Spaceport View)
   enterSpacebase() {
     const game = window.game;
-    AudioController.playBeep('success');
+    if (!game) return;
+
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+      AudioController.playBeep('success');
+    }
     UI.addLog("DOCKING CLEARED. TRANSITING TO STARPORT BAY 1.");
-    
+
     game.ship.isInSpacebase = true;
     game.ship.shieldsActive = false;
     game.ship.weaponsArmed = false;
     game.viewState = "spaceport";
-    
+
+    // Clear landing state so a page reload never resumes a stale surface session
+    game.ship.currentSystem = null;
+    game.ship.currentPlanet = null;
+
     // Auto restore hull on docking
     game.ship.hull = game.ship.maxHull;
 
@@ -784,7 +792,10 @@ const Navigation = {
 
     UI.switchView("spaceport");
     UI.updateShip(game.ship);
-    Spaceport.renderAll();
+    // Apply Starbase safety protocol lockout to the shield & weapon controls
+    UI.updateControlPanel(false, null, false, false);
+
+    if (typeof Spaceport !== 'undefined') Spaceport.renderAll();
     game.saveGame();
   },
 
@@ -1913,19 +1924,9 @@ const Navigation = {
     if (window.game && window.game.toggleWeapons) {
       window.game.toggleWeapons();
     }
-  },
-
-  enterSpacebase() {
-    const game = window.game;
-    if (game) {
-      game.ship.isInSpacebase = true;
-      game.viewState = "spaceport";
-      if (typeof UI !== 'undefined') UI.switchView("spaceport");
-      if (typeof Spaceport !== 'undefined') Spaceport.renderAll();
-      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('success');
-      if (typeof UI !== 'undefined' && UI.addLog) UI.addLog("DOCKING PROCEDURE COMPLETE. WELCOME BACK TO STARBASE PRIME.");
-    }
   }
+  // NOTE: enterSpacebase() is defined once, above (docking repairs hull & heals crew).
+  // Do not re-declare it here — a later duplicate silently shadows the real one.
 };
 
 window.Navigation = Navigation;

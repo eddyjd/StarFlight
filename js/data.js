@@ -185,6 +185,10 @@ const GameData = {
     { id: "wh_4", name: "Wormhole Beta-2", x: 80, y: 420, targetX: 420, targetY: 80, destName: "Wormhole Beta-1 (Northeast Horizon)" },
     { id: "wh_5", name: "Wormhole Gamma-1", x: 250, y: 50, targetX: 250, targetY: 450, destName: "Wormhole Gamma-2 (Galactic South)" },
     { id: "wh_6", name: "Wormhole Gamma-2", x: 250, y: 450, targetX: 250, targetY: 50, destName: "Wormhole Gamma-1 (Galactic North)" },
+    { id: "wh_7", name: "Wormhole Delta-1", x: 50, y: 250, targetX: 450, targetY: 250, destName: "Wormhole Delta-2 (Eastern Frontier)" },
+    { id: "wh_8", name: "Wormhole Delta-2", x: 450, y: 250, targetX: 50, targetY: 250, destName: "Wormhole Delta-1 (Western Rim)" }
+  ],
+
   // Supermassive Black Holes & Gravitational Singularities
   blackHoles: [
     { id: "bh_1", name: "Cygnus Singularity", x: 210, y: 310, gravityRadius: 35, coreRadius: 4, pullForce: 45, destX: 450, destY: 120, desc: "Extreme gravitational distortion field. High risk of warp displacement!" },

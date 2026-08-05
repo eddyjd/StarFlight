@@ -102,8 +102,19 @@ const UI = {
       this.closeCargoModal();
     });
 
+    // Must mirror the [I] key exactly (see GameManager.setupGlobalListeners): on a
+    // planet surface [I] opens the Rover cargo bed, everywhere else it opens the
+    // ship hold. The button used to always open the ship hold, so on the surface it
+    // showed an empty manifest and read as broken.
     this.elements.btnCargo.addEventListener("click", () => {
-      this.openCargoModal();
+      const game = window.game;
+      const onSurface = game && game.viewState === "landing" &&
+                        typeof PlanetExploration !== 'undefined' && PlanetExploration.active;
+      if (onSurface) {
+        PlanetExploration.openRoverCargoModal();
+      } else {
+        this.openCargoModal();
+      }
     });
 
     // Starmap button listener
@@ -459,6 +470,13 @@ const UI = {
   // Update navigation button active/disabled states based on game environment
   updateControlPanel(isInSpace, currentPlanet, shieldsActive, weaponsArmed) {
     const game = window.game;
+
+    // The cargo control follows the view: Rover bed on a surface, ship hold in space
+    if (this.elements.btnCargo) {
+      const onSurface = game.viewState === "landing" &&
+                        typeof PlanetExploration !== 'undefined' && PlanetExploration.active;
+      this.elements.btnCargo.textContent = onSurface ? "TV CARGO BED [I]" : "CARGO LOG [I]";
+    }
 
     // Check if on planet surface
     if (game.viewState === "landing" && typeof PlanetExploration !== 'undefined') {

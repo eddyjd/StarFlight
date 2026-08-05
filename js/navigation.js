@@ -160,6 +160,40 @@ const Navigation = {
     }
   },
 
+  // Orbit radii in GameData are abstract units. The old fixed x1.6 scale ignored
+  // the canvas size, so outer planets orbited beyond the system boundary - e.g.
+  // Titanis at 256px with a 186px boundary - making them unreachable, because
+  // flying out there auto-exits to hyperspace, and often off screen too. Scale each
+  // system so its outermost planet sits comfortably inside the boundary.
+  getOrbitScale(system) {
+    const starX = this.canvas ? this.canvas.width / 2 : 480;
+    const starY = this.canvas ? this.canvas.height / 2 : 240;
+    const systemRadius = Math.min(starX, starY) * 0.92;
+    let maxOrbit = 0;
+    if (system && system.planets) {
+      system.planets.forEach(pl => { if (pl.radius > maxOrbit) maxOrbit = pl.radius; });
+    }
+    if (!maxOrbit) return 1.6;
+    return Math.min(1.6, (systemRadius * 0.82) / maxOrbit);
+  },
+
+  // No planet in GameData carries a starting orbital phase, so the old
+  // `planet.orbitAngle || 0` placed every planet at angle 0 - which is dead right
+  // of its star. Whole systems therefore spawned as a straight horizontal line,
+  // and because orbit speeds are tiny (0.003-0.02 rad/s) they stayed that way.
+  // Seed a stable phase per planet so each system has a believable layout that is
+  // still identical every time you visit it.
+  ensureOrbitAngles(system) {
+    if (!system || !system.planets) return;
+    system.planets.forEach((planet, idx) => {
+      if (typeof planet.orbitAngle === "number" && !isNaN(planet.orbitAngle)) return;
+      const key = `${system.name || "sys"}|${planet.name || "planet"}|${idx}`;
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
+      planet.orbitAngle = ((Math.abs(hash) % 36000) / 36000) * Math.PI * 2;
+    });
+  },
+
   // Sensor reach. Range scales with the assigned Navigator's skill and with the
   // Scanner module fitted at the Depot, so both upgrade paths stack:
   //   nav 65 + scanner 1  ->  short  41 LY | long 116 LY
@@ -986,11 +1020,12 @@ const Navigation = {
     }
 
     // Animate planet orbits angles
+    this.ensureOrbitAngles(system);
     system.planets.forEach(planet => {
-      planet.orbitAngle = (planet.orbitAngle || 0) + planet.speed * dt;
+      planet.orbitAngle += planet.speed * dt;
       
       // Calculate planet X, Y relative to star center
-      const radiusPx = planet.radius * 1.6;
+      const radiusPx = planet.radius * this.getOrbitScale(system);
       const px = starX + Math.cos(planet.orbitAngle) * radiusPx;
       const py = starY + Math.sin(planet.orbitAngle) * radiusPx;
       
@@ -1003,7 +1038,7 @@ const Navigation = {
     // Check if we walked out of planet gravity
     if (ship.currentPlanet) {
       const planet = ship.currentPlanet;
-      const radiusPx = planet.radius * 1.6;
+      const radiusPx = planet.radius * this.getOrbitScale(system);
       const px = starX + Math.cos(planet.orbitAngle) * radiusPx;
       const py = starY + Math.sin(planet.orbitAngle) * radiusPx;
       if (Math.hypot(this.shipX - px, this.shipY - py) > 24) {
@@ -1118,6 +1153,9 @@ const Navigation = {
     AudioController.playBeep('success');
     UI.addLog(`ENTERED SOLAR SYSTEM: ${system.name.toUpperCase()}`);
     UI.addLog("ORBITAL PLANE GRID DETECTED.");
+
+    // Spread the planets around their star before the first frame renders
+    this.ensureOrbitAngles(system);
     
     game.spaceState = "system";
     game.ship.currentSystem = system;
@@ -2156,8 +2194,9 @@ const Navigation = {
     this.ctx.setLineDash([]); // reset
 
     // Draw orbiting planets
+    this.ensureOrbitAngles(system);
     system.planets.forEach(planet => {
-      const radiusPx = planet.radius * 1.6;
+      const radiusPx = planet.radius * this.getOrbitScale(system);
       
       // Draw orbit path line
       this.ctx.beginPath();

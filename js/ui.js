@@ -268,7 +268,11 @@ const UI = {
         const hpPercent = Math.min(100, Math.max(0, Math.round((currentHp / maxHp) * 100)));
 
         el.classList.add("hired");
-        el.querySelector(".crew-name").textContent = `${role.substring(0,3).toUpperCase()}: ${member.name} (${member.race.substring(0,3)})`;
+        // Guard the optional fields: a crew member missing `race` used to throw here,
+        // which aborts whatever called updateCrew (docking, for instance) midway.
+        const memberName = member.name || "UNKNOWN";
+        const memberRace = (member.race || "---").substring(0, 3);
+        el.querySelector(".crew-name").textContent = `${role.substring(0,3).toUpperCase()}: ${memberName} (${memberRace})`;
         
         if (hpPercent <= 35) {
           el.classList.add("injured");

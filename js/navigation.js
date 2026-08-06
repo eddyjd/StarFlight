@@ -1077,6 +1077,9 @@ const Navigation = {
     // Auto restore hull on docking
     game.ship.hull = game.ship.maxHull;
 
+    // Starbase power couplings top the deflector capacitors right back up
+    game.ship.shieldsCharge = game.ship.maxShields;
+
     // Full medical treatment for crew upon docking
     if (game.ship.crew) {
       Object.values(game.ship.crew).forEach(member => {

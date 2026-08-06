@@ -403,7 +403,7 @@ const GameManager = {
 
     if (this.ship.shieldsCharge <= 0) {
       AudioController.playBeep('error');
-      UI.addLog("Shields failed: Charge is at 0%. Let shields charge at base.");
+      UI.addLog("SHIELDS FAILED: CAPACITORS AT 0%. THEY RECHARGE SLOWLY WHILE LOWERED, OR INSTANTLY WHEN YOU DOCK AT STARBASE PRIME.");
       return;
     }
 
@@ -464,9 +464,46 @@ const GameManager = {
         Encounter.update(dt);
         this.updateCrewHealing(dt);
       }
+
+      // Applies in flight, on a surface and mid-encounter alike
+      this.updateShieldRegen(dt);
     } catch (err) {
       console.error("Game loop tick error caught safely:", err);
     }
+  },
+
+  // Deflector capacitors trickle-charge whenever the shields are lowered.
+  // Without this, roughly one minute of raised shields drained them to 0 with no
+  // way back at all: docking did not recharge them, and the only restore path was
+  // relaunching from the Starport with AUTO-RAISE SHIELDS enabled.
+  updateShieldRegen(dt) {
+    const ship = this.ship;
+    if (!ship || ship.isInSpacebase) return;
+    if (!ship.shieldLevel || ship.shieldLevel <= 0) return;
+    if (ship.shieldsActive) return; // raised shields drain, they do not charge
+
+    const max = ship.maxShields || 100;
+    if (!(ship.shieldsCharge < max)) return;
+
+    // Rate is a fraction of capacity, so bigger shield classes do not take
+    // proportionally longer, and an Engineer on the crew speeds it up.
+    const engSkill = (ship.crew && ship.crew.engineer) ? ship.crew.engineer.skill : 30;
+    const rate = max * (0.008 + engSkill / 12000);
+
+    const before = ship.shieldsCharge || 0;
+    ship.shieldsCharge = Math.min(max, before + rate * dt);
+
+    if (before <= 0 && ship.shieldsCharge > 0) {
+      UI.addLog("DEFLECTOR CAPACITORS RECHARGING FROM RESERVE POWER...");
+    }
+    if (before < max && ship.shieldsCharge >= max) {
+      UI.addLog("DEFLECTOR SHIELD MATRIX RESTORED TO FULL CHARGE.");
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) {
+        AudioController.playBeep('success');
+      }
+    }
+    // Only touch the DOM when the displayed integer actually moves
+    if (Math.floor(before) !== Math.floor(ship.shieldsCharge)) UI.updateShip(ship);
   },
 
   // Passive crew health regeneration over time (Doctor boost)

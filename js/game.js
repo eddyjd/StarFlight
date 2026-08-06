@@ -71,6 +71,20 @@ const GameManager = {
     // Deep space sensor log: id -> 1 (long range contact) | 2 (identified)
     contactLog: {},
 
+    // Wormholes / black holes the ship has actually been through. Once traversed,
+    // the star map draws a line to where it comes out.
+    traversedLinks: {},
+
+    // Star map layer visibility, persisted so it survives a reload
+    mapLayers: {
+      systems: true,
+      anomalies: true,
+      salvage: true,
+      aliens: true,
+      nebulae: true,
+      unknown: true
+    },
+
     launchConfig: {
       autoShields: true,
       autoWeapons: true
@@ -716,6 +730,10 @@ const GameManager = {
         // Migration: saves from before v1.9.10 have no salvage ledger
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
         if (!this.ship.contactLog) this.ship.contactLog = {};
+        if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
+        if (!this.ship.mapLayers) {
+          this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true };
+        }
 
         // Sync navigation ship positions
         Navigation.shipX = this.ship.coordinates.x || 250.0;
@@ -770,6 +788,8 @@ const GameManager = {
         exploredPlanets: {},
         salvagedIds: {},
         contactLog: {},
+        traversedLinks: {},
+        mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true },
         launchConfig: { autoShields: true, autoWeapons: true },
         isInSpacebase: true,
         currentSystem: null,

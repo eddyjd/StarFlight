@@ -160,6 +160,125 @@ const Navigation = {
     }
   },
 
+  // Records a wormhole or singularity the ship has actually passed through.
+  markLinkTraversed(id) {
+    const ship = window.game && window.game.ship;
+    if (!ship || !id) return;
+    if (!ship.traversedLinks) ship.traversedLinks = {};
+    if (!ship.traversedLinks[id]) {
+      ship.traversedLinks[id] = true;
+      UI.addLog("NAV-COMPUTER: EXIT VECTOR PLOTTED AND SAVED TO STAR MAP.");
+      window.game.saveGame();
+    }
+  },
+
+  // Star map layer visibility. Defaults to visible for any unknown layer so a new
+  // layer never silently disappears for players with an older save.
+  getMapLayers() {
+    const ship = window.game && window.game.ship;
+    if (!ship) return {};
+    if (!ship.mapLayers) {
+      ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true };
+    }
+    return ship.mapLayers;
+  },
+
+  isLayerOn(name) {
+    const layers = this.getMapLayers();
+    return layers[name] !== false;
+  },
+
+  toggleMapLayer(name) {
+    const layers = this.getMapLayers();
+    layers[name] = layers[name] === false;
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+    this.refreshMapLayerButtons();
+    this.drawStarMapCanvas();
+    if (window.game && window.game.saveGame) window.game.saveGame();
+  },
+
+  refreshMapLayerButtons() {
+    const defs = [
+      ["systems", "systems"], ["anomalies", "anomalies"], ["salvage", "salvage"],
+      ["aliens", "aliens"], ["nebulae", "nebulae"], ["unknown", "unknown"]
+    ];
+    defs.forEach(([key]) => {
+      const btn = document.getElementById("layer-" + key);
+      if (!btn) return;
+      const on = this.isLayerOn(key);
+      btn.classList.toggle("green-glow", on);
+      btn.style.opacity = on ? "1" : "0.42";
+      btn.style.textDecoration = on ? "none" : "line-through";
+    });
+  },
+
+  // Dashed route lines for every rift the ship has actually been through. Drawn
+  // beneath the markers so icons stay readable on top.
+  drawTraversedLinks(ctx, toCanvasX, toCanvasY, zScale) {
+    const ship = window.game && window.game.ship;
+    if (!ship || !ship.traversedLinks) return;
+    if (!this.isLayerOn("anomalies")) return;
+
+    const links = [];
+    if (GameData.wormholes) {
+      GameData.wormholes.forEach(wh => {
+        if (ship.traversedLinks[wh.id]) {
+          links.push({ x: wh.x, y: wh.y, tx: wh.targetX, ty: wh.targetY, color: "#00e5ff", label: "RIFT EXIT" });
+        }
+      });
+    }
+    if (GameData.blackHoles) {
+      GameData.blackHoles.forEach(bh => {
+        if (ship.traversedLinks[bh.id]) {
+          links.push({ x: bh.x, y: bh.y, tx: bh.destX, ty: bh.destY, color: "#b46bff", label: "DISPLACEMENT" });
+        }
+      });
+    }
+    if (!links.length) return;
+
+    ctx.save();
+    links.forEach(l => {
+      const x1 = toCanvasX(l.x), y1 = toCanvasY(l.y);
+      const x2 = toCanvasX(l.tx), y2 = toCanvasY(l.ty);
+
+      ctx.strokeStyle = l.color;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = Math.max(1, 1.4 * zScale);
+      ctx.setLineDash([7 * zScale, 5 * zScale]);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Arrow head at the exit end
+      const ang = Math.atan2(y2 - y1, x2 - x1);
+      const head = Math.max(6, 8 * zScale);
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = l.color;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - head * Math.cos(ang - 0.4), y2 - head * Math.sin(ang - 0.4));
+      ctx.lineTo(x2 - head * Math.cos(ang + 0.4), y2 - head * Math.sin(ang + 0.4));
+      ctx.closePath();
+      ctx.fill();
+
+      // Exit marker ring
+      ctx.globalAlpha = 0.75;
+      ctx.strokeStyle = l.color;
+      ctx.lineWidth = Math.max(1, 1.2 * zScale);
+      ctx.beginPath();
+      ctx.arc(x2, y2, Math.max(4, 5 * zScale), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = l.color;
+      ctx.font = `${Math.max(8, Math.round(9 * zScale))}px Share Tech Mono`;
+      ctx.fillText(l.label, x2 + 8 * zScale, y2 - 6 * zScale);
+    });
+    ctx.restore();
+  },
+
   // Orbit radii in GameData are abstract units. The old fixed x1.6 scale ignored
   // the canvas size, so outer planets orbited beyond the system boundary - e.g.
   // Titanis at 256px with a 186px boundary - making them unreachable, because
@@ -242,6 +361,7 @@ const Navigation = {
   // Tier 1 render: a long range sweep tells you something is out there and nothing
   // else. Dim grey, no icon, no name - and a readout that refuses to identify it.
   drawUnknownContact(ctx, px, py, zScale, gx, gy) {
+    if (!this.isLayerOn("unknown")) return;
     const r = Math.max(3, 4 * zScale);
     ctx.save();
     ctx.globalAlpha = 0.55;
@@ -435,6 +555,10 @@ const Navigation = {
     this.shipVy = 0;
     window.game.ship.coordinates.x = this.shipX;
     window.game.ship.coordinates.y = this.shipY;
+
+    // Log the route so the star map can draw where this rift comes out
+    this.markLinkTraversed(wh.id);
+    this.markContact(wh.id, 2);
   },
 
   boardNearbyDerelict() {
@@ -688,6 +812,8 @@ const Navigation = {
             this.shipY = bh.destY;
             this.shipVx = 0;
             this.shipVy = 0;
+            this.markLinkTraversed(bh.id);
+            this.markContact(bh.id, 2);
           }
         }
       });
@@ -706,7 +832,7 @@ const Navigation = {
 
     // 3. Subspace Distress Signal Proximity
     this.nearbyDistressSignal = null;
-    if (GameData.distressSignals) {
+    if (GameData.distressSignals && this.isLayerOn("salvage")) {
       GameData.distressSignals.forEach(sig => {
         if (sig.active) {
           const dist = Math.hypot(this.shipX - sig.x, this.shipY - sig.y);
@@ -1242,6 +1368,7 @@ const Navigation = {
     // backing store - which CSS then stretches to full screen, producing a
     // massively zoomed in, blurry map on first open.
     modal.classList.remove("hidden");
+    this.refreshMapLayerButtons();
     this.drawStarMapCanvas();
   },
 
@@ -1332,10 +1459,14 @@ const Navigation = {
 
     // Proportional zoom scale factor
     const zScale = Math.sqrt(this.mapZoom);
+
+    // Traversed rift routes sit beneath every marker
+    this.drawTraversedLinks(ctx, toCanvasX, toCanvasY, zScale);
+
     const fontSize = Math.min(18, Math.max(9, Math.round(10 * zScale)));
 
     // Draw Deep Space Nebulae Gas Clouds on Star Map
-    if (GameData.nebulae) {
+    if (GameData.nebulae && this.isLayerOn("nebulae")) {
       GameData.nebulae.forEach(neb => {
         const nx = toCanvasX(neb.x);
         const ny = toCanvasY(neb.y);
@@ -1367,7 +1498,7 @@ const Navigation = {
     }
 
     // Draw Quantum Wormholes Portals on Star Map
-    if (GameData.wormholes) {
+    if (GameData.wormholes && this.isLayerOn("anomalies")) {
       GameData.wormholes.forEach(wh => {
         const whPx = toCanvasX(wh.x);
         const whPy = toCanvasY(wh.y);
@@ -1400,7 +1531,7 @@ const Navigation = {
     }
 
     // Draw Supermassive Black Holes on Star Map
-    if (GameData.blackHoles) {
+    if (GameData.blackHoles && this.isLayerOn("anomalies")) {
       GameData.blackHoles.forEach(bh => {
         const bhPx = toCanvasX(bh.x);
         const bhPy = toCanvasY(bh.y);
@@ -1433,7 +1564,7 @@ const Navigation = {
     }
 
     // Draw Derelict Space Stations on Star Map
-    if (GameData.derelicts) {
+    if (GameData.derelicts && this.isLayerOn("salvage")) {
       GameData.derelicts.forEach(der => {
         const derPx = toCanvasX(der.x);
         const derPy = toCanvasY(der.y);
@@ -1456,7 +1587,7 @@ const Navigation = {
     }
 
     // Draw Drifting Space Alien Wrecks on Star Map
-    if (GameData.spaceWrecks) {
+    if (GameData.spaceWrecks && this.isLayerOn("salvage")) {
       GameData.spaceWrecks.forEach(sw => {
         const swPx = toCanvasX(sw.x);
         const swPy = toCanvasY(sw.y);
@@ -1539,7 +1670,7 @@ const Navigation = {
     }
 
     // Draw Explored/Discovered Star Systems (including Starbase Prime)
-    GameData.starSystems.forEach(sys => {
+    if (this.isLayerOn("systems")) GameData.starSystems.forEach(sys => {
       const secX = Math.floor(sys.x / 25) * 25;
       const secY = Math.floor(sys.y / 25) * 25;
       const isDiscovered = ship.discoveredSystems && ship.discoveredSystems[sys.name];
@@ -1607,7 +1738,7 @@ const Navigation = {
     });
 
     // Draw Past Alien Encounter History Markers
-    if (ship.encounterHistory) {
+    if (ship.encounterHistory && this.isLayerOn("aliens")) {
       const encFontSize = Math.min(22, Math.max(11, Math.round(13 * zScale)));
       ship.encounterHistory.forEach(enc => {
         const encPx = toCanvasX(enc.x);
@@ -1632,14 +1763,14 @@ const Navigation = {
           type: "encounter",
           known: true,
           x: encPx, y: encPy, radius: 12 * zScale,
-          title: `⚔ LOGGED ALIEN CONTACT: ${enc.raceName.toUpperCase()}`,
-          details: `Coordinates: (${enc.x.toFixed(1)}, ${enc.y.toFixed(1)})\nClassification: Subspace Meeting Log\nStatus: Verified Record`
+          title: `⚔ LOGGED ALIEN CONTACT: ${String(enc.raceName || enc.raceKey || "UNKNOWN").toUpperCase()}`,
+          details: `Coordinates: (${Number(enc.x || 0).toFixed(1)}, ${Number(enc.y || 0).toFixed(1)})\nClassification: Subspace Meeting Log\nStatus: Verified Record`
         });
       });
     }
 
     // Draw Active Alien Spacecraft flying in space on Starmap
-    this.alienShips.forEach(alien => {
+    if (this.isLayerOn("aliens")) this.alienShips.forEach(alien => {
       const alienPx = toCanvasX(alien.x);
       const alienPy = toCanvasY(alien.y);
       const shipSize = 6 * zScale;

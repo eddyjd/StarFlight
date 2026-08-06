@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.17</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.17</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.18</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.18</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -331,7 +331,16 @@
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px; margin-bottom: 8px;">
         <div>
           <h2 style="color: #00ff66; margin: 0; border: none; padding: 0; font-size: 20px;">NAV-COMPUTER INTERACTIVE STAR MAP MATRIX</h2>
-          <span style="font-size: 11px; color: #88ccaa;">MOUSE WHEEL: ZOOM | CLICK & DRAG: PAN MAP | HOVER ICON: INSPECT LOGS</span>
+          <span style="font-size: 11px; color: #88ccaa;">MOUSE WHEEL: ZOOM | CLICK &amp; DRAG: PAN MAP | HOVER ICON: INSPECT LOGS</span>
+          <div style="display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; align-items: center;">
+            <span style="font-size: 10px; color: #ffcc00; font-weight: bold; margin-right: 2px;">LAYERS:</span>
+            <button id="layer-systems" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('systems')">★ SYSTEMS</button>
+            <button id="layer-anomalies" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('anomalies')">🌀 ANOMALIES</button>
+            <button id="layer-salvage" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('salvage')">🛰️ SALVAGE</button>
+            <button id="layer-aliens" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('aliens')">👾 ALIEN CONTACTS</button>
+            <button id="layer-nebulae" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('nebulae')">☁ NEBULAE</button>
+            <button id="layer-unknown" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('unknown')">? UNKNOWN</button>
+          </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <span id="starmap-zoom-level" style="font-size: 12px; color: var(--secondary-color); font-weight: bold; margin-right: 8px;">ZOOM: 100%</span>
@@ -622,13 +631,13 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.9.17"></script>
-  <script src="js/audio.js?v=1.9.17"></script>
-  <script src="js/ui.js?v=1.9.17"></script>
-  <script src="js/spaceport.js?v=1.9.17"></script>
-  <script src="js/navigation.js?v=1.9.17"></script>
-  <script src="js/planet.js?v=1.9.17"></script>
-  <script src="js/encounter.js?v=1.9.17"></script>
-  <script src="js/game.js?v=1.9.17"></script>
+  <script src="js/data.js?v=1.9.18"></script>
+  <script src="js/audio.js?v=1.9.18"></script>
+  <script src="js/ui.js?v=1.9.18"></script>
+  <script src="js/spaceport.js?v=1.9.18"></script>
+  <script src="js/navigation.js?v=1.9.18"></script>
+  <script src="js/planet.js?v=1.9.18"></script>
+  <script src="js/encounter.js?v=1.9.18"></script>
+  <script src="js/game.js?v=1.9.18"></script>
 </body>
 </html>

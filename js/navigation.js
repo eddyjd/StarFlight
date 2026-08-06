@@ -579,8 +579,11 @@ const Navigation = {
 
     // Check if shields are draining energy
     if (ship.shieldsActive) {
-      const docSkill = ship.crew.doctor ? ship.crew.doctor.skill : 40;
-      const drainRate = 2 * (1 - docSkill / 200) * dt;
+      // Shield efficiency is an engineering discipline: the Engineer both slows the
+      // drain here and speeds the recharge in GameManager.updateShieldRegen().
+      // The Doctor governs crew healing, not the deflector matrix.
+      const engSkill = ship.crew.engineer ? ship.crew.engineer.skill : 40;
+      const drainRate = 2 * (1 - engSkill / 200) * dt;
       ship.shieldsCharge = Math.max(0, ship.shieldsCharge - drainRate);
       if (ship.shieldsCharge <= 0) {
         ship.shieldsActive = false;

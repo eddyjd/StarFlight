@@ -487,7 +487,9 @@ const GameManager = {
 
     // Rate is a fraction of capacity, so bigger shield classes do not take
     // proportionally longer, and an Engineer on the crew speeds it up.
-    const engSkill = (ship.crew && ship.crew.engineer) ? ship.crew.engineer.skill : 30;
+    // Same 40 "no specialist aboard" baseline the drain side uses, so an unmanned
+    // engineering station behaves consistently in both directions.
+    const engSkill = (ship.crew && ship.crew.engineer) ? ship.crew.engineer.skill : 40;
     const rate = max * (0.008 + engSkill / 12000);
 
     const before = ship.shieldsCharge || 0;

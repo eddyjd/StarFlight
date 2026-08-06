@@ -262,8 +262,14 @@ const UI = {
         // Sanitize maxHp and hp (default maxHp to member.hp or 100)
         const maxHp = Math.round(member.maxHp || member.hp || 100);
         member.maxHp = maxHp;
-        const currentHp = Math.round((member.hp !== undefined && !isNaN(member.hp)) ? member.hp : maxHp);
-        member.hp = currentHp;
+
+        // Sanitize only - never write a rounded value back. GameManager.
+        // updateCrewHealing() accrues fractions of a HP per frame (0.008 - 0.048)
+        // and then calls this method, so rounding member.hp here destroyed that
+        // progress every single frame and silently disabled passive crew healing
+        // and the Doctor's in-flight recovery entirely.
+        if (member.hp === undefined || isNaN(member.hp)) member.hp = maxHp;
+        const currentHp = Math.round(member.hp);
 
         const hpPercent = Math.min(100, Math.max(0, Math.round((currentHp / maxHp) * 100)));
 

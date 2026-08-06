@@ -733,6 +733,128 @@ const UI = {
     }
   },
 
+  // ---- Customs inspection ---------------------------------------------------
+  // This is the mechanic behind Shielded Cargo Bays (cargo class 3+), which had
+  // advertised contraband protection since launch with nothing implementing it.
+  openPatrolModal(patrol) {
+    const modal = document.getElementById("patrol-modal");
+    if (!modal || !patrol) return;
+    this.currentPatrol = patrol;
+
+    const ship = window.game.ship;
+    const contraband = Navigation.countContraband(ship);
+    const shielded = Navigation.hasShieldedHold(ship);
+
+    document.getElementById("patrol-title").textContent = `⚑ ${patrol.name.toUpperCase()} - CUSTOMS HAIL`;
+    document.getElementById("patrol-coords").textContent = `INTERCEPT AT (${patrol.x.toFixed(1)}, ${patrol.y.toFixed(1)})`;
+    document.getElementById("patrol-hail").textContent =
+      `"ISS Odyssey, this is ${patrol.name} of Starbase Prime Customs. You are transiting a controlled sector. ` +
+      `Cut your engines and stand by for a cargo scan."`;
+
+    document.getElementById("patrol-hold").innerHTML =
+      `Cargo Bay: <strong>${GameData.upgrades.cargos[(ship.cargoLevel || 1) - 1].name}</strong>` +
+      (shielded ? ` <span style="color:#00ff66;">(ABLATIVE SHIELDING ACTIVE)</span>` : ` <span style="color:#888;">(UNSHIELDED)</span>`) +
+      `<br>Restricted goods aboard: ` +
+      (contraband > 0
+        ? `<span style="color:#ff5555; font-weight:bold;">${contraband} UNIT(S) OF SPEMIN SPICE</span>`
+        : `<span style="color:#00ff66;">NONE DETECTED IN MANIFEST</span>`);
+
+    const opts = document.getElementById("patrol-options");
+    opts.innerHTML = "";
+    const addBtn = (label, cls, fn) => {
+      const b = document.createElement("button");
+      b.className = "glow-btn btn-large " + cls;
+      b.textContent = label;
+      b.onclick = fn;
+      opts.appendChild(b);
+    };
+    addBtn("SUBMIT TO INSPECTION", "green-glow", () => this.resolvePatrolScan("submit"));
+    if (contraband > 0) addBtn(`JETTISON ${contraband} CONTRABAND`, "yellow-glow", () => this.resolvePatrolScan("jettison"));
+    addBtn("RUN FOR IT", "red-glow", () => this.resolvePatrolScan("evade"));
+
+    document.getElementById("patrol-result").classList.add("hidden");
+    document.getElementById("patrol-close-btn").classList.add("hidden");
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('error');
+    this.addLog(`CUSTOMS HAIL: ${patrol.name.toUpperCase()} IS ORDERING A CARGO SCAN.`);
+  },
+
+  resolvePatrolScan(choice) {
+    const ship = window.game.ship;
+    const cfg = GameData.customs || {};
+    const contraband = Navigation.countContraband(ship);
+    const shielded = Navigation.hasShieldedHold(ship);
+    let html = "", beep = "success";
+
+    if (choice === "jettison") {
+      for (const key in ship.cargo) {
+        const c = GameData.commodities[key];
+        if (c && c.isContraband) delete ship.cargo[key];
+      }
+      html = `<span style="color:#ffcc00;">You purge the restricted cargo into vacuum moments before the scan beam sweeps the hull.</span><br>` +
+             `Lost ${contraband} unit(s) of Spemin Spice. The cutter finds nothing and waves you through.`;
+      this.addLog(`CONTRABAND JETTISONED: ${contraband} UNIT(S) DUMPED BEFORE THE SCAN.`);
+      beep = "click";
+
+    } else if (choice === "evade") {
+      const engineBonus = ((ship.engineLevel || 1) - 1) * 0.13;
+      const chance = Math.min(0.92, (cfg.evadeBaseChance || 0.35) + engineBonus);
+      const roll = Math.random();
+      if (roll < chance) {
+        html = `<span style="color:#00ff66;">You slam the throttle open and break the intercept cone before their lock resolves.</span><br>` +
+               `The cutter falls astern. Nothing aboard was scanned.`;
+        this.addLog("EVASION SUCCESSFUL: CUSTOMS INTERCEPT BROKEN.");
+      } else {
+        const dmg = 18;
+        ship.hull = Math.max(1, ship.hull - dmg);
+        const fine = Math.min(ship.credits, 750);
+        ship.credits -= fine;
+        html = `<span style="color:#ff5555;">The cutter runs you down and puts a disabling shot across the hull.</span><br>` +
+               `Hull -${dmg}. Fined ${fine.toLocaleString()} M.U. for refusing a lawful inspection.`;
+        this.addLog(`EVASION FAILED: HULL -${dmg}, FINED ${fine} M.U.`);
+        beep = "error";
+      }
+
+    } else { // submit
+      if (contraband === 0) {
+        html = `<span style="color:#00ff66;">Scan complete. Manifest clean.</span><br>"Apologies for the delay, Odyssey. Safe travels."`;
+        this.addLog("CUSTOMS SCAN CLEAN: NO RESTRICTED CARGO FOUND.");
+      } else if (shielded) {
+        html = `<span style="color:#00ff66;">The scan beam washes over ablative shielding and returns nothing but background noise.</span><br>` +
+               `Your ${contraband} unit(s) of Spemin Spice remain undetected in the shielded bays.<br>` +
+               `<em>"Sensors read empty. Move along, Odyssey."</em>`;
+        this.addLog(`SHIELDED BAYS DEFEATED THE CUSTOMS SCAN. ${contraband} UNIT(S) STILL ABOARD.`);
+      } else {
+        const fine = Math.min(ship.credits, contraband * (cfg.finePerUnit || 500));
+        for (const key in ship.cargo) {
+          const c = GameData.commodities[key];
+          if (c && c.isContraband) delete ship.cargo[key];
+        }
+        ship.credits -= fine;
+        html = `<span style="color:#ff5555;">SCAN POSITIVE. Restricted compounds detected in an unshielded hold.</span><br>` +
+               `${contraband} unit(s) of Spemin Spice seized.<br>Fined ${fine.toLocaleString()} M.U.<br>` +
+               `<em>"Fit shielded bays or stay out of our sectors, Odyssey."</em>`;
+        this.addLog(`CONTRABAND SEIZED: ${contraband} UNIT(S) CONFISCATED, FINED ${fine} M.U.`);
+        beep = "error";
+      }
+    }
+
+    document.getElementById("patrol-options").innerHTML = "";
+    document.getElementById("patrol-result-body").innerHTML = html;
+    document.getElementById("patrol-result").classList.remove("hidden");
+    document.getElementById("patrol-close-btn").classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep(beep);
+
+    this.updateShip(ship);
+    window.game.saveGame();
+  },
+
+  closePatrolModal() {
+    const modal = document.getElementById("patrol-modal");
+    if (modal) modal.classList.add("hidden");
+    this.currentPatrol = null;
+  },
+
   openDistressModal(signal) {
     this.currentDistress = signal;
     const modal = document.getElementById("distress-modal");

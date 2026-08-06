@@ -24,6 +24,9 @@ const Navigation = {
   sonarRadius: 0,
   sonarActive: false,
   longScanCooldown: 0,
+  patrolCooldown: 0,
+  nearbyPatrol: null,
+  activePatrols: null,
 
   // Active Alien Spacecraft flying in space
   alienShips: [
@@ -160,6 +163,66 @@ const Navigation = {
     }
   },
 
+  // ---- Starbase Prime Customs Patrols -------------------------------------
+  // Cutters sweep the core sectors and hail any vessel that comes close. What
+  // they find depends on whether Shielded Cargo Bays (cargo class 3+) are fitted,
+  // which is the mechanic that upgrade always advertised but never had.
+  getPatrols() {
+    if (!this.activePatrols) {
+      const src = (GameData.patrols || []);
+      this.activePatrols = src.map(p => Object.assign({}, p));
+    }
+    return this.activePatrols;
+  },
+
+  countContraband(ship) {
+    let n = 0;
+    const cargo = (ship && ship.cargo) || {};
+    for (const key in cargo) {
+      const c = GameData.commodities[key];
+      if (c && c.isContraband) n += cargo[key] || 0;
+    }
+    return n;
+  },
+
+  hasShieldedHold(ship) {
+    return (ship && ship.cargoLevel || 1) >= 3;
+  },
+
+  updatePatrols(dt) {
+    const game = window.game;
+    const ship = game.ship;
+    const zone = GameData.patrolZone || { x: 250, y: 250, radius: 130 };
+    const cfg = GameData.customs || {};
+
+    if (this.patrolCooldown > 0) this.patrolCooldown = Math.max(0, this.patrolCooldown - dt);
+
+    this.nearbyPatrol = null;
+    this.getPatrols().forEach(p => {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      // Turn back at the edge of jurisdiction rather than the galaxy border
+      const dFromCentre = Math.hypot(p.x - zone.x, p.y - zone.y);
+      if (dFromCentre > zone.radius) {
+        const inward = Math.atan2(zone.y - p.y, zone.x - p.x);
+        const speed = Math.hypot(p.vx, p.vy) || 4;
+        p.vx = Math.cos(inward) * speed;
+        p.vy = Math.sin(inward) * speed;
+      }
+      p.angle = Math.atan2(p.vy, p.vx);
+
+      const dist = Math.hypot(this.shipX - p.x, this.shipY - p.y);
+      if (dist < (cfg.hailRange || 7.0)) {
+        this.nearbyPatrol = p;
+        if (this.patrolCooldown <= 0 && game.viewState === "navigation" && game.spaceState === "hyper") {
+          this.patrolCooldown = cfg.cooldownSeconds || 45;
+          UI.openPatrolModal(p);
+        }
+      }
+    });
+  },
+
   // Records a wormhole or singularity the ship has actually passed through.
   markLinkTraversed(id) {
     const ship = window.game && window.game.ship;
@@ -178,7 +241,7 @@ const Navigation = {
     const ship = window.game && window.game.ship;
     if (!ship) return {};
     if (!ship.mapLayers) {
-      ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true };
+      ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, nebulae: true, unknown: true };
     }
     return ship.mapLayers;
   },
@@ -200,7 +263,7 @@ const Navigation = {
   refreshMapLayerButtons() {
     const defs = [
       ["systems", "systems"], ["anomalies", "anomalies"], ["salvage", "salvage"],
-      ["aliens", "aliens"], ["nebulae", "nebulae"], ["unknown", "unknown"]
+      ["aliens", "aliens"], ["patrols", "patrols"], ["nebulae", "nebulae"], ["unknown", "unknown"]
     ];
     defs.forEach(([key]) => {
       const btn = document.getElementById("layer-" + key);
@@ -846,6 +909,9 @@ const Navigation = {
     // 4. Update Asteroid Mining & Floating Mineral Ore Chunks
     this.updateAsteroidMining(dt);
 
+    // 4b. Customs patrols sweeping the core sectors
+    this.updatePatrols(dt);
+
     // Check Proximity to Quantum Wormholes
     this.nearbyWormhole = null;
     if (GameData.wormholes) {
@@ -964,9 +1030,11 @@ const Navigation = {
       alien.x += alien.vx * dt;
       alien.y += alien.vy * dt;
 
-      // Bounce at galaxy borders
-      if (alien.x < 15 || alien.x > 185) alien.vx *= -1;
-      if (alien.y < 15 || alien.y > 185) alien.vy *= -1;
+      // Bounce at galaxy borders. These were 15..185 - left over from the old
+      // 200x200 quadrant - which penned every alien vessel into the top-left
+      // corner of the 500x500 galaxy for the whole game.
+      if (alien.x < 15 || alien.x > 485) alien.vx *= -1;
+      if (alien.y < 15 || alien.y > 485) alien.vy *= -1;
       alien.angle = Math.atan2(alien.vy, alien.vx);
 
       const dist = Math.hypot(this.shipX - alien.x, this.shipY - alien.y);
@@ -1770,6 +1838,30 @@ const Navigation = {
     }
 
     // Draw Active Alien Spacecraft flying in space on Starmap
+    // Customs patrols, plotted like alien contacts and limited to sensor reach
+    if (this.isLayerOn("patrols")) {
+      const reach = this.getScanRanges().short * 1.15;
+      const me = this.getShipGalaxyCoords();
+      this.getPatrols().forEach(p => {
+        if (Math.hypot(me.x - p.x, me.y - p.y) > reach) return;
+        const px = toCanvasX(p.x), py = toCanvasY(p.y);
+        ctx.fillStyle = p.color || "#00ccff";
+        ctx.shadowBlur = 8; ctx.shadowColor = p.color || "#00ccff";
+        ctx.font = `${Math.min(20, Math.max(10, Math.round(12 * zScale)))}px Share Tech Mono`;
+        ctx.fillText("⚑", px - 4, py + 4);
+        ctx.shadowBlur = 0;
+        this.mapTargets.push({
+          type: "patrol",
+          known: true,
+          x: px, y: py, radius: 11 * zScale,
+          title: `⚑ CUSTOMS PATROL: ${p.name.toUpperCase()}`,
+          details: `Position: (${p.x.toFixed(1)}, ${p.y.toFixed(1)})
+Authority: Starbase Prime Customs
+Action: Hails and scans passing vessels for contraband.`
+        });
+      });
+    }
+
     // Live alien vessels are radar contacts, not omniscient tracking: only plot the
     // ones currently inside sensor reach. The radius matches the alien detection
     // range triggerSonar() uses, so the map shows exactly what the scanner can see.
@@ -2127,6 +2219,42 @@ const Navigation = {
     }
 
     // Render Derelict Space Stations in Viewport
+    // Render Customs Patrol cutters in the Viewport
+    if (GameData.patrols) {
+      this.getPatrols().forEach(p => {
+        const px = centerX + (p.x - this.shipX) * scale;
+        const py = centerY + (p.y - this.shipY) * scale;
+        if (px < -40 || px > viewWidth + 40 || py < -40 || py > viewHeight + 40) return;
+
+        this.ctx.save();
+        this.ctx.translate(px, py);
+        this.ctx.rotate(p.angle);
+        this.ctx.fillStyle = "#0a2a33";
+        this.ctx.strokeStyle = p.color || "#00ccff";
+        this.ctx.lineWidth = 1.6;
+        this.ctx.shadowBlur = 9;
+        this.ctx.shadowColor = p.color || "#00ccff";
+        this.ctx.beginPath();
+        this.ctx.moveTo(11, 0);
+        this.ctx.lineTo(-7, 6);
+        this.ctx.lineTo(-4, 0);
+        this.ctx.lineTo(-7, -6);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
+        this.ctx.restore();
+
+        this.ctx.font = "bold 10px Share Tech Mono";
+        this.ctx.fillStyle = p.color || "#00ccff";
+        this.ctx.fillText(`⚑ ${p.name.toUpperCase()}`, px + 14, py + 3);
+        if (this.nearbyPatrol && this.nearbyPatrol.id === p.id) {
+          this.ctx.fillStyle = "#ffcc00";
+          this.ctx.font = "9px Share Tech Mono";
+          this.ctx.fillText("CUSTOMS INSPECTION ZONE", px + 14, py + 15);
+        }
+      });
+    }
+
     // Render Quantum Wormholes in the Viewport. These were drawn NOWHERE in the
     // space view - the only hint a rift existed was the LAND control flipping to
     // ENTER WORMHOLE [W] once inside 4 LY, so players flew straight past them.

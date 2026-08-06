@@ -86,6 +86,7 @@ const GameManager = {
       anomalies: true,
       salvage: true,
       aliens: true,
+      patrols: true,
       nebulae: true,
       unknown: true
     },
@@ -330,16 +331,22 @@ const GameManager = {
       const transferModal = document.getElementById("transfer-modal");
       const tvModal = document.getElementById("tv-cargo-modal");
       const starmapModal = document.getElementById("starmap-modal");
+      const patrolModal = document.getElementById("patrol-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
                           (tvModal && !tvModal.classList.contains("hidden")) ||
-                          (starmapModal && !starmapModal.classList.contains("hidden"));
+                          (starmapModal && !starmapModal.classList.contains("hidden")) ||
+                          (patrolModal && !patrolModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         if (cargoModal) cargoModal.classList.add("hidden");
         if (tvModal) tvModal.classList.add("hidden");
         if (starmapModal) starmapModal.classList.add("hidden");
+        // Only dismissable once the inspection has actually resolved
+        if (patrolModal && !document.getElementById("patrol-close-btn").classList.contains("hidden")) {
+          UI.closePatrolModal();
+        }
         return;
       }
 
@@ -738,7 +745,7 @@ const GameManager = {
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!this.ship.mapLayers) {
-          this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true };
+          this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, nebulae: true, unknown: true };
         }
 
         // Sync navigation ship positions
@@ -796,7 +803,7 @@ const GameManager = {
         contactLog: {},
         traversedLinks: {},
         installedTechParts: [],
-        mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true },
+        mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, nebulae: true, unknown: true },
         launchConfig: { autoShields: true, autoWeapons: true },
         isInSpacebase: true,
         currentSystem: null,

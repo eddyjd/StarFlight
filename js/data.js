@@ -214,6 +214,24 @@ const GameData = {
     { id: "der_6", name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive", techPartKey: "warp_conduit" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
   ],
 
+  // Starbase Prime Customs Patrols. They enforce the contraband ban only inside
+  // their jurisdiction - the core sectors around the base. Beyond patrolZone.radius
+  // is lawless space, which is what makes a Spemin Spice run worth the risk.
+  patrolZone: { x: 250, y: 250, radius: 130 },
+  patrols: [
+    { id: "pat_1", name: "SFC Vigilant", x: 250, y: 205, vx: 4.5, vy: 2.4, angle: 0, color: "#00ccff" },
+    { id: "pat_2", name: "SFC Sentinel", x: 200, y: 290, vx: -3.8, vy: 3.3, angle: 0, color: "#00ccff" },
+    { id: "pat_3", name: "SFC Bulwark", x: 300, y: 255, vx: 3.0, vy: -4.2, angle: 0, color: "#00ccff" }
+  ],
+
+  // Contraband enforcement tuning
+  customs: {
+    hailRange: 7.0,        // LY at which a cutter hails you
+    finePerUnit: 500,      // M.U. per unit of contraband seized
+    evadeBaseChance: 0.35, // before engine bonus
+    cooldownSeconds: 45    // grace period after any inspection
+  },
+
   // Deep Space Asteroid Mining Fields
   asteroidFields: [
     { id: "ast_1", name: "Sirius Asteroid Belt", x: 190, y: 200, count: 12, density: "High", ores: ["iron", "platinum", "endurium_ore"] },

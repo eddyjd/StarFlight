@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.21</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.21</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.22</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.22</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -339,6 +339,7 @@
             <button id="layer-salvage" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('salvage')">🛰️ SALVAGE</button>
             <button id="layer-aliens" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('aliens')">👾 ALIEN CONTACTS</button>
             <button id="layer-nebulae" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('nebulae')">☁ NEBULAE</button>
+            <button id="layer-patrols" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('patrols')">⚑ PATROLS</button>
             <button id="layer-unknown" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('unknown')">? UNKNOWN</button>
           </div>
         </div>
@@ -441,6 +442,7 @@
             <strong>B</strong>: Board a derelict station or salvage an alien wreck when in range.<br>
             <strong>E</strong>: Investigate a subspace distress beacon.<br>
             <strong>W</strong>: Enter a quantum wormhole. The <strong>LAND</strong> control also performs whichever of these is in range.<br>
+            <span style="color:#ffcc00;">CUSTOMS PATROLS</span>: Starbase Prime cutters sweep the core sectors within 130 LY of the base and hail passing ships for a cargo scan. Carrying <strong>Spemin Spice</strong> in an unshielded hold means seizure plus a 500 M.U. per-unit fine. <strong>Shielded Cargo Bays</strong> (cargo class 3) defeat the scan outright. You may also jettison the cargo before they sweep, or run - evasion odds improve with engine class. Outside their jurisdiction, nobody is checking.<br>
             <strong>L</strong>: Dock at Starbase Prime (at 100, 100) or launch Terrain Lander on planet surface.<br>
             <strong>M</strong>: Toggle Fullscreen Interactive Star Map with zoom & pan.<br>
             <strong>G</strong>: Open Captain's Exploration Log & Survey History Archive.<br>
@@ -601,6 +603,39 @@
     </div>
   </div>
 
+  <!-- Starbase Prime Customs Inspection Modal -->
+  <div id="patrol-modal" class="modal hidden">
+    <div class="modal-content" style="width: 660px; max-width: 95%; padding: 16px; box-sizing: border-box;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 6px; margin-bottom: 12px;">
+        <h2 id="patrol-title" style="color: #00ccff; margin: 0; border: none; padding: 0;">⚑ CUSTOMS PATROL HAIL</h2>
+        <span id="patrol-coords" style="font-size: 11px; color: #88ccaa;">STARBASE PRIME JURISDICTION</span>
+      </div>
+
+      <div class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span>INCOMING TRANSMISSION</span></div>
+        <div id="patrol-hail" class="log-card-body" style="font-size: 13px; line-height: 1.6;">
+          Halt and prepare for a routine cargo inspection.
+        </div>
+      </div>
+
+      <div class="log-card" style="margin-bottom: 12px;">
+        <div class="log-card-header"><span style="color: #ffcc00;">HOLD STATUS</span></div>
+        <div id="patrol-hold" class="log-card-body" style="font-size: 13px; line-height: 1.7;"></div>
+      </div>
+
+      <div id="patrol-options" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;"></div>
+
+      <div id="patrol-result" class="log-card hidden" style="margin-top: 12px;">
+        <div class="log-card-header"><span style="color: #00ff66;">INSPECTION RESULT</span></div>
+        <div id="patrol-result-body" class="log-card-body" style="font-size: 13px; line-height: 1.7;"></div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+        <button id="patrol-close-btn" class="glow-btn btn-large hidden" onclick="UI.closePatrolModal()">RESUME COURSE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rare Precursor Tech Component Recovery Modal -->
   <div id="techpart-modal" class="modal hidden">
     <div class="modal-content" style="width: 640px; max-width: 95%; padding: 16px; box-sizing: border-box;">
@@ -631,13 +666,13 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.9.21"></script>
-  <script src="js/audio.js?v=1.9.21"></script>
-  <script src="js/ui.js?v=1.9.21"></script>
-  <script src="js/spaceport.js?v=1.9.21"></script>
-  <script src="js/navigation.js?v=1.9.21"></script>
-  <script src="js/planet.js?v=1.9.21"></script>
-  <script src="js/encounter.js?v=1.9.21"></script>
-  <script src="js/game.js?v=1.9.21"></script>
+  <script src="js/data.js?v=1.9.22"></script>
+  <script src="js/audio.js?v=1.9.22"></script>
+  <script src="js/ui.js?v=1.9.22"></script>
+  <script src="js/spaceport.js?v=1.9.22"></script>
+  <script src="js/navigation.js?v=1.9.22"></script>
+  <script src="js/planet.js?v=1.9.22"></script>
+  <script src="js/encounter.js?v=1.9.22"></script>
+  <script src="js/game.js?v=1.9.22"></script>
 </body>
 </html>

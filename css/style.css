@@ -1013,6 +1013,14 @@ body.crisp-mode .crt-screen {
   backdrop-filter: blur(4px);
 }
 
+/* Global hide helper. Previously only `.modal.hidden` and `.options-grid.hidden`
+   existed, so classList.add("hidden") on anything else - the star map hover
+   readout, the customs inspection result panel - silently did nothing and the
+   element stayed on screen with stale content. */
+.hidden {
+  display: none !important;
+}
+
 .modal.hidden {
   display: none !important;
 }

@@ -38,6 +38,14 @@ const GameData = {
       value: 3000,
       effect: "weapon_boost"
     },
+    sensor_amplifier: {
+      id: "sensor_amplifier",
+      name: "Precursor Sensor Amplifier",
+      icon: "📡",
+      desc: "A resonance lattice that widens the deflector-array sensor cone. Permanently upgrades the Scanner module one class, extending both short-range and long-range sweeps!",
+      value: 2600,
+      effect: "scanner_boost"
+    },
     hyper_cargo_compressor: {
       id: "hyper_cargo_compressor",
       name: "Subspace Cargo Compressor",
@@ -104,8 +112,8 @@ const GameData = {
     cargos: [
       { level: 1, name: "Standard Cargo Bays", cost: 0, cap: 20, desc: "Holds minerals and trading commodities." },
       { level: 2, name: "Expanded Cargo Pods", cost: 1500, cap: 50, desc: "Doubles ship cargo capacity. Increases mass slightly." },
-      { level: 3, name: "Shielded Cargo Bays", cost: 3500, cap: 45, desc: "Protected from scanning. Prevents contraband detection by patrols." },
-      { level: 4, name: "Cold Bio-Containment", cost: 3000, cap: 40, desc: "Includes cryo-freeze grids. Required to transport live alien species." }
+      { level: 3, name: "Shielded Cargo Bays", cost: 3500, cap: 45, desc: "Ablative shielding plates displace 5 T of usable volume, but mask the hold from hostile scans." },
+      { level: 4, name: "Cold Bio-Containment", cost: 3000, cap: 40, desc: "Cryo-freeze grids displace a further 5 T of volume. REQUIRED to carry live alien fauna." }
     ],
     tvUpgrades: {
       engine: [
@@ -198,12 +206,12 @@ const GameData = {
 
   // Abandoned Derelict Space Stations & Starships
   derelicts: [
-    { id: "der_1", name: "Derelict Station Kronos-9", x: 140, y: 290, searched: false, loot: { type: "endurium", amount: 25, credits: 450, artifact: null, tech: "Shield Overcharger" }, desc: "Abandoned military outpost. Inert power signature." },
-    { id: "der_2", name: "Precursor Quantum Relay", x: 310, y: 160, searched: false, loot: { type: "precursor_alloy", amount: 3, credits: 800, artifact: null, tech: "Sensor Amplifier" }, desc: "Massive ancient Precursor satellite matrix floating in high orbit." },
-    { id: "der_3", name: "Ghost Vessel Vanguard", x: 440, y: 180, searched: false, loot: { type: "platinum", amount: 4, credits: 600, artifact: null, tech: "Plasma Capacitors" }, desc: "Drifting Earth exploration cruiser from the early expansion era." },
-    { id: "der_4", name: "Spemin Abandoned Hub", x: 90, y: 110, searched: false, loot: { type: "alien_art", amount: 2, credits: 350, artifact: null, tech: "Cargo Injectors" }, desc: "Deserted Spemin trading outpost filled with uncollected goods." },
-    { id: "der_5", name: "Veloxi Dreadnought Wreck", x: 360, y: 390, searched: false, loot: { type: "endurium", amount: 40, credits: 1200, artifact: null, tech: "Heavy Armor Plating" }, desc: "Battle-scarred Veloxi flagship hull floating in deep space." },
-    { id: "der_6", name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
+    { id: "der_1", name: "Derelict Station Kronos-9", x: 140, y: 290, searched: false, loot: { type: "endurium", amount: 25, credits: 450, artifact: null, tech: "Shield Overcharger", techPartKey: "quantum_shield_core" }, desc: "Abandoned military outpost. Inert power signature." },
+    { id: "der_2", name: "Precursor Quantum Relay", x: 310, y: 160, searched: false, loot: { type: "precursor_alloy", amount: 3, credits: 800, artifact: null, tech: "Sensor Amplifier", techPartKey: "sensor_amplifier" }, desc: "Massive ancient Precursor satellite matrix floating in high orbit." },
+    { id: "der_3", name: "Ghost Vessel Vanguard", x: 440, y: 180, searched: false, loot: { type: "platinum", amount: 4, credits: 600, artifact: null, tech: "Plasma Capacitors", techPartKey: "plasma_overcharger" }, desc: "Drifting Earth exploration cruiser from the early expansion era." },
+    { id: "der_4", name: "Spemin Abandoned Hub", x: 90, y: 110, searched: false, loot: { type: "alien_art", amount: 2, credits: 350, artifact: null, tech: "Cargo Injectors", techPartKey: "hyper_cargo_compressor" }, desc: "Deserted Spemin trading outpost filled with uncollected goods." },
+    { id: "der_5", name: "Veloxi Dreadnought Wreck", x: 360, y: 390, searched: false, loot: { type: "endurium", amount: 40, credits: 1200, artifact: null, tech: "Heavy Armor Plating", techPartKey: "titanium_composite" }, desc: "Battle-scarred Veloxi flagship hull floating in deep space." },
+    { id: "der_6", name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive", techPartKey: "warp_conduit" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
   ],
 
   // Deep Space Asteroid Mining Fields

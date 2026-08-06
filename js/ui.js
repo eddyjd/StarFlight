@@ -659,12 +659,21 @@ const UI = {
     const lootDetails = document.getElementById("derelict-loot-details");
     const btnScavenge = document.getElementById("btnScavengeDerelict");
 
+    // Reset the action: scavengeCurrentDerelict() repoints this button at the
+    // recovered module, so without this the next station inherits the last one's
+    // handler and re-opens a module you already took.
+    btnScavenge.onclick = () => this.scavengeCurrentDerelict();
+
     if (derelict.searched) {
       lootDetails.innerHTML = `<span style="color: #ff5555;">[SALVAGED] Hull has already been completely stripped of useful energy and components.</span>`;
       btnScavenge.disabled = true;
       btnScavenge.textContent = "ALREADY SALVAGED";
     } else {
-      lootDetails.innerHTML = `Sensors detect residual Endurium fuel cells, credits, and Precursor tech modules intact inside the hold.`;
+      const part = (derelict.loot && derelict.loot.techPartKey && GameData.techParts)
+        ? GameData.techParts[derelict.loot.techPartKey] : null;
+      lootDetails.innerHTML = `Sensors detect residual Endurium fuel cells, credits` +
+        (part ? `, and an <span style="color:#ffcc00;">intact Precursor module</span>` : ` and Precursor tech fragments`) +
+        ` inside the hold.`;
       btnScavenge.disabled = false;
       btnScavenge.textContent = "SCAVENGE DERELICT HULL";
     }
@@ -696,12 +705,32 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
     this.addLog(`DERELICT SCAVENGED! SALVAGED ${loot.amount} ENDURIUM & ${loot.credits} M.U. CREDITS!`);
 
+    // Derelict tech was flavour text: loot.tech printed a name and did nothing.
+    // Every station now yields the real Precursor module its manifest describes,
+    // so salvage - not the Depot - is where hold capacity and scanner range grow.
+    const part = (loot.techPartKey && GameData.techParts) ? GameData.techParts[loot.techPartKey] : null;
+
     const lootDetails = document.getElementById("derelict-loot-details");
-    lootDetails.innerHTML = `<span style="color: #00ff66;">✓ SALVAGE COMPLETE!</span><br>+${loot.credits} Credits added to ship vault.<br>+${loot.amount} Endurium fuel unit units refilled into tanks.<br><em>Tech Artifact Logged: ${loot.tech}</em>`;
+    lootDetails.innerHTML = `<span style="color: #00ff66;">✓ SALVAGE COMPLETE!</span><br>` +
+      `+${loot.credits} Credits added to ship vault.<br>` +
+      `+${loot.amount} Endurium fuel units refilled into tanks.<br>` +
+      (part
+        ? `<span style="color:#ffcc00; font-weight:bold;">${part.icon} INTACT MODULE RECOVERED: ${part.name.toUpperCase()}</span>`
+        : `<em>Tech Artifact Logged: ${loot.tech}</em>`);
 
     const btnScavenge = document.getElementById("btnScavengeDerelict");
-    btnScavenge.disabled = true;
-    btnScavenge.textContent = "ALREADY SALVAGED";
+    if (part) {
+      this.addLog(`SALVAGE: RECOVERED AN INTACT ${part.name.toUpperCase()} FROM THE HULL.`);
+      btnScavenge.disabled = false;
+      btnScavenge.textContent = `${part.icon} INSPECT RECOVERED MODULE`;
+      btnScavenge.onclick = () => {
+        this.closeDerelictModal();
+        this.openTechPartModal(part);
+      };
+    } else {
+      btnScavenge.disabled = true;
+      btnScavenge.textContent = "ALREADY SALVAGED";
+    }
   },
 
   openDistressModal(signal) {
@@ -778,7 +807,9 @@ const UI = {
     const modal = document.getElementById("techpart-modal");
     if (!modal || !techPart) return;
 
-    document.getElementById("techpart-title").textContent = `⚡ ${techPart.name.toUpperCase()}`;
+    // Use the module's own icon - this was hardcoded to the warp conduit's bolt,
+    // so a cargo compressor or sensor array announced itself with the wrong glyph.
+    document.getElementById("techpart-title").textContent = `${techPart.icon || "⚡"} ${techPart.name.toUpperCase()}`;
     document.getElementById("techpart-value").textContent = `SALVAGE VALUE: ${techPart.value || 2500} M.U.`;
     document.getElementById("techpart-desc").textContent = techPart.desc;
 
@@ -813,7 +844,17 @@ const UI = {
       this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Blaster Weapon Firepower increased to Class ${ship.blasterLevel}!`);
     } else if (part.effect === "cargo_boost") {
       ship.cargoCap = (ship.cargoCap || 20) + 15;
-      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Cargo Hold capacity expanded to ${ship.cargoCap} slots!`);
+      this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Cargo Hold capacity expanded to ${ship.cargoCap} T!`);
+    } else if (part.effect === "scanner_boost") {
+      const before = ship.scannerLevel || 1;
+      ship.scannerLevel = Math.min(4, before + 1);
+      if (ship.scannerLevel > before) {
+        const r = (typeof Navigation !== 'undefined' && Navigation.getScanRanges) ? Navigation.getScanRanges() : null;
+        this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Scanner advanced to Class ${ship.scannerLevel}` +
+          (r ? ` - sweeps now ${r.short.toFixed(0)} LY short / ${r.long.toFixed(0)} LY long!` : "!"));
+      } else {
+        this.addLog(`${part.name.toUpperCase()} INSTALLED, but the Scanner array is already at maximum class.`);
+      }
     }
 
     // Log which module was fitted so Ship Diagnostics can list it

@@ -210,6 +210,9 @@ const UI = {
 
   // View manager
   switchView(viewName) {
+    // Panels change size when views swap, so let the canvases re-measure once
+    if (typeof Navigation !== 'undefined') Navigation.needsResize = true;
+
     // Hide all main display views
     const views = [
       this.elements.viewIntro,

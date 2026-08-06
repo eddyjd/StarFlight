@@ -267,7 +267,7 @@ const PlanetExploration = {
           ctx.fill();
         } 
         // Mineral deposit hotspots *
-        else if (val < 0.18 + (this.planet.minerals * 0.15)) {
+        else if (val < 0.18 + (this.planet.minerals * 0.07)) {
           if (!pState.minedTiles[`${x}_${y}`]) {
             ctx.fillStyle = "rgba(255, 204, 0, 0.65)";
             ctx.font = "10px Share Tech Mono";
@@ -275,7 +275,7 @@ const PlanetExploration = {
           }
         } 
         // Biological specimen hotspots &
-        else if (val < 0.22 + (this.planet.minerals * 0.15) + (this.planet.bio * 0.12)) {
+        else if (val < 0.22 + (this.planet.minerals * 0.07) + (this.planet.bio * 0.06)) {
           if (!pState.minedTiles[`${x}_${y}`]) {
             ctx.fillStyle = "rgba(136, 136, 255, 0.65)";
             ctx.font = "10px Share Tech Mono";
@@ -398,7 +398,7 @@ const PlanetExploration = {
         const val = rand();
         if (val < 0.18) {
           this.grid[y][x] = { type: "mountain" };
-        } else if (val < 0.18 + (this.planet.minerals * 0.15)) {
+        } else if (val < 0.18 + (this.planet.minerals * 0.07)) {
           const minVal = rand();
           let itemKey = "iron";
           if (minVal > 0.9) itemKey = "precursor_alloy";
@@ -407,7 +407,7 @@ const PlanetExploration = {
           else if (minVal > 0.2) itemKey = "gold";
           
           this.grid[y][x] = { type: "mineral", item: itemKey };
-        } else if (val < 0.22 + (this.planet.minerals * 0.15) + (this.planet.bio * 0.12)) {
+        } else if (val < 0.22 + (this.planet.minerals * 0.07) + (this.planet.bio * 0.06)) {
           const bioVal = rand();
           const itemKey = bioVal > 0.75 ? "bio_fauna" : "bio_flora";
           this.grid[y][x] = { type: "bio", item: itemKey };

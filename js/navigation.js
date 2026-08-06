@@ -24,6 +24,8 @@ const Navigation = {
   sonarRadius: 0,
   sonarActive: false,
   longScanCooldown: 0,
+  needsResize: true,
+  starPhase: 0,
   patrolCooldown: 0,
   nearbyPatrol: null,
   activePatrols: null,
@@ -54,7 +56,13 @@ const Navigation = {
     this.setupListeners();
   },
 
+  // Reading clientWidth/clientHeight forces a synchronous layout. This used to run
+  // every single frame from draw(), and because the HUD writes text to the DOM each
+  // frame the layout was always dirty - so every frame paid a forced reflow, which
+  // shows up as irregular hitching. It now runs only when the viewport can actually
+  // have changed (window resize, fullscreen toggle, view switch).
   resizeCanvas() {
+    this.needsResize = false;
     if (!this.canvas || !this.canvas.parentElement) return;
     const w = this.canvas.parentElement.clientWidth;
     const h = this.canvas.parentElement.clientHeight - 24;
@@ -123,6 +131,9 @@ const Navigation = {
     window.addEventListener("blur", () => {
       this.keys = {};
     });
+
+    window.addEventListener("resize", () => { this.needsResize = true; });
+    document.addEventListener("fullscreenchange", () => { this.needsResize = true; });
 
     // Starmap Canvas Mouse Wheel Zoom & Drag Pan Listeners
     const starmapCanvas = document.getElementById("starmapCanvas");
@@ -828,7 +839,10 @@ const Navigation = {
     const mass = 1.0 + (UI.calculateCargoMass(ship.cargo) / 100);
     const isBoosting = this.keys["Shift"] || this.keys["ShiftLeft"] || this.keys["ShiftRight"];
     const boostMult = isBoosting ? 2.5 : 1.0;
-    const baseThrust = (10.0 + (ship.engineLevel * 8)) / mass;
+    // Cruise speed is deliberately unhurried: crossing the quadrant should cost
+    // real time so exploration and mining cannot be rushed. Engine class keeps the
+    // same 2.8x span from Class 1 to Class 5, it just starts far lower.
+    const baseThrust = (2.5 + (ship.engineLevel * 2.0)) / mass;
     const thrust = baseThrust * boostMult;
     const friction = isBoosting ? 0.96 : 0.94;
 
@@ -1196,7 +1210,8 @@ const Navigation = {
     // Move in solar system space coordinates (relative to star)
     const isBoosting = this.keys["Shift"] || this.keys["ShiftLeft"] || this.keys["ShiftRight"];
     const boostMult = isBoosting ? 2.5 : 1.0;
-    const baseThrust = 30.0 + (ship.engineLevel * 30.0);
+    // In-system space is small, so it is slowed less than hyperspace
+    const baseThrust = 15.0 + (ship.engineLevel * 15.0);
     const thrust = baseThrust * boostMult;
     const friction = isBoosting ? 0.96 : 0.94;
 
@@ -2040,7 +2055,7 @@ Action: Hails and scans passing vessels for contraband.`
 
   draw() {
     if (!this.ctx || !this.canvas) return;
-    this.resizeCanvas();
+    if (this.needsResize) this.resizeCanvas();
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     const game = window.game;
 
@@ -2051,9 +2066,16 @@ Action: Hails and scans passing vessels for contraband.`
       this.generateBackground();
     }
 
+    // Twinkle at a fixed rate per second rather than per frame
+    const nowMs = Date.now();
+    const stepDt = this.lastDrawMs ? Math.min(0.1, (nowMs - this.lastDrawMs) / 1000) : 1 / 60;
+    this.lastDrawMs = nowMs;
+    this.starStep = 3.0 * stepDt;
+
+
     // Twinkling stars drawing across full canvas resolution
     this.bgStars.forEach(s => {
-      s.twinkle += 0.05;
+      s.twinkle += this.starStep;
       const alpha = 0.3 + Math.abs(Math.sin(s.twinkle)) * 0.7;
       const sx = (s.u !== undefined ? s.u * w : s.x);
       const sy = (s.v !== undefined ? s.v * h : s.y);

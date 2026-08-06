@@ -154,13 +154,13 @@ const GameData = {
   // Trade commodities and resources with realistic, distinct masses
   commodities: {
     fuel: { name: "Endurium Fuel", sellVal: 10, buyVal: 15, mass: 0.1 },
-    iron: { name: "Iron Ore", sellVal: 40, buyVal: 60, mass: 2.0 },
-    gold: { name: "Gold Nuggets", sellVal: 150, buyVal: 220, mass: 3.0 },
-    platinum: { name: "Platinum Crystals", sellVal: 350, buyVal: 480, mass: 3.5 },
-    endurium_ore: { name: "Raw Endurium", sellVal: 500, buyVal: 700, mass: 1.5 },
-    precursor_alloy: { name: "Precursor Metal", sellVal: 1200, buyVal: 1800, mass: 4.0 },
-    bio_flora: { name: "Flora Specimen", sellVal: 100, buyVal: 150, mass: 0.5, needsBio: false },
-    bio_fauna: { name: "Live Alien Fauna", sellVal: 800, buyVal: 1100, mass: 1.0, needsBio: true },
+    iron: { name: "Iron Ore", sellVal: 20, buyVal: 60, mass: 2.0 },
+    gold: { name: "Gold Nuggets", sellVal: 75, buyVal: 220, mass: 3.0 },
+    platinum: { name: "Platinum Crystals", sellVal: 175, buyVal: 480, mass: 3.5 },
+    endurium_ore: { name: "Raw Endurium", sellVal: 250, buyVal: 700, mass: 1.5 },
+    precursor_alloy: { name: "Precursor Metal", sellVal: 600, buyVal: 1800, mass: 4.0 },
+    bio_flora: { name: "Flora Specimen", sellVal: 50, buyVal: 150, mass: 0.5, needsBio: false },
+    bio_fauna: { name: "Live Alien Fauna", sellVal: 400, buyVal: 1100, mass: 1.0, needsBio: true },
     alien_art: { name: "Veloxi Carving", sellVal: 600, buyVal: 900, mass: 0.8 },
     contraband: { name: "Spemin Spice", sellVal: 1500, buyVal: 2200, mass: 0.5, isContraband: true }
   },

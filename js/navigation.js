@@ -376,6 +376,25 @@ const Navigation = {
     });
   },
 
+  // The HUD is rewritten every frame in flight; caching the nodes avoids three
+  // document.getElementById lookups per frame and only touches the DOM when the
+  // displayed text actually changes.
+  setHudText(key, id, value) {
+    if (!this.hudNodes) this.hudNodes = {};
+    if (!this.hudNodes[key]) this.hudNodes[key] = document.getElementById(id);
+    const el = this.hudNodes[key];
+    if (el && el.textContent !== value) el.textContent = value;
+  },
+
+  // Label text is drawn every frame for every visible object. Building it with
+  // .toUpperCase() each time allocated dozens of throwaway strings per frame,
+  // which is needless GC pressure in the render loop. Compute once, reuse.
+  labelFor(obj) {
+    if (!obj) return "";
+    if (obj.__label === undefined) obj.__label = String(obj.name || "").toUpperCase();
+    return obj.__label;
+  },
+
   // Sensor reach. Range scales with the assigned Navigator's skill and with the
   // Scanner module fitted at the Depot, so both upgrade paths stack:
   //   nav 65 + scanner 1  ->  short  41 LY | long 116 LY
@@ -830,9 +849,15 @@ const Navigation = {
       isThrusting = true;
     }
 
-    // Apply drift friction
-    this.shipVx *= friction;
-    this.shipVy *= friction;
+    // Apply drift friction, scaled to elapsed time.
+    // This used to be a flat per-FRAME multiply while thrust was per-SECOND, so any
+    // wobble in frame duration changed the ship's velocity: a long frame applied a
+    // full frame of drag but a longer burn, producing a visible lurch, and the
+    // terminal velocity scaled with frame time (roughly double the speed at 30 FPS,
+    // less than half at 144 Hz). Math.pow keeps 60 FPS behaviour identical.
+    const drag = Math.pow(friction, dt * 60);
+    this.shipVx *= drag;
+    this.shipVy *= drag;
 
     // Position updates
     this.shipX += this.shipVx * dt;
@@ -1149,9 +1174,9 @@ const Navigation = {
     }
 
     // HUD bindings
-    document.getElementById("hud-coord-x").textContent = this.shipX.toFixed(1);
-    document.getElementById("hud-coord-y").textContent = this.shipY.toFixed(1);
-    document.getElementById("hud-velocity").textContent = (Math.hypot(this.shipVx, this.shipVy) * 0.1).toFixed(2);
+    this.setHudText("x", "hud-coord-x", this.shipX.toFixed(1));
+    this.setHudText("y", "hud-coord-y", this.shipY.toFixed(1));
+    this.setHudText("v", "hud-velocity", (Math.hypot(this.shipVx, this.shipVy) * 0.1).toFixed(2));
   },
 
   updateSystem(dt) {
@@ -1189,8 +1214,10 @@ const Navigation = {
       isThrusting = true;
     }
 
-    this.shipVx *= friction;
-    this.shipVy *= friction;
+    // Time-scaled drag, same reasoning as updateHyper()
+    const drag = Math.pow(friction, dt * 60);
+    this.shipVx *= drag;
+    this.shipVy *= drag;
 
     this.shipX += this.shipVx * dt;
     this.shipY += this.shipVy * dt;
@@ -1244,9 +1271,9 @@ const Navigation = {
     }
 
     // HUD bindings
-    document.getElementById("hud-coord-x").textContent = ship.coordinates.x.toFixed(1);
-    document.getElementById("hud-coord-y").textContent = ship.coordinates.y.toFixed(1);
-    document.getElementById("hud-velocity").textContent = (Math.hypot(this.shipVx, this.shipVy) * 0.05).toFixed(2);
+    this.setHudText("x", "hud-coord-x", ship.coordinates.x.toFixed(1));
+    this.setHudText("y", "hud-coord-y", ship.coordinates.y.toFixed(1));
+    this.setHudText("v", "hud-velocity", (Math.hypot(this.shipVx, this.shipVy) * 0.05).toFixed(2));
     
     // Enable buttons on HUD based on orbital proximity
     UI.updateControlPanel(true, ship.currentPlanet, ship.shieldsActive, ship.weaponsArmed);
@@ -2213,7 +2240,7 @@ Action: Hails and scans passing vessels for contraband.`
 
           this.ctx.font = "bold 10px Share Tech Mono";
           this.ctx.fillStyle = sw.searched ? "#777777" : "#00ffcc";
-          this.ctx.fillText(`${sw.name.toUpperCase()} ${sw.searched ? '[SALVAGED]' : ''}`, px + 12, py + 3);
+          this.ctx.fillText(`${this.labelFor(sw)} ${sw.searched ? '[SALVAGED]' : ''}`, px + 12, py + 3);
         }
       });
     }
@@ -2246,7 +2273,7 @@ Action: Hails and scans passing vessels for contraband.`
 
         this.ctx.font = "bold 10px Share Tech Mono";
         this.ctx.fillStyle = p.color || "#00ccff";
-        this.ctx.fillText(`⚑ ${p.name.toUpperCase()}`, px + 14, py + 3);
+        this.ctx.fillText(`⚑ ${this.labelFor(p)}`, px + 14, py + 3);
         if (this.nearbyPatrol && this.nearbyPatrol.id === p.id) {
           this.ctx.fillStyle = "#ffcc00";
           this.ctx.font = "9px Share Tech Mono";
@@ -2294,7 +2321,7 @@ Action: Hails and scans passing vessels for contraband.`
 
         this.ctx.font = "bold 10px Share Tech Mono";
         this.ctx.fillStyle = "#00e5ff";
-        this.ctx.fillText(wh.name.toUpperCase(), px + r + 6, py + 3);
+        this.ctx.fillText(this.labelFor(wh), px + r + 6, py + 3);
         if (isNear) {
           this.ctx.fillStyle = "#ffcc00";
           this.ctx.font = "bold 11px Share Tech Mono";
@@ -2324,7 +2351,7 @@ Action: Hails and scans passing vessels for contraband.`
 
           this.ctx.font = "bold 10px Share Tech Mono";
           this.ctx.fillStyle = der.searched ? "#888888" : "#00e5ff";
-          this.ctx.fillText(`${der.name.toUpperCase()} ${der.searched ? '[SALVAGED]' : ''}`, px + 12, py + 3);
+          this.ctx.fillText(`${this.labelFor(der)} ${der.searched ? '[SALVAGED]' : ''}`, px + 12, py + 3);
         }
       });
     }

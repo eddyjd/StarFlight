@@ -77,6 +77,21 @@ const AudioController = {
       setTimeout(() => {
         this.createOscillator('sine', 783.99, 0.18, 0.15); // G5
       }, 160);
+    } else if (type === 'powerup') {
+      // Reward flourish for salvage, artefact recovery, tech installs, beacon
+      // rescues and warp displacement. There was no 'powerup' branch at all, so
+      // all nine call sites fell through this chain and played SILENCE - the
+      // game's most rewarding moments were the only ones with no sound.
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5 E5 G5 C6
+      notes.forEach((freq, i) => {
+        setTimeout(() => {
+          const synth = this.createOscillator('triangle', freq, i === 3 ? 0.32 : 0.12, 0.16);
+          if (synth && i === 3) {
+            // Final note blooms upward to land the "reward" feeling
+            synth.osc.frequency.linearRampToValueAtTime(freq * 1.02, this.ctx.currentTime + 0.3);
+          }
+        }, i * 70);
+      });
     }
   },
 

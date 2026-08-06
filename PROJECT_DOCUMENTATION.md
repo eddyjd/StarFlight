@@ -300,6 +300,39 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Installed Precursor Modules Were Invisible (`js/game.js` & `js/ui.js`)**: `UI.installCurrentTechPart()` applied a rare module's permanent stat boost but recorded **nothing**, so a captain had no way to see which modules were fitted - the boosts silently vanished into the raw numbers. Added `ship.installedTechParts` (persisted), written on install, and a **`SALVAGED PRECURSOR TECH`** section at the bottom of the Ship Diagnostics `EQUIPPED MODULES` list showing each module's icon and name, with duplicates collapsed as `x2`.
     * **Alien Vessels Were Tracked Galaxy-Wide (`js/navigation.js`)**: every active alien ship was plotted on the Star Map regardless of distance, which amounted to omniscient tracking across the whole 500 LY quadrant. Live vessels are radar contacts now: only those within `getScanRanges().short * 1.15` are plotted, the exact radius `triggerSonar()` already uses for alien detection, so the map shows precisely what the scanner can see. Reach is therefore driven by Navigator skill and Scanner class like everything else.
     * **Wormholes Were Drawn Nowhere In The Space Viewport**: `drawHyper()` rendered star systems, black holes, alien wrecks, derelicts and distress beacons - but **not wormholes**. The only hint a rift existed was the `LAND` control flipping to `ENTER WORMHOLE [W]` once inside 4 LY, so captains flew straight past them. Rifts now render as a pulsing cyan singularity with three counter-rotating accretion arcs and a radial event core, labelled with the rift name; closing to interaction range adds a gold **`▶ ENTER WORMHOLE [W]`** prompt and an `EXIT: <destination>` readout directly in the viewport.
+65. **The Reward Sound Was Silent (v1.9.20)**:
+    * **Root Cause Solved**: `AudioController.playBeep()` branches on `'click'`, `'hover'`, `'error'` and `'success'` - there has never been a **`'powerup'`** branch. Nine call sites across `js/ui.js` and `js/navigation.js` request it: derelict scavenging, tech module installation, storing a module in cargo, all three distress beacon outcomes, artefact recovery and black hole warp displacement. Every one of them fell through the chain and played **nothing**, so the game's most rewarding moments were the only actions with no audio feedback. Added a four-note ascending C5-E5-G5-C6 triangle flourish with the final note blooming upward. Measured: `playBeep('powerup')` now produces 4 oscillators where it produced 0.
+    * **Verified Healthy**: an instrumented probe confirmed every other synth path fires correctly - `playScan`, `playLaser`, `startEngine`, `startAlarm` (4 oscillators via its `setInterval`), `playVictory` (6) and `playDefeat` (4). `playMissile` and `playExplosion` legitimately produce **no** oscillators because they synthesise white noise through `createBufferSource` with a band-pass sweep; the `createOscillator` call in each is only a `catch` fallback. The muted path is also clean: with `enabled = false`, zero nodes are created.
+
+---
+
+## 8. Stability & Economy Baseline (measured v1.9.20)
+
+**20-minute automated soak** (simulated flight, combat, scanning, star map use, encounters, docking, landing; 81 samples at 15s intervals):
+
+| Metric | Result |
+| :--- | :--- |
+| Frame rate | min 57.1, max 59.5, **avg 58.6 FPS** - no degradation over 20 minutes |
+| JS heap | **9.5 MB flat, 0.0 MB drift** - no leak |
+| Console errors | **0** (nothing swallowed by the `tick()` try/catch) |
+| Bounded pools | projectiles 0-2, asteroids 7-14, ore chunks 0-1, background stars 180, log nodes capped 30 |
+| `exploredSectors` | 1 -> 198, hard-capped at 400 by the 20x20 sector grid |
+| `contactLog` | 0 -> 62, capped by object count (~69) |
+| `encounterHistory` | 0 -> 44 and **still climbing - the only unbounded structure** |
+| Save file | 1,133 -> 10,749 bytes |
+
+`ship.encounterHistory` dedupes only within 3 LY of the same race, so it grows with exploration and is re-serialised into `localStorage` on **every** `saveGame()`. At the soak's (deliberately aggressive) encounter rate it added 44 entries in 20 minutes at roughly 90 bytes each. Not urgent - a 1,000-entry log is still only ~90 KB against a 5-10 MB quota - but it is the one structure that never stops growing. Capping it to the most recent few hundred entries would remove the last unbounded write path.
+
+**Economy** (computed from `GameData`):
+
+* Maxing everything - all ship tiers, all rover tiers, best crew per role - costs **$152,650**.
+* A single planet surface holds a median **$78,540** in recoverable minerals, and there are **78 planets**. Two stripped worlds fund the entire game; the galaxy is roughly **40x oversupplied**.
+* One-off income before mining anything: **$20,100** (6 derelicts $4,900, 3 beacons $2,300, 5 tech modules $12,900 if sold).
+* Grind to fully maxed: **83 rover bed-loads** at Rover L1, ~17 at L3. One L1 bed-load of minerals averages **$1,815**.
+* Fuel is not a constraint: a full 100-unit tank costs **$1,500**, less than one bed-load.
+* The Starport is **sell-only** - `buyVal` is used exclusively in alien barter, so there is no buy-low/sell-high trade loop.
+
+**Known balance defect (unfixed, pending a tuning decision)**: `GameData.upgrades.cargos` capacities run **20 -> 50 -> 45 -> 40**, and `Spaceport.purchaseUpgrade()` applies `cap` literally. Buying **Shielded Cargo Bays** ($3,500) therefore *shrinks* the hold from 50 T to 45 T, and **Cold Bio-Containment** ($3,000) shrinks it again to 40 T. Level 3's advertised benefit - "Prevents contraband detection by patrols" - **is not implemented anywhere**; `isContraband` is declared in `data.js` and never read. Level 4 is genuinely useful (`js/planet.js:697` gates live `bio_fauna` behind `cargoLevel >= 4`) but purchases are sequential, so unlocking fauna costs $6,500 and leaves the hold smaller than it was at Level 2. Suggested repair: make capacities monotonic (e.g. 20 / 50 / 65 / 80) while keeping the special properties.
 
 ---
 

@@ -75,6 +75,11 @@ const GameManager = {
     // the star map draws a line to where it comes out.
     traversedLinks: {},
 
+    // Rare Precursor tech modules bolted onto the hull, by GameData.techParts id.
+    // Their stat boosts are already folded into the numbers above; this is the
+    // record of WHICH ones, so Ship Diagnostics can list them.
+    installedTechParts: [],
+
     // Star map layer visibility, persisted so it survives a reload
     mapLayers: {
       systems: true,
@@ -731,6 +736,7 @@ const GameManager = {
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
         if (!this.ship.contactLog) this.ship.contactLog = {};
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
+        if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!this.ship.mapLayers) {
           this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true };
         }
@@ -789,6 +795,7 @@ const GameManager = {
         salvagedIds: {},
         contactLog: {},
         traversedLinks: {},
+        installedTechParts: [],
         mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, nebulae: true, unknown: true },
         launchConfig: { autoShields: true, autoWeapons: true },
         isInSpacebase: true,

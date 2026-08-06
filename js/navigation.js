@@ -1770,7 +1770,13 @@ const Navigation = {
     }
 
     // Draw Active Alien Spacecraft flying in space on Starmap
+    // Live alien vessels are radar contacts, not omniscient tracking: only plot the
+    // ones currently inside sensor reach. The radius matches the alien detection
+    // range triggerSonar() uses, so the map shows exactly what the scanner can see.
+    const alienReach = this.getScanRanges().short * 1.15;
+    const selfPos = this.getShipGalaxyCoords();
     if (this.isLayerOn("aliens")) this.alienShips.forEach(alien => {
+      if (Math.hypot(selfPos.x - alien.x, selfPos.y - alien.y) > alienReach) return;
       const alienPx = toCanvasX(alien.x);
       const alienPy = toCanvasY(alien.y);
       const shipSize = 6 * zScale;
@@ -2121,6 +2127,58 @@ const Navigation = {
     }
 
     // Render Derelict Space Stations in Viewport
+    // Render Quantum Wormholes in the Viewport. These were drawn NOWHERE in the
+    // space view - the only hint a rift existed was the LAND control flipping to
+    // ENTER WORMHOLE [W] once inside 4 LY, so players flew straight past them.
+    if (GameData.wormholes) {
+      const pulse = 0.5 + Math.abs(Math.sin(Date.now() / 320)) * 0.5;
+      GameData.wormholes.forEach(wh => {
+        const px = centerX + (wh.x - this.shipX) * scale;
+        const py = centerY + (wh.y - this.shipY) * scale;
+        if (px < -60 || px > viewWidth + 60 || py < -60 || py > viewHeight + 60) return;
+
+        const isNear = (this.nearbyWormhole && this.nearbyWormhole.id === wh.id);
+        const r = (11 + pulse * 5) * (isNear ? 1.35 : 1);
+
+        // Swirling accretion rings
+        this.ctx.save();
+        this.ctx.strokeStyle = "#00e5ff";
+        this.ctx.shadowBlur = 14;
+        this.ctx.shadowColor = "#00e5ff";
+        for (let i = 0; i < 3; i++) {
+          this.ctx.globalAlpha = (0.65 - i * 0.18) * (0.6 + pulse * 0.4);
+          this.ctx.lineWidth = 2;
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, r - i * 3.5, pulse * Math.PI * 2 + i, pulse * Math.PI * 2 + i + Math.PI * 1.45);
+          this.ctx.stroke();
+        }
+        // Event core
+        this.ctx.globalAlpha = 1;
+        const grad = this.ctx.createRadialGradient(px, py, 0, px, py, r);
+        grad.addColorStop(0, "rgba(180, 245, 255, 0.95)");
+        grad.addColorStop(0.55, "rgba(0, 229, 255, 0.35)");
+        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        this.ctx.fillStyle = grad;
+        this.ctx.beginPath();
+        this.ctx.arc(px, py, r, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+
+        this.ctx.font = "bold 10px Share Tech Mono";
+        this.ctx.fillStyle = "#00e5ff";
+        this.ctx.fillText(wh.name.toUpperCase(), px + r + 6, py + 3);
+        if (isNear) {
+          this.ctx.fillStyle = "#ffcc00";
+          this.ctx.font = "bold 11px Share Tech Mono";
+          this.ctx.fillText("▶ ENTER WORMHOLE [W]", px + r + 6, py + 16);
+          this.ctx.font = "9px Share Tech Mono";
+          this.ctx.fillStyle = "#88ccaa";
+          this.ctx.fillText(`EXIT: ${wh.destName.toUpperCase()}`, px + r + 6, py + 28);
+        }
+        this.ctx.restore();
+      });
+    }
+
     if (GameData.derelicts) {
       GameData.derelicts.forEach(der => {
         const dx = (der.x - this.shipX) * scale;

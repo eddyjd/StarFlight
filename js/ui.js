@@ -362,6 +362,21 @@ const UI = {
     equippedHtml += `<li>Rover Blaster: Lvl ${shipState.tvUpgrades.blaster}</li>`;
     equippedHtml += `<li>Rover Cargo: Lvl ${shipState.tvUpgrades.cargo}</li>`;
 
+    // Salvaged Precursor modules recovered from wrecks, vaults and derelicts
+    const fitted = Array.isArray(shipState.installedTechParts) ? shipState.installedTechParts : [];
+    if (fitted.length > 0) {
+      equippedHtml += `<li style="color:#ffcc00; font-weight:bold; margin-top:6px;">SALVAGED PRECURSOR TECH</li>`;
+      const counts = {};
+      fitted.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+      Object.keys(counts).forEach(id => {
+        const part = (GameData.techParts && GameData.techParts[id]) || null;
+        const icon = part ? part.icon : "⚙";
+        const name = part ? part.name : id;
+        const qty = counts[id] > 1 ? ` x${counts[id]}` : "";
+        equippedHtml += `<li style="color:#00e5ff;">${icon} ${name}${qty}</li>`;
+      });
+    }
+
     this.elements.equippedList.innerHTML = equippedHtml;
   },
 
@@ -800,6 +815,10 @@ const UI = {
       ship.cargoCap = (ship.cargoCap || 20) + 15;
       this.addLog(`SHIP UPGRADED: ${part.name.toUpperCase()} INSTALLED! Cargo Hold capacity expanded to ${ship.cargoCap} slots!`);
     }
+
+    // Log which module was fitted so Ship Diagnostics can list it
+    if (!Array.isArray(ship.installedTechParts)) ship.installedTechParts = [];
+    ship.installedTechParts.push(part.id || part.name);
 
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
     this.updateShip(ship);

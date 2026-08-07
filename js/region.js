@@ -136,4 +136,19 @@ const RegionManager = {
   }
 };
 
+/**
+ * Regions declare their own quest objective type rather than the engine growing a
+ * branch for them. This is the extension point QuestEngine.registerObjective()
+ * exists for: the module that owns a concept teaches the quest system about it.
+ *
+ * Caught by the Phase 6 acceptance test - Phase 5 added a whole new volume of
+ * space and never made it addressable from a quest.
+ */
+if (typeof QuestEngine !== "undefined") {
+  QuestEngine.registerObjective("visit_region", function (obj, payload, ship) {
+    // State-based, so it also resolves for a captain already standing there
+    return (ship.region || "core") === obj.region;
+  });
+}
+
 window.RegionManager = RegionManager;

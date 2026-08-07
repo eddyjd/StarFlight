@@ -510,6 +510,7 @@ const Navigation = {
     }));
     add(pick("blackHoles", D.blackHoles), "GRAVITATIONAL SINGULARITY");
     add(pick("nebulae", D.nebulae), "NEBULA FIELD");
+    add(pick("alienPorts", D.alienPorts), "ALIEN STARPORT");
     return out;
   },
 
@@ -825,7 +826,7 @@ const Navigation = {
     if (typeof QuestEngine !== "undefined") {
       QuestEngine.notify("dock", { station: port.name, raceKey: port.raceKey });
     }
-    if (typeof ArchiveReader !== "undefined") ArchiveReader.open(port.archive);
+    UI.openPortModal(port);
   },
 
   salvageSpaceWreck() {
@@ -1179,8 +1180,8 @@ const Navigation = {
 
     // 4c. Alien Starport Proximity - neutral ground, always approachable
     this.nearbyAlienPort = null;
-    if (GameData.alienPorts && (typeof RegionManager === "undefined" || RegionManager.isCore())) {
-      GameData.alienPorts.forEach(port => {
+    {
+      RegionManager.content('alienPorts').forEach(port => {
         if (Math.hypot(this.shipX - port.x, this.shipY - port.y) < 5.0) {
           this.nearbyAlienPort = port;
           this.markContact(port.id, 2);
@@ -2203,8 +2204,8 @@ const Navigation = {
 
     // Draw Active Alien Spacecraft flying in space on Starmap
     // Alien starports - fixed installations, so shown once detected like any site
-    if (GameData.alienPorts && this.isLayerOn("ports") && RegionManager.isCore()) {
-      GameData.alienPorts.forEach(port => {
+    if (this.isLayerOn("ports")) {
+      RegionManager.viewedContent('alienPorts').forEach(port => {
         const tier = this.getContactTier(port.id, port.x, port.y);
         if (tier === 0) return;
         const px = toCanvasX(port.x), py = toCanvasY(port.y);
@@ -2666,8 +2667,8 @@ Action: Hails and scans passing vessels for contraband.`
     // Render Alien Starports in the Viewport. Core-only installations: previously
     // only the interaction was region-gated, so they still DREW in the Reach and
     // could be flown to for no reason.
-    if (GameData.alienPorts && RegionManager.isCore()) {
-      GameData.alienPorts.forEach(port => {
+    {
+      RegionManager.content('alienPorts').forEach(port => {
         const px = centerX + (port.x - this.shipX) * scale;
         const py = centerY + (port.y - this.shipY) * scale;
         if (px < -50 || px > viewWidth + 50 || py < -50 || py > viewHeight + 50) return;

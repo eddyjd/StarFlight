@@ -8,6 +8,7 @@ const GameData = {
   techParts: {
     warp_conduit: {
       id: "warp_conduit",
+      requiresDrydock: true,   // An engine mount cannot be re-cut in the field.
       name: "Precursor Warp Conduit",
       icon: "⚡",
       desc: "An ancient chronos conduit that accelerates warp field generation. Permanently boosts Engine Level (+20% Speed & Efficiency)!",
@@ -24,6 +25,7 @@ const GameData = {
     },
     titanium_composite: {
       id: "titanium_composite",
+      requiresDrydock: true,   // Hull plating has to be bonded in a gravity dock.
       name: "Titanium Composite Armor Plate",
       icon: "🧱",
       desc: "Molecularly-bonded precursor armor. Permanently increases Ship Max Hull integrity by +25 points!",
@@ -48,6 +50,7 @@ const GameData = {
     },
     hyper_cargo_compressor: {
       id: "hyper_cargo_compressor",
+      requiresDrydock: true,   // Folding the hold means cutting the hold open first.
       name: "Subspace Cargo Compressor",
       icon: "📦",
       desc: "Uses dimensional folding to compress hold volume. Permanently expands Ship Cargo Hold by +15 slots!",
@@ -223,15 +226,27 @@ const GameData = {
   // Alien Starports. Neutral ground where a captain can dock, trade words rather
   // than fire, and research an archive kept in that race's own voice. Placed well
   // outside the Customs jurisdiction so they read as foreign territory.
+  // Trade fields on a port:
+  //   fuelPrice  M.U. per unit of Endurium. Starbase Prime charges 15; every
+  //              alien port charges more, and the deep regions charge a lot more.
+  //   wants      commodity keys this port pays a premium for
+  //   wantMult   multiplier applied to sellVal for wanted goods
+  //   baseMult   multiplier for everything else - aliens are not a fair market
   alienPorts: [
     { id: "port_thrynn", name: "Thrynn Trade Reliquary", raceKey: "thrynn", archive: "thrynn_reliquary",
       x: 95, y: 165, color: "#ffcc00", icon: "⌂",
+      fuelPrice: 22, wants: ["gold", "platinum", "iridium", "alien_art"], wantMult: 1.7, baseMult: 0.85,
+      tradeLine: "The Ninth House deals in metal and in beautiful things. Bring us either and the ledger opens.",
       greeting: "The Ninth House welcomes your custom, Corps captain. Our ledgers are open to those who ask politely." },
     { id: "port_veloxi", name: "Veloxi Imperial Codex", raceKey: "veloxi", archive: "veloxi_codex",
       x: 390, y: 275, color: "#ff5533", icon: "⌂",
+      fuelPrice: 31, wants: ["titanium", "precursor_alloy", "endurium_ore"], wantMult: 1.5, baseMult: 0.6,
+      tradeLine: "The Imperium requires structural alloy and reactor mass. Other cargo is tolerated, not valued.",
       greeting: "You are logged and permitted, human. The Codex is not a library. It is a record of what is true." },
     { id: "port_spemin", name: "Spemin Collected Wisdoms", raceKey: "spemin", archive: "spemin_hoard",
       x: 135, y: 330, color: "#00ff66", icon: "⌂",
+      fuelPrice: 18, wants: ["bio_flora", "bio_fauna", "contraband", "void_glass"], wantMult: 1.9, baseMult: 0.5,
+      tradeLine: "WE BUY LIVING THINGS! And glass. And the spice, obviously, we are not going to pretend otherwise.",
       greeting: "OH! A visitor! We have SO MANY facts. Most of them are even facts!" }
   ],
 

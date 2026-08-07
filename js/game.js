@@ -122,6 +122,9 @@ const GameManager = {
     wormholeSeed: null,
     wormholeNet: null,
 
+    // Structural modules recovered in the field, waiting for the gravity drydock
+    pendingModules: [],
+
     isInSpacebase: true,
     currentSystem: null,
     currentPlanet: null
@@ -396,6 +399,7 @@ const GameManager = {
       const archiveModal = document.getElementById("archive-modal");
       const puzzleModal = document.getElementById("puzzle-modal");
       const rescueModal = document.getElementById("rescue-modal");
+      const portModal = document.getElementById("port-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
@@ -404,7 +408,8 @@ const GameManager = {
                           (patrolModal && !patrolModal.classList.contains("hidden")) ||
                           (archiveModal && !archiveModal.classList.contains("hidden")) ||
                           (puzzleModal && !puzzleModal.classList.contains("hidden")) ||
-                          (rescueModal && !rescueModal.classList.contains("hidden"));
+                          (rescueModal && !rescueModal.classList.contains("hidden")) ||
+                          (portModal && !portModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         if (cargoModal) cargoModal.classList.add("hidden");
@@ -413,6 +418,7 @@ const GameManager = {
         if (archiveModal) archiveModal.classList.add("hidden");
         if (puzzleModal) puzzleModal.classList.add("hidden");
         if (rescueModal) rescueModal.classList.add("hidden");
+        if (portModal) { portModal.classList.add("hidden"); UI.currentPort = null; }
         // Only dismissable once the inspection has actually resolved
         if (patrolModal && !document.getElementById("patrol-close-btn").classList.contains("hidden")) {
           UI.closePatrolModal();
@@ -840,6 +846,7 @@ const GameManager = {
         if (!this.ship.visitedRegions) this.ship.visitedRegions = { core: true };
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
+        if (!Array.isArray(this.ship.pendingModules)) this.ship.pendingModules = [];
         if (!this.ship.mapLayers) {
           this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true };
         }
@@ -919,6 +926,7 @@ const GameManager = {
         launchConfig: { autoShields: true, autoWeapons: true },
         wormholeSeed: null,
         wormholeNet: null,
+        pendingModules: [],
         isInSpacebase: true,
         currentSystem: null,
         currentPlanet: null

@@ -249,6 +249,9 @@ const Spaceport = {
       <div class="depot-list">
     `;
 
+    // Structural modules recovered in the field wait here for the gravity dock.
+    html += this.createDrydockSection(ship);
+
     // Engine upgrading
     html += this.createUpgradeRow("engines", "ENGINES", ship.engineLevel, GameData.upgrades.engines);
     // Shield upgrading
@@ -292,6 +295,7 @@ const Spaceport = {
     container.innerHTML = html;
 
     // Depot event handlers
+    this.wireDrydockButtons();
     document.getElementById("btn-depot-fuel").addEventListener("click", () => this.buyFuel());
     document.getElementById("btn-depot-ammo").addEventListener("click", () => this.buyAmmo());
 
@@ -468,6 +472,77 @@ const Spaceport = {
     game.saveGame();
     UI.updateShip(ship);
     this.renderDepot();
+  },
+
+  /**
+   * The gravity dock. Modules that cannot be fitted between stars are stowed in
+   * the hold by UI.installCurrentTechPart() and land here, where the yard has the
+   * rigs to cut a mount, bond plate, or open a hold up and fold it.
+   *
+   * Fitting is not free - the yard charges for the berth - but the fee is a small
+   * fraction of what the module is worth, so it is never the wrong call.
+   */
+  drydockFee(part) {
+    return Math.max(200, Math.round((part.value || 2500) * 0.15));
+  },
+
+  createDrydockSection(ship) {
+    const pending = Array.isArray(ship.pendingModules) ? ship.pendingModules : [];
+    if (!pending.length) return "";
+
+    let html = `
+      <h4 style="margin: 4px 0 6px 0; color:#ffcc00; font-size:11px;">GRAVITY DRYDOCK - MODULES AWAITING FITTING</h4>
+      <div style="margin-bottom:15px; border-bottom:1px dashed rgba(255,204,0,0.35); padding-bottom:10px;">
+    `;
+
+    pending.forEach((key, idx) => {
+      const part = GameData.techParts[key];
+      if (!part) return;
+      const fee = this.drydockFee(part);
+      const can = (ship.credits || 0) >= fee;
+      html += `
+        <div class="depot-item" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="depot-info">
+            <span class="depot-name">${part.icon || ""} ${part.name.toUpperCase()}</span>
+            <span class="depot-desc">${part.desc}</span>
+          </div>
+          <button class="glow-btn drydock-fit ${can ? "yellow-glow" : ""}" data-idx="${idx}" ${can ? "" : "disabled"}>
+            FIT IN DRYDOCK - ${fee.toLocaleString()} M.U.
+          </button>
+        </div>
+      `;
+    });
+
+    return html + `</div>`;
+  },
+
+  wireDrydockButtons() {
+    const ship = window.game.ship;
+    document.querySelectorAll(".drydock-fit").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.getAttribute("data-idx"), 10);
+        const pending = Array.isArray(ship.pendingModules) ? ship.pendingModules : [];
+        const key = pending[idx];
+        const part = GameData.techParts[key];
+        if (!part) return;
+
+        const fee = this.drydockFee(part);
+        if ((ship.credits || 0) < fee) {
+          AudioController.playBeep("error");
+          UI.addLog("DRYDOCK REFUSED: THE YARD WANTS PAYING BEFORE IT CUTS ANYTHING.");
+          return;
+        }
+
+        ship.credits -= fee;
+        pending.splice(idx, 1);
+        UI.addLog(`DRYDOCK BERTH ASSIGNED. FITTING ${part.name.toUpperCase()} - ${fee.toLocaleString()} M.U. YARD FEE.`);
+        UI.applyTechPartEffect(part);
+
+        this.renderDepot();
+        UI.updateShip(ship);
+        window.game.saveGame();
+      });
+    });
   },
 
   buyFuel() {

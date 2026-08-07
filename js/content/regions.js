@@ -140,6 +140,17 @@ window.GameData.regions = {
         } }
     ],
 
+    // The only place to buy fuel outside charted space. It knows it, and prices
+    // accordingly - but a captain who finds it is no longer stranded out here.
+    alienPorts: [
+      { id: "port_reach_thrynn", name: "Ninth House Forward Post", raceKey: "thrynn", archive: "thrynn_reliquary",
+        x: 195, y: 285, color: "#ffcc00", icon: "\u2302",
+        fuelPrice: 48, wants: ["precursor_alloy", "iridium", "alien_art"], wantMult: 2.1, baseMult: 0.75,
+        tradeLine: "You are a very long way from your Starbase, captain. We are a very long way from ours. " +
+                   "One of us is selling fuel and one of us is buying it, and we both know which.",
+        greeting: "The Ninth House keeps a post here. Not a profitable one. Not usually." }
+    ],
+
     nebulae: [
       { id: "neb_reach_1", name: "The Pall", x: 250, y: 330, radius: 90,
         color: "rgba(120, 60, 160, 0.30)",
@@ -239,6 +250,17 @@ window.GameData.regions = {
         } }
     ],
 
+    // Trapped here exactly like you are, and delighted about it.
+    alienPorts: [
+      { id: "port_marrow_spemin", name: "The Spemin Who Stayed", raceKey: "spemin", archive: "spemin_hoard",
+        x: 165, y: 230, color: "#00ff66", icon: "\u2302",
+        fuelPrice: 39, wants: ["bio_flora", "bio_fauna", "contraband", "precursor_seed"], wantMult: 2.4, baseMult: 0.55,
+        tradeLine: "WE MAKE FUEL! Out of the moss! It is GOOD fuel, mostly! We have been here " +
+                   "eleven generations and nobody has exploded in four of them!",
+        greeting: "A SHIP! A REAL SHIP! Did you come through the Gate? Everyone comes through the Gate. " +
+                  "Nobody goes back through the Gate. Would you like some moss?" }
+    ],
+
     nebulae: [
       { id: "neb_marrow_1", name: "The Weight", x: 300, y: 300, radius: 110,
         color: "rgba(200, 140, 60, 0.26)",
@@ -335,6 +357,16 @@ window.GameData.regions = {
                 "IF THIS BEACON IS STILL HERE, WE DID NOT ARRIVE. TAKE THE DOOR ANYWAY. IT WORKS.\"",
           coords: { x: 250, y: 445 }
         } }
+    ],
+
+    alienPorts: [
+      { id: "port_lattice_veloxi", name: "Veloxi Deep Survey Station", raceKey: "veloxi", archive: "veloxi_codex",
+        x: 310, y: 285, color: "#ff5533", icon: "\u2302",
+        fuelPrice: 62, wants: ["precursor_alloy", "iridium", "singularity_dust", "void_glass"], wantMult: 2.6, baseMult: 0.5,
+        tradeLine: "Reactor mass is carried here from the Imperium at enormous cost. The price is the price. " +
+                   "You are welcome to fly home without it.",
+        greeting: "The Imperium has watched this quadrant for six hundred years and recorded no change in it. " +
+                  "You are the change. This is noted." }
     ],
 
     nebulae: [

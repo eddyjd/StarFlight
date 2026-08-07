@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.12.0</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.12.0</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.12.1</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.12.1</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -620,6 +620,41 @@
   </div>
 
   <!-- Stranded: Distress Beacon -->
+  <!-- Alien starport: neutral ground where a captain can refuel, trade and read -->
+  <div id="port-modal" class="modal hidden">
+    <div class="modal-content" style="width: 720px; max-width: 95%; padding: 18px; box-sizing: border-box; border-color:#ffcc00;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ffcc00; padding-bottom:6px; margin-bottom:12px;">
+        <h2 id="port-title" style="color:#ffcc00; margin:0; border:none; padding:0;">ALIEN STARPORT</h2>
+        <span id="port-region" style="font-size:11px; color:#88ccaa;"></span>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-body" id="port-greeting" style="font-size:13px; line-height:1.7; font-style:italic;"></div>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#ffcc00;">REACTOR MASS</span></div>
+        <div class="log-card-body" style="font-size:12px; line-height:1.8;">
+          <div id="port-fuel-info" style="margin-bottom:8px;"></div>
+          <div id="port-fuel-options" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        </div>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#00ff66;">THE LEDGER</span></div>
+        <div class="log-card-body" style="font-size:12px; line-height:1.8;">
+          <div id="port-trade-line" style="margin-bottom:8px; font-style:italic; color:#88ccaa;"></div>
+          <div id="port-market"></div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <button class="glow-btn" onclick="try{UI.openPortArchive()}catch(e){alert(e.message)}">READ THE ARCHIVE</button>
+        <button class="glow-btn" onclick="try{UI.closePortModal()}catch(e){alert(e.message)}">UNDOCK</button>
+      </div>
+    </div>
+  </div>
+
   <div id="rescue-modal" class="modal hidden">
     <div class="modal-content" style="width: 680px; max-width: 95%; padding: 18px; box-sizing: border-box; border-color:#ff5555;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ff5555; padding-bottom:6px; margin-bottom:12px;">
@@ -777,7 +812,7 @@
 
       <div class="log-card" style="margin-bottom: 12px;">
         <div class="log-card-header"><span style="color: #ffcc00;">INSTALLATION PROTOCOL</span></div>
-        <div class="log-card-body" style="font-size: 13px; line-height: 1.6;">
+        <div id="techpart-protocol" class="log-card-body" style="font-size: 13px; line-height: 1.6;">
           You can install this rare tech module directly onto ISS Odyssey right now for a permanent performance boost, or store it in your cargo hold to sell for credits at Starbase Prime.
         </div>
       </div>
@@ -790,24 +825,24 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.12.0"></script>
-  <script src="js/audio.js?v=1.12.0"></script>
-  <script src="js/ui.js?v=1.12.0"></script>
-  <script src="js/spaceport.js?v=1.12.0"></script>
-  <script src="js/navigation.js?v=1.12.0"></script>
-  <script src="js/planet.js?v=1.12.0"></script>
-  <script src="js/content/quests.js?v=1.12.0"></script>
-  <script src="js/content/archives.js?v=1.12.0"></script>
-  <script src="js/content/puzzles.js?v=1.12.0"></script>
-  <script src="js/content/resources.js?v=1.12.0"></script>
-  <script src="js/content/regions.js?v=1.12.0"></script>
-  <script src="js/clues.js?v=1.12.0"></script>
-  <script src="js/quest.js?v=1.12.0"></script>
-  <script src="js/archive.js?v=1.12.0"></script>
-  <script src="js/region.js?v=1.12.0"></script>
-  <script src="js/wormholes.js?v=1.12.0"></script>
-  <script src="js/puzzle.js?v=1.12.0"></script>
-  <script src="js/encounter.js?v=1.12.0"></script>
-  <script src="js/game.js?v=1.12.0"></script>
+  <script src="js/data.js?v=1.12.1"></script>
+  <script src="js/audio.js?v=1.12.1"></script>
+  <script src="js/ui.js?v=1.12.1"></script>
+  <script src="js/spaceport.js?v=1.12.1"></script>
+  <script src="js/navigation.js?v=1.12.1"></script>
+  <script src="js/planet.js?v=1.12.1"></script>
+  <script src="js/content/quests.js?v=1.12.1"></script>
+  <script src="js/content/archives.js?v=1.12.1"></script>
+  <script src="js/content/puzzles.js?v=1.12.1"></script>
+  <script src="js/content/resources.js?v=1.12.1"></script>
+  <script src="js/content/regions.js?v=1.12.1"></script>
+  <script src="js/clues.js?v=1.12.1"></script>
+  <script src="js/quest.js?v=1.12.1"></script>
+  <script src="js/archive.js?v=1.12.1"></script>
+  <script src="js/region.js?v=1.12.1"></script>
+  <script src="js/wormholes.js?v=1.12.1"></script>
+  <script src="js/puzzle.js?v=1.12.1"></script>
+  <script src="js/encounter.js?v=1.12.1"></script>
+  <script src="js/game.js?v=1.12.1"></script>
 </body>
 </html>

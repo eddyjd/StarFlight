@@ -1245,6 +1245,180 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
 
+  // ---- Alien starports ----------------------------------------------------
+  // Docking used to do nothing but open the archive, which made a starport a
+  // library with a docking clamp. A port is now somewhere you can actually
+  // resupply - and out past the singularities it is the ONLY place you can.
+
+  /** What this port charges per unit of Endurium. Starbase Prime charges 15. */
+  portFuelPrice(port) {
+    return (port && port.fuelPrice) || 25;
+  },
+
+  /** What this port pays for a commodity, which is never what the Corps pays. */
+  portPriceFor(port, key) {
+    const c = GameData.commodities[key];
+    if (!c) return 0;
+    const wanted = Array.isArray(port.wants) && port.wants.indexOf(key) >= 0;
+    const mult = wanted ? (port.wantMult || 1.5) : (port.baseMult || 0.7);
+    return { price: Math.max(1, Math.round((c.sellVal || 50) * mult)), wanted: wanted, name: c.name };
+  },
+
+  openPortModal(port) {
+    this.currentPort = port;
+    const modal = document.getElementById("port-modal");
+    if (!modal || !port) return;
+
+    const region = (typeof RegionManager !== "undefined") ? RegionManager.current() : null;
+    document.getElementById("port-title").textContent = `⌂ ${port.name.toUpperCase()}`;
+    document.getElementById("port-region").textContent =
+      `${String((region && region.name) || "").toUpperCase()} - (${port.x}, ${port.y})`;
+    document.getElementById("port-greeting").textContent = port.greeting ? `"${port.greeting}"` : "";
+    document.getElementById("port-trade-line").textContent = port.tradeLine || "";
+
+    this.renderPortFuel();
+    this.renderPortMarket();
+
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('success');
+  },
+
+  renderPortFuel() {
+    const port = this.currentPort;
+    const ship = window.game.ship;
+    if (!port) return;
+
+    const unit = this.portFuelPrice(port);
+    const room = Math.max(0, Math.floor(ship.maxFuel - ship.fuel));
+    const info = document.getElementById("port-fuel-info");
+    const box = document.getElementById("port-fuel-options");
+
+    info.innerHTML =
+      `TANK: <strong>${Math.floor(ship.fuel)} / ${ship.maxFuel}</strong> ENDURIUM &nbsp;|&nbsp; ` +
+      `PRICE HERE: <strong style="color:#ffcc00;">${unit} M.U./UNIT</strong> ` +
+      `<span style="color:#889999;">(Starbase Prime: 15)</span><br>` +
+      `CREDITS: <strong>${(ship.credits || 0).toLocaleString()} M.U.</strong>`;
+
+    if (room <= 0) {
+      box.innerHTML = `<span style="color:#88ccaa;">Tank already full. Nothing to sell you.</span>`;
+      return;
+    }
+
+    // Offer a partial top-up as well as a full tank: a captain who cannot afford
+    // to fill up should still be able to buy enough to reach somewhere cheaper.
+    const affordable = Math.floor((ship.credits || 0) / unit);
+    const opts = [];
+    [10, 25, room].forEach(n => {
+      const qty = Math.min(n, room);
+      if (qty <= 0 || opts.some(o => o.qty === qty)) return;
+      opts.push({ qty: qty, cost: qty * unit, label: (qty === room ? "FILL TANK" : `+${qty} UNITS`) });
+    });
+
+    box.innerHTML = opts.map(o => {
+      const can = (ship.credits || 0) >= o.cost;
+      return `<button class="glow-btn ${can ? 'yellow-glow' : ''}" ${can ? '' : 'disabled'} ` +
+             `onclick="try{UI.buyPortFuel(${o.qty})}catch(e){alert(e.message)}">` +
+             `${o.label} - ${o.cost.toLocaleString()} M.U.</button>`;
+    }).join("") + (affordable <= 0
+      ? `<div style="color:#ff5555; width:100%;">You cannot afford a single unit here.</div>` : "");
+  },
+
+  buyPortFuel(qty) {
+    const port = this.currentPort;
+    const ship = window.game.ship;
+    if (!port) return;
+
+    const unit = this.portFuelPrice(port);
+    const room = Math.max(0, Math.floor(ship.maxFuel - ship.fuel));
+    const want = Math.min(qty, room);
+    if (want <= 0) return;
+
+    const cost = want * unit;
+    if ((ship.credits || 0) < cost) {
+      this.addLog("TRANSACTION REFUSED: INSUFFICIENT CREDITS FOR THAT QUANTITY.");
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('error');
+      return;
+    }
+
+    ship.credits -= cost;
+    ship.fuel = Math.min(ship.maxFuel, ship.fuel + want);
+    this.addLog(`FUEL PURCHASED: ${want} ENDURIUM FROM ${port.name.toUpperCase()} FOR ${cost.toLocaleString()} M.U.`);
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('success');
+    if (typeof QuestEngine !== "undefined") QuestEngine.notify("trade", { portId: port.id, bought: "fuel", qty: want });
+
+    this.updateShip(ship);
+    this.renderPortFuel();
+    window.game.saveGame();
+  },
+
+  renderPortMarket() {
+    const port = this.currentPort;
+    const ship = window.game.ship;
+    const box = document.getElementById("port-market");
+    if (!port || !box) return;
+
+    const keys = Object.keys(ship.cargo || {}).filter(k => (ship.cargo[k] || 0) > 0);
+    if (!keys.length) {
+      box.innerHTML = `<span style="color:#88ccaa;">Hold empty. Nothing to put on the ledger.</span>`;
+      return;
+    }
+
+    const rows = keys.map(k => {
+      const q = this.portPriceFor(port, k);
+      const qty = ship.cargo[k];
+      return `<div style="display:flex; align-items:center; gap:8px; padding:3px 0; border-bottom:1px solid rgba(0,255,102,0.12);">
+        <span style="flex:1; color:${q.wanted ? '#ffcc00' : '#aaccbb'};">
+          ${q.name.toUpperCase()} x${qty}${q.wanted ? ' <span style="color:#ffcc00;">[SOUGHT]</span>' : ''}
+        </span>
+        <span style="width:110px; text-align:right;">${q.price} M.U. ea</span>
+        <button class="glow-btn" style="padding:2px 8px; font-size:11px;"
+          onclick="try{UI.sellToPort('${k}')}catch(e){alert(e.message)}">SELL ALL (${(q.price * qty).toLocaleString()})</button>
+      </div>`;
+    }).join("");
+
+    box.innerHTML = rows +
+      `<div style="margin-top:8px; color:#889999; font-size:11px;">
+         Sought goods pay above Corps rate. Everything else is bought at a discount - an alien port is not a fair market.
+       </div>`;
+  },
+
+  sellToPort(key) {
+    const port = this.currentPort;
+    const ship = window.game.ship;
+    if (!port) return;
+
+    const qty = ship.cargo[key] || 0;
+    if (qty <= 0) return;
+
+    const q = this.portPriceFor(port, key);
+    const earned = q.price * qty;
+    delete ship.cargo[key];
+    ship.credits += earned;
+
+    this.addLog(`LEDGER CLOSED: SOLD ${qty}x ${q.name.toUpperCase()} TO ${port.name.toUpperCase()} FOR ${earned.toLocaleString()} M.U.` +
+                (q.wanted ? " THEY WANTED IT." : ""));
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('success');
+    if (typeof QuestEngine !== "undefined") QuestEngine.notify("trade", { portId: port.id, sold: key, qty: qty });
+
+    this.updateShip(ship);
+    this.renderPortMarket();
+    this.renderPortFuel();
+    window.game.saveGame();
+  },
+
+  openPortArchive() {
+    const port = this.currentPort;
+    if (!port || typeof ArchiveReader === "undefined") return;
+    ArchiveReader.open(port.archive);
+  },
+
+  closePortModal() {
+    const modal = document.getElementById("port-modal");
+    if (modal) modal.classList.add("hidden");
+    this.currentPort = null;
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
   openDistressModal(signal) {
     this.currentDistress = signal;
     const modal = document.getElementById("distress-modal");
@@ -1367,6 +1541,24 @@ const UI = {
     document.getElementById("techpart-value").textContent = `SALVAGE VALUE: ${techPart.value || 2500} M.U.`;
     document.getElementById("techpart-desc").textContent = techPart.desc;
 
+    // The offer itself changes for structural work, so the button must not keep
+    // promising an immediate fit it is not going to perform.
+    const docked = !!(window.game && window.game.ship && window.game.ship.isInSpacebase);
+    const btn = document.getElementById("btnInstallTechPart");
+    const proto = document.getElementById("techpart-protocol");
+    if (techPart.requiresDrydock && !docked) {
+      if (btn) btn.textContent = "\u{1F527} STOW FOR DRYDOCK FITTING";
+      if (proto) proto.textContent =
+        "This is structural work. It cannot be fitted between stars - the mount has to be cut, " +
+        "or the plate bonded, or the hold cut open, and none of that is done under way. Stow it and the " +
+        "Starbase Prime engineering bay will fit it when you dock. You can also sell it instead.";
+    } else {
+      if (btn) btn.textContent = "⚡ INSTALL IMMEDIATELY ON SHIP";
+      if (proto) proto.textContent =
+        "You can install this rare tech module directly onto ISS Odyssey right now for a permanent " +
+        "performance boost, or store it in your cargo hold to sell for credits at Starbase Prime.";
+    }
+
     modal.classList.remove("hidden");
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
@@ -1376,10 +1568,14 @@ const UI = {
     if (modal) modal.classList.add("hidden");
   },
 
-  installCurrentTechPart() {
-    if (!this.currentTechPart) return;
-    const part = this.currentTechPart;
+  /**
+   * Apply a module's permanent effect. Split out of installCurrentTechPart so the
+   * drydock can run exactly the same fitting later, rather than a second copy of
+   * it that would drift out of sync.
+   */
+  applyTechPartEffect(part) {
     const ship = window.game.ship;
+    if (!part) return;
 
     if (part.effect === "engine_boost") {
       ship.engineLevel = Math.min(5, (ship.engineLevel || 1) + 1);
@@ -1418,6 +1614,32 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
     this.updateShip(ship);
     window.game.saveGame();
+  },
+
+  /**
+   * Some modules cannot be fitted between stars. Splicing an amplifier into the
+   * sensor loom is field work; re-cutting an engine mount, bonding hull plate or
+   * cutting the hold open to fold it is not. Those are stowed and fitted at
+   * Starbase Prime, which gives the flight home a reason beyond selling ore.
+   */
+  installCurrentTechPart() {
+    if (!this.currentTechPart) return;
+    const part = this.currentTechPart;
+    const ship = window.game.ship;
+
+    if (part.requiresDrydock && !ship.isInSpacebase) {
+      if (!Array.isArray(ship.pendingModules)) ship.pendingModules = [];
+      ship.pendingModules.push(part.id || part.name);
+      this.addLog(`${part.name.toUpperCase()} SECURED IN THE HOLD. THIS IS DRYDOCK WORK - IT CANNOT BE FITTED UNDER WAY.`);
+      this.addLog("REPORT TO STARBASE PRIME ENGINEERING BAY TO HAVE IT INSTALLED.");
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+      this.updateShip(ship);
+      window.game.saveGame();
+      this.closeTechPartModal();
+      return;
+    }
+
+    this.applyTechPartEffect(part);
     this.closeTechPartModal();
   },
 

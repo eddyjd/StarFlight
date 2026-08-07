@@ -43,7 +43,7 @@ The game is loaded from `file://` or a static host, so browser caching is the #1
 "my fix didn't apply". Every release bumps the version in **every** place it appears in
 `index.html` — currently ~21 occurrences:
 
-1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (18 of them).
+1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (19 of them).
 2. The version span in `.header-title`.
 3. The `VER` span in `.header-decor`.
 

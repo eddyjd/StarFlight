@@ -351,9 +351,62 @@ const PlanetExploration = {
     };
   },
 
+  /**
+   * Which kind of world is this? Matched against the planet fields that already
+   * exist, so no planet data had to be re-authored. First match wins, hence the
+   * specific profiles are ordered before `default` in js/content/resources.js.
+   */
+  getResourceProfile(planet) {
+    const profiles = (typeof GameData !== "undefined" && GameData.resourceProfiles) || [];
+    if (!planet || !profiles.length) return { minerals: [], bio: [] };
+
+    for (let i = 0; i < profiles.length; i++) {
+      const m = profiles[i].match || {};
+      if (m.hasRuins !== undefined && !!planet.hasRuins !== m.hasRuins) continue;
+      if (m.tempMin !== undefined && !(planet.temp >= m.tempMin)) continue;
+      if (m.tempMax !== undefined && !(planet.temp <= m.tempMax)) continue;
+      if (m.gravityMin !== undefined && !((planet.gravity || 1) >= m.gravityMin)) continue;
+      if (m.gravityMax !== undefined && !((planet.gravity || 1) <= m.gravityMax)) continue;
+      if (m.bioMin !== undefined && !((planet.bio || 0) >= m.bioMin)) continue;
+      if (m.bioMax !== undefined && !((planet.bio || 0) <= m.bioMax)) continue;
+      if (m.atmosphere !== undefined &&
+          String(planet.atmosphere || "").toLowerCase().indexOf(String(m.atmosphere).toLowerCase()) === -1) continue;
+      return this.withBonuses(profiles[i], planet);
+    }
+    return this.withBonuses(profiles[profiles.length - 1] || { minerals: [], bio: [] }, planet);
+  },
+
+  /** Overlay extra tables onto a base profile without mutating the source data. */
+  withBonuses(profile, planet) {
+    const bonuses = (typeof GameData !== "undefined" && GameData.resourceBonuses) || {};
+    if (!planet || !planet.hasRuins || !bonuses.ruins) return profile;
+    return {
+      id: profile.id + "+ruins",
+      label: (profile.label || "World") + " (Precursor Ruins)",
+      minerals: (profile.minerals || []).concat(bonuses.ruins.minerals || []),
+      // A world that grows nothing stays barren even with ruins on it
+      bio: (profile.bio || []).length ? (profile.bio || []).concat(bonuses.ruins.bio || []) : []
+    };
+  },
+
+  /** Weighted pick from a profile table. Returns null for an empty table. */
+  rollFromProfile(table, rand) {
+    if (!Array.isArray(table) || table.length === 0) return null;
+    let total = 0;
+    for (let i = 0; i < table.length; i++) total += (table[i].w || 1);
+    let r = (typeof rand === "function" ? rand() : Math.random()) * total;
+    for (let i = 0; i < table.length; i++) {
+      r -= (table[i].w || 1);
+      if (r <= 0) return table[i].key;
+    }
+    return table[table.length - 1].key;
+  },
+
   generatePlanetaryGrid() {
     const rand = this.getSeededRandom(this.planet.name);
     const pState = this.getPlanetState(this.planet.name);
+    // What this KIND of world can bear - see js/content/resources.js
+    const profile = this.getResourceProfile(this.planet);
 
     this.gridWidth = 50;
     this.gridHeight = 35;
@@ -399,18 +452,14 @@ const PlanetExploration = {
         if (val < 0.18) {
           this.grid[y][x] = { type: "mountain" };
         } else if (val < 0.18 + (this.planet.minerals * 0.07)) {
-          const minVal = rand();
-          let itemKey = "iron";
-          if (minVal > 0.9) itemKey = "precursor_alloy";
-          else if (minVal > 0.7) itemKey = "endurium_ore";
-          else if (minVal > 0.4) itemKey = "platinum";
-          else if (minVal > 0.2) itemKey = "gold";
-          
-          this.grid[y][x] = { type: "mineral", item: itemKey };
+          // Draw from THIS world's profile rather than one galaxy-wide table, so
+          // an ice moon and a volcanic hell no longer yield identical ore.
+          const itemKey = this.rollFromProfile(profile.minerals, rand);
+          if (itemKey) this.grid[y][x] = { type: "mineral", item: itemKey };
         } else if (val < 0.22 + (this.planet.minerals * 0.07) + (this.planet.bio * 0.06)) {
-          const bioVal = rand();
-          const itemKey = bioVal > 0.75 ? "bio_fauna" : "bio_flora";
-          this.grid[y][x] = { type: "bio", item: itemKey };
+          const itemKey = this.rollFromProfile(profile.bio, rand);
+          // An airless body has an empty bio table and simply grows nothing
+          if (itemKey) this.grid[y][x] = { type: "bio", item: itemKey };
         }
       }
     }
@@ -1323,6 +1372,35 @@ const PlanetExploration = {
         return { icon: "👾", label: "FAUNA", color: "#ff66cc" };
       case "bio_flora":
         return { icon: "🌱", label: "FLORA", color: "#66ffaa" };
+
+      // Phase 4 world-specific resources
+      case "sulfur":
+        return { icon: "🟡", label: "SULFUR", color: "#ffdd44" };
+      case "silicate":
+        return { icon: "🪨", label: "SILICATE", color: "#bbbbbb" };
+      case "titanium":
+        return { icon: "⚙️", label: "TITANIUM", color: "#cfd8dc" };
+      case "obsidian":
+        return { icon: "🖤", label: "OBSIDIAN", color: "#9c6bff" };
+      case "cryo_crystal":
+        return { icon: "❄️", label: "CRYO", color: "#88e5ff" };
+      case "iridium":
+        return { icon: "🔘", label: "IRIDIUM", color: "#ffb0e0" };
+      case "void_glass":
+        return { icon: "🔮", label: "VOID GLASS", color: "#b46bff" };
+      case "singularity_dust":
+        return { icon: "✨", label: "SING. DUST", color: "#ffffff" };
+      case "spore_mat":
+        return { icon: "🍄", label: "SPORE MAT", color: "#c8a2c8" };
+      case "crystal_lichen":
+        return { icon: "💎", label: "LICHEN", color: "#7fffd4" };
+      case "thermophile":
+        return { icon: "🧫", label: "THERMOPHILE", color: "#ff8844" };
+      case "abyssal_bloom":
+        return { icon: "🪸", label: "ABYSSAL", color: "#66ccff" };
+      case "precursor_seed":
+        return { icon: "🌌", label: "SEED VAULT", color: "#00ffcc" };
+
       default:
         if (tileType === "mineral") return { icon: "⛏️", label: "MINERAL", color: "#ffcc00" };
         if (tileType === "bio") return { icon: "🧬", label: "SPECIMEN", color: "#8888ff" };

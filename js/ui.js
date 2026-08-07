@@ -47,6 +47,7 @@ const UI = {
       btnCargo: document.getElementById("ctrl-cargo"),
       btnStarmap: document.getElementById("ctrl-starmap"),
       btnLongScan: document.getElementById("ctrl-longscan"),
+      btnDistress: document.getElementById("ctrl-distress"),
 
       // Cargo Modal
       cargoModal: document.getElementById("cargo-modal"),
@@ -168,6 +169,10 @@ const UI = {
           }
         }
       });
+    }
+
+    if (this.elements.btnDistress) {
+      this.elements.btnDistress.addEventListener("click", () => this.openRescueModal());
     }
 
     if (this.elements.btnLongScan) {
@@ -575,6 +580,13 @@ const UI = {
       this.elements.btnWeapons.classList.toggle("red-glow", weaponsArmed);
     } else {
       this.elements.btnWeapons.textContent = "NO WEAPONS";
+    }
+
+    // Distress control surfaces only when the ship is actually stranded
+    if (this.elements.btnDistress) {
+      const stranded = (game.ship.fuel <= 0) && !game.ship.isInSpacebase && game.viewState === "navigation";
+      this.elements.btnDistress.classList.toggle("hidden", !stranded);
+      this.elements.btnDistress.disabled = !stranded;
     }
 
     // Long range sweep: hyperspace only, and shows its own recharge timer
@@ -1071,6 +1083,138 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
 
+  /**
+   * Stranded without fuel. Who answers a distress call depends on where you are:
+   * inside Customs jurisdiction the Corps will tow you, near an alien port they
+   * will trade, and in the deep dark you are on your own with whatever is in the
+   * hold. Every option costs something - being rescued should sting.
+   */
+  openRescueModal() {
+    const modal = document.getElementById("rescue-modal");
+    if (!modal) return;
+    const ship = window.game.ship;
+    const N = Navigation;
+
+    const inCore = (typeof RegionManager === "undefined") || RegionManager.isCore();
+    const zone = GameData.patrolZone || { x: 250, y: 250, radius: 130 };
+    const distToBase = Math.hypot(N.shipX - zone.x, N.shipY - zone.y);
+    const inJurisdiction = inCore && distToBase <= zone.radius;
+    const nearestPort = inCore && GameData.alienPorts
+      ? GameData.alienPorts.map(p => ({ p: p, d: Math.hypot(N.shipX - p.x, N.shipY - p.y) }))
+                           .sort((a, b) => a.d - b.d)[0]
+      : null;
+
+    document.getElementById("rescue-position").textContent =
+      `ADRIFT AT (${N.shipX.toFixed(1)}, ${N.shipY.toFixed(1)}) - ${String(RegionManager.current().name).toUpperCase()}`;
+
+    const cargoMass = this.calculateCargoMass(ship.cargo);
+    document.getElementById("rescue-status").innerHTML =
+      `Endurium: <strong style="color:#ff5555;">${Math.floor(ship.fuel)} / ${ship.maxFuel}</strong><br>` +
+      `Credits: <strong>${(ship.credits || 0).toLocaleString()} M.U.</strong><br>` +
+      `Cargo aboard: <strong>${cargoMass.toFixed(1)} T</strong><br>` +
+      `Distance to Starbase Prime: <strong>${inCore ? distToBase.toFixed(0) + " LY" : "unreachable from this region"}</strong>`;
+
+    const opts = document.getElementById("rescue-options");
+    opts.innerHTML = "";
+    const addOpt = (label, note, cls, fn, enabled) => {
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "display:flex; justify-content:space-between; align-items:center; gap:10px;";
+      const b = document.createElement("button");
+      b.className = "glow-btn " + cls;
+      b.textContent = label;
+      b.disabled = !enabled;
+      b.onclick = fn;
+      const n = document.createElement("span");
+      n.style.cssText = "font-size:11px; color:#88ccaa; flex:1;";
+      n.textContent = note;
+      wrap.appendChild(b); wrap.appendChild(n);
+      opts.appendChild(wrap);
+    };
+
+    // 1. Corps tow - only inside the jurisdiction that fields the cutters
+    addOpt("REQUEST SFC TOW", inJurisdiction
+        ? "Starbase Prime dispatches a cutter. Full tank, towed home, and a 2,000 M.U. recovery bill."
+        : "No Customs cutter is within range of this position.",
+      "green-glow", () => this.resolveRescue("sfc"), inJurisdiction && ship.credits >= 0);
+
+    // 2. Alien trade - they want paying, and they know you have no choice
+    addOpt("HAIL PASSING TRADER", nearestPort
+        ? `A ${nearestPort.p.raceKey.toUpperCase()} tender answers. 40 Endurium at triple the going rate: 1,800 M.U.`
+        : "Nothing answers on the trade bands out here.",
+      "yellow-glow", () => this.resolveRescue("trade"), !!nearestPort && ship.credits >= 1800);
+
+    // 3. Barter the hold - always available if you have anything to give
+    addOpt("BARTER THE CARGO HOLD", cargoMass > 0
+        ? `Trade the entire hold (${cargoMass.toFixed(1)} T) for 50 Endurium. No credits change hands.`
+        : "The hold is empty. There is nothing to trade.",
+      "", () => this.resolveRescue("barter"), cargoMass > 0);
+
+    // 4. Last resort - always works, always hurts
+    addOpt("BURN THE CARGO FOR REACTION MASS", "Scuttle everything aboard for 20 Endurium. Nothing is recovered.",
+      "red-glow", () => this.resolveRescue("scuttle"), true);
+
+    document.getElementById("rescue-result").classList.add("hidden");
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('error');
+    this.addLog("DISTRESS BEACON BROADCASTING ON THE OPEN BAND...");
+  },
+
+  resolveRescue(choice) {
+    const ship = window.game.ship;
+    const N = Navigation;
+    let html = "";
+
+    if (choice === "sfc") {
+      const fee = 2000;
+      const paid = Math.min(ship.credits, fee);
+      ship.credits -= paid;
+      ship.fuel = ship.maxFuel;
+      const debt = fee - paid;
+      html = `<span style="color:#00ff66;">SFC cutter matches velocity and takes you under tow.</span><br>` +
+             `Tanks refilled to ${ship.maxFuel}. Recovery fee ${paid.toLocaleString()} M.U. deducted.` +
+             (debt > 0 ? `<br><span style="color:#ffcc00;">${debt.toLocaleString()} M.U. logged as debt against your commission.</span>` : "");
+      N.resetPhysics(250, 250);
+      ship.coordinates.x = 250; ship.coordinates.y = 250;
+      this.addLog(`SFC TOW COMPLETE: RETURNED TO STARBASE PRIME. FEE ${paid} M.U.`);
+      setTimeout(() => { try { Navigation.enterSpacebase(); } catch (e) {} }, 1200);
+
+    } else if (choice === "trade") {
+      ship.credits -= 1800;
+      ship.fuel = Math.min(ship.maxFuel, ship.fuel + 40);
+      html = `<span style="color:#ffcc00;">The tender transfers 40 Endurium and departs without ceremony.</span><br>` +
+             `1,800 M.U. paid. They knew exactly what your position was worth.`;
+      this.addLog("TRADER RESUPPLY: +40 ENDURIUM FOR 1,800 M.U.");
+
+    } else if (choice === "barter") {
+      const mass = this.calculateCargoMass(ship.cargo);
+      ship.cargo = {};
+      ship.fuel = Math.min(ship.maxFuel, ship.fuel + 50);
+      html = `<span style="color:#ffcc00;">The hold is emptied into their bay and 50 Endurium comes back the other way.</span><br>` +
+             `${mass.toFixed(1)} T of cargo gone. It was worth more than the fuel, and both of you knew it.`;
+      this.addLog(`CARGO BARTERED: ${mass.toFixed(1)} T TRADED FOR 50 ENDURIUM.`);
+
+    } else if (choice === "scuttle") {
+      ship.cargo = {};
+      ship.fuel = Math.min(ship.maxFuel, ship.fuel + 20);
+      html = `<span style="color:#ff5555;">You feed the hold into the reaction chamber.</span><br>` +
+             `20 Endurium recovered. Enough to limp somewhere. Nothing else survives the burn.`;
+      this.addLog("EMERGENCY SCUTTLE: CARGO CONVERTED TO 20 ENDURIUM.");
+    }
+
+    Navigation.fuelDryAnnounced = false;
+    document.getElementById("rescue-options").innerHTML = "";
+    document.getElementById("rescue-result-body").innerHTML = html;
+    document.getElementById("rescue-result").classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('success');
+    this.updateShip(ship);
+    window.game.saveGame();
+  },
+
+  closeRescueModal() {
+    const modal = document.getElementById("rescue-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
   openVictoryModal() {
     const modal = document.getElementById("victory-modal");
     if (!modal) return;
@@ -1363,6 +1507,69 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
 
+  planetSurvey(name) {
+    const ship = window.game.ship;
+    return (ship.planetSurveys && ship.planetSurveys[name]) ||
+           { scanned: false, landed: false, landings: 0, minerals: [], bio: [], ruins: 0, ruinsEmpty: 0, artifacts: [], wrecks: 0, profile: null };
+  },
+
+  toggleLogSystem(sysName) {
+    if (!this.expandedSystems) this.expandedSystems = {};
+    this.expandedSystems[sysName] = !this.expandedSystems[sysName];
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+    this.renderCaptainsLog('systems');
+  },
+
+  /**
+   * Three tiers of knowledge per world, so the log reflects how far you actually
+   * took the investigation rather than dumping the data file.
+   */
+  renderSystemPlanets(planets) {
+    if (!planets.length) return '';
+    let out = '<div style="margin-top:10px; border-top:1px solid rgba(0,255,102,0.25); padding-top:8px;">';
+
+    planets.forEach(p => {
+      const sv = this.planetSurvey(p.name);
+      const nameCol = sv.landed ? '#00ff66' : (sv.scanned ? '#00e5ff' : '#888888');
+      const state = sv.landed ? `DESCENT x${sv.landings}` : (sv.scanned ? 'SCANNED' : 'UNSURVEYED');
+
+      out += `<div style="margin-bottom:10px;">
+        <strong style="color:${nameCol};">🪐 ${p.name.toUpperCase()}</strong>
+        <span style="font-size:10px; color:#88ccaa;"> — ${state}</span><br>`;
+
+      if (!sv.scanned && !sv.landed) {
+        out += `<span style="font-size:11px; color:#666;">Orbital elements only. Enter orbit and SCAN to survey.</span>`;
+      } else {
+        out += `<span style="font-size:11px; color:#aaccbb;">
+          ${sv.profile || 'Unclassified'} &nbsp;|&nbsp; ${p.atmosphere || 'Unknown'} atmosphere &nbsp;|&nbsp;
+          ${p.gravity}g &nbsp;|&nbsp; ${p.temp}&deg;C<br>
+          Mineral richness ${Math.round((p.minerals || 0) * 100)}% &nbsp;|&nbsp; Biosphere ${Math.round((p.bio || 0) * 100)}%
+          ${p.hasRuins ? ' &nbsp;|&nbsp; <span style="color:#ffcc00;">PRECURSOR RUIN SIGNATURES</span>' : ''}
+        </span>`;
+
+        if (sv.landed) {
+          const named = keys => keys.map(k => (GameData.commodities[k] || { name: k }).name).join(', ');
+          out += `<div style="font-size:11px; margin-top:4px; color:#88ccaa;">`;
+          out += sv.minerals.length
+            ? `⛏️ Minerals recovered: <span style="color:#ffcc00;">${named(sv.minerals)}</span><br>`
+            : `⛏️ No minerals recovered yet.<br>`;
+          out += sv.bio.length
+            ? `🧬 Biologicals recovered: <span style="color:#66ffaa;">${named(sv.bio)}</span><br>`
+            : `🧬 No biologicals recovered yet.<br>`;
+          if (sv.artifacts.length) out += `🏛️ Artifacts: <span style="color:#00e5ff;">${sv.artifacts.join(', ')}</span><br>`;
+          if (sv.ruinsEmpty) out += `🏛️ Interment chambers found empty: ${sv.ruinsEmpty}<br>`;
+          if (sv.wrecks) out += `🛸 Wrecks salvaged: ${sv.wrecks}<br>`;
+          out += `</div>`;
+        } else {
+          out += `<div style="font-size:11px; margin-top:4px; color:#666;">No descent logged — land to catalogue surface resources.</div>`;
+        }
+      }
+      out += '</div>';
+    });
+
+    return out + '</div>';
+  },
+
   renderCaptainsLog(tabName) {
     const ship = window.game ? window.game.ship : null;
     if (!ship) return;
@@ -1375,24 +1582,29 @@ const UI = {
         panel.innerHTML = `<div class="log-card"><div class="log-card-body">No star systems logged in chart computer yet.</div></div>`;
         return;
       }
+      // Systems expand to show their worlds, and each world shows progressively
+      // more the further you took the investigation: orbit data, then scan
+      // readings, then what the rover actually brought back.
       let html = '';
       discovered.forEach(sysName => {
         const sys = RegionManager.content('starSystems').find(s => s.name === sysName);
-        if (sys) {
-          html += `
-            <div class="log-card">
-              <div class="log-card-header">
-                <span>⭐ ${sys.name.toUpperCase()} SYSTEM</span>
-                <span style="color:#ffcc00;">LOCATION: (${sys.x}, ${sys.y})</span>
-              </div>
-              <div class="log-card-body">
-                Primary Star Class: ${sys.starClass || 'M-Type Yellow'}<br>
-                Planetary Bodies: ${sys.planets ? sys.planets.length : 0} Orbiting Planets<br>
-                Status: Logged to ISS Odyssey Navigation Computer
-              </div>
+        if (!sys) return;
+        const open = this.expandedSystems && this.expandedSystems[sysName];
+        const planets = sys.planets || [];
+        const surveyed = planets.filter(p => this.planetSurvey(p.name).scanned || this.planetSurvey(p.name).landed).length;
+
+        html += `
+          <div class="log-card">
+            <div class="log-card-header" style="cursor:pointer;" onclick="UI.toggleLogSystem('${sysName.replace(/'/g, "\\'")}')">
+              <span>${open ? '▼' : '▶'} ⭐ ${sys.name.toUpperCase()} SYSTEM</span>
+              <span style="color:#ffcc00;">(${sys.x}, ${sys.y}) &nbsp; ${surveyed}/${planets.length} SURVEYED</span>
             </div>
-          `;
-        }
+            <div class="log-card-body">
+              Primary Star: Class ${sys.starClass || 'M'} &nbsp;|&nbsp; ${planets.length} orbiting bodies<br>
+              <span style="font-size:11px; color:#88ccaa;">${sys.descr || ''}</span>
+              ${open ? this.renderSystemPlanets(planets) : `<br><span style="font-size:11px; color:#ffcc00;">Click to expand planetary records.</span>`}
+            </div>
+          </div>`;
       });
       panel.innerHTML = html;
     }

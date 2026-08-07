@@ -58,6 +58,15 @@ const PlanetExploration = {
   // Perform scanner inspection using ship equipment
   scanPlanet() {
     const game = window.game;
+    // Log the reading so the Captain's Log can show what the scanner found
+    try {
+      const target = game.ship.currentPlanet;
+      if (target) {
+        const sv = this.survey(target.name);
+        sv.scanned = true;
+        sv.profile = this.getResourceProfile(target).label || null;
+      }
+    } catch (e) {}
     const ship = game.ship;
     const planet = ship.currentPlanet;
     if (!planet) return;
@@ -198,6 +207,13 @@ const PlanetExploration = {
     } else {
       ship.exploredPlanetsData[planet.name].landings = (ship.exploredPlanetsData[planet.name].landings || 1) + 1;
     }
+
+    try {
+      const sv = this.survey(planet.name);
+      sv.landed = true;
+      sv.landings = (sv.landings || 0) + 1;
+      sv.profile = sv.profile || (this.getResourceProfile(planet).label || null);
+    } catch (e) {}
 
     this.active = true;
     game.viewState = "landing";
@@ -356,6 +372,42 @@ const PlanetExploration = {
    * exist, so no planet data had to be re-authored. First match wins, hence the
    * specific profiles are ordered before `default` in js/content/resources.js.
    */
+  /**
+   * Per-planet dossier. The old record stored a landing count and nothing about
+   * what was actually down there, so the Captain's Log had nothing to show. This
+   * accumulates scan readings and every distinct thing recovered on the surface.
+   */
+  survey(planetName) {
+    const ship = window.game.ship;
+    if (!ship.planetSurveys) ship.planetSurveys = {};
+    const name = planetName || (this.planet ? this.planet.name : "Unknown");
+    if (!ship.planetSurveys[name]) {
+      ship.planetSurveys[name] = {
+        scanned: false, landed: false, landings: 0,
+        minerals: [], bio: [], ruins: 0, ruinsEmpty: 0, artifacts: [], wrecks: 0,
+        profile: null
+      };
+    }
+    return ship.planetSurveys[name];
+  },
+
+  /** Note a distinct find. Repeat finds of the same type are not duplicated. */
+  recordFind(kind, key) {
+    if (!this.planet) return;
+    const sv = this.survey(this.planet.name);
+    // kind is singular ("mineral"), the dossier field is plural ("minerals")
+    const field = (kind === "mineral") ? "minerals" : (kind === "bio" ? "bio" : null);
+    if (field) {
+      if (!Array.isArray(sv[field])) sv[field] = [];
+      if (key && sv[field].indexOf(key) === -1) sv[field].push(key);
+    } else if (kind === "artifact") {
+      if (key && sv.artifacts.indexOf(key) === -1) sv.artifacts.push(key);
+    } else if (kind === "ruin") { sv.ruins++; }
+    else if (kind === "ruin_empty") { sv.ruinsEmpty++; }
+    else if (kind === "wreck") { sv.wrecks++; }
+    try { window.game.saveGame(); } catch (e) {}
+  },
+
   getResourceProfile(planet) {
     const profiles = (typeof GameData !== "undefined" && GameData.resourceProfiles) || [];
     if (!planet || !profiles.length) return { minerals: [], bio: [] };
@@ -739,6 +791,7 @@ const PlanetExploration = {
         return;
       }
       this.cargo.push(tile.item);
+      this.recordFind(tile.type === "bio" ? "bio" : "mineral", tile.item);
       this.grid[y][x] = { type: "empty" };
       pState.minedTiles[`${x}_${y}`] = true;
       AudioController.playBeep('success');
@@ -790,6 +843,7 @@ const PlanetExploration = {
       // legitimate outcome - it just has to SAY so.
       if (!artifactName) {
         this.grid[y][x] = { type: "ruin_spent", name: null };
+        this.recordFind("ruin_empty", null);
         pState.minedTiles[`${x}_${y}`] = true;
         if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("error");
         UI.addLog("PRECURSOR MONOLITH EXCAVATED: CHAMBER ALREADY EMPTIED. NO ARTIFACT REMAINS.");
@@ -811,6 +865,8 @@ const PlanetExploration = {
       // Collect artifact directly to ship's special manifest (massless)
       if (!ship.artifactsCollected.includes(artifactName)) {
         ship.artifactsCollected.push(artifactName);
+        this.recordFind("artifact", artifactName);
+        this.recordFind("ruin", null);
         this.grid[y][x] = { type: "empty" };
         pState.minedTiles[`${x}_${y}`] = true;
         AudioController.playVictory();
@@ -832,6 +888,7 @@ const PlanetExploration = {
     }
     else if (tile.type === "tech_ruin" || tile.type === "wreck") {
       const part = tile.part || GameData.techParts.warp_conduit;
+      this.recordFind("wreck", null);
       this.grid[y][x] = { type: "empty" };
       pState.minedTiles[`${x}_${y}`] = true;
       AudioController.playVictory();

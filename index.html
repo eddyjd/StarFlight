@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.11.1</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.11.1</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.11.2</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.11.2</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -268,6 +268,7 @@
       <section class="system-controls">
         <button id="ctrl-scan" class="nav-control-btn" disabled>SCAN PLANET [S]</button>
         <button id="ctrl-longscan" class="nav-control-btn">LONG RANGE SWEEP [SHIFT+S]</button>
+        <button id="ctrl-distress" class="nav-control-btn hidden">CALL FOR RESCUE [E]</button>
         <button id="ctrl-land" class="nav-control-btn" disabled>LAND VEHICLE [L]</button>
         <button id="ctrl-comms" class="nav-control-btn" disabled>COMMUNICATIONS [C]</button>
         <button id="ctrl-shields" class="nav-control-btn" disabled>TOGGLE SHIELDS [K]</button>
@@ -617,6 +618,42 @@
     </div>
   </div>
 
+  <!-- Stranded: Distress Beacon -->
+  <div id="rescue-modal" class="modal hidden">
+    <div class="modal-content" style="width: 680px; max-width: 95%; padding: 18px; box-sizing: border-box; border-color:#ff5555;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ff5555; padding-bottom:6px; margin-bottom:12px;">
+        <h2 style="color:#ff5555; margin:0; border:none; padding:0;">DISTRESS BEACON - VESSEL ADRIFT</h2>
+        <span id="rescue-position" style="font-size:11px; color:#88ccaa;"></span>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-body" style="font-size:13px; line-height:1.7;">
+          The reactor is cold. Reserve power will hold life support and manoeuvring thrusters, but
+          the ISS Odyssey cannot make way. Broadcasting on the open band and waiting for an answer
+          is now the only option.
+        </div>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#ffcc00;">SHIP STATUS</span></div>
+        <div id="rescue-status" class="log-card-body" style="font-size:12px; line-height:1.8;"></div>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#00ff66;">WHO ANSWERS DEPENDS ON WHERE YOU ARE</span></div>
+        <div id="rescue-options" class="log-card-body" style="display:flex; flex-direction:column; gap:8px; margin-top:6px;"></div>
+      </div>
+
+      <div id="rescue-result" class="log-card hidden" style="margin-bottom:12px;">
+        <div class="log-card-body" id="rescue-result-body" style="font-size:13px; line-height:1.7;"></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="glow-btn btn-large" onclick="UI.closeRescueModal()">CLOSE CHANNEL [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Precursor Mechanism / Puzzle Panel -->
   <div id="puzzle-modal" class="modal hidden">
     <div class="modal-content" style="width: 700px; max-width: 95%; padding: 18px; box-sizing: border-box;">
@@ -752,23 +789,23 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.11.1"></script>
-  <script src="js/audio.js?v=1.11.1"></script>
-  <script src="js/ui.js?v=1.11.1"></script>
-  <script src="js/spaceport.js?v=1.11.1"></script>
-  <script src="js/navigation.js?v=1.11.1"></script>
-  <script src="js/planet.js?v=1.11.1"></script>
-  <script src="js/content/quests.js?v=1.11.1"></script>
-  <script src="js/content/archives.js?v=1.11.1"></script>
-  <script src="js/content/puzzles.js?v=1.11.1"></script>
-  <script src="js/content/resources.js?v=1.11.1"></script>
-  <script src="js/content/regions.js?v=1.11.1"></script>
-  <script src="js/clues.js?v=1.11.1"></script>
-  <script src="js/quest.js?v=1.11.1"></script>
-  <script src="js/archive.js?v=1.11.1"></script>
-  <script src="js/region.js?v=1.11.1"></script>
-  <script src="js/puzzle.js?v=1.11.1"></script>
-  <script src="js/encounter.js?v=1.11.1"></script>
-  <script src="js/game.js?v=1.11.1"></script>
+  <script src="js/data.js?v=1.11.2"></script>
+  <script src="js/audio.js?v=1.11.2"></script>
+  <script src="js/ui.js?v=1.11.2"></script>
+  <script src="js/spaceport.js?v=1.11.2"></script>
+  <script src="js/navigation.js?v=1.11.2"></script>
+  <script src="js/planet.js?v=1.11.2"></script>
+  <script src="js/content/quests.js?v=1.11.2"></script>
+  <script src="js/content/archives.js?v=1.11.2"></script>
+  <script src="js/content/puzzles.js?v=1.11.2"></script>
+  <script src="js/content/resources.js?v=1.11.2"></script>
+  <script src="js/content/regions.js?v=1.11.2"></script>
+  <script src="js/clues.js?v=1.11.2"></script>
+  <script src="js/quest.js?v=1.11.2"></script>
+  <script src="js/archive.js?v=1.11.2"></script>
+  <script src="js/region.js?v=1.11.2"></script>
+  <script src="js/puzzle.js?v=1.11.2"></script>
+  <script src="js/encounter.js?v=1.11.2"></script>
+  <script src="js/game.js?v=1.11.2"></script>
 </body>
 </html>

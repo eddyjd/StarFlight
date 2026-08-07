@@ -111,6 +111,9 @@ const Navigation = {
       if (e.key === "e" || e.key === "E") {
         if (this.nearbyDistressSignal) {
           this.investigateDistressSignal();
+        } else if (window.game && window.game.ship.fuel <= 0 &&
+                   !window.game.ship.isInSpacebase && window.game.viewState === "navigation") {
+          UI.openRescueModal();
         }
       }
       if (e.key === "f" || e.key === "F") {
@@ -486,7 +489,11 @@ const Navigation = {
   getContactTier(id, x, y) {
     const ship = window.game && window.game.ship;
     if (!ship) return 0;
-    if (this.isMapSectorKnown(x, y)) return 2; // flew straight through it
+    // Identification comes ONLY from the contact log - a short scan, or flying
+    // within interaction range. It deliberately no longer keys off charted
+    // sectors: now that a long sweep charts the fog of war it swept, treating
+    // "sector charted" as "contact identified" would auto-identify everything in
+    // long range and collapse the two-tier scan back into one.
     return (ship.contactLog && ship.contactLog[id]) || 0;
   },
 
@@ -1724,7 +1731,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "nebula",
-          known: this.isMapSectorKnown(neb.x, neb.y),
+          known: true, // reached only at tier 2 - see getContactTier
           x: nx, y: ny, radius: nr,
           title: `☁ NEBULA: ${neb.name.toUpperCase()}`,
           details: `Location: (${neb.x}, ${neb.y})\nType: Deep Space Cloud Field\nProperties: ${neb.desc}`
@@ -1757,7 +1764,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "wormhole",
-          known: this.isMapSectorKnown(wh.x, wh.y),
+          known: true, // reached only at tier 2 - see getContactTier
           x: whPx, y: whPy, radius: 14 * zScale,
           title: `🌀 QUANTUM WORMHOLE: ${wh.name.toUpperCase()}`,
           details: `Coordinates: (${wh.x}, ${wh.y})\nTarget Jump Destination: ${wh.destName}\nStatus: Active Space-Time Fold Portal`
@@ -1790,7 +1797,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "blackhole",
-          known: this.isMapSectorKnown(bh.x, bh.y),
+          known: true, // reached only at tier 2 - see getContactTier
           x: bhPx, y: bhPy, radius: gravRad,
           title: `🕳 BLACK HOLE: ${bh.name.toUpperCase()}`,
           details: `Location: (${bh.x}, ${bh.y})\nHazard: Extreme Gravitational Core\nProperties: ${bh.desc}`
@@ -1813,7 +1820,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "derelict",
-          known: this.isMapSectorKnown(der.x, der.y),
+          known: true, // reached only at tier 2 - see getContactTier
           x: derPx, y: derPy, radius: 12 * zScale,
           title: `🛰️ PRECURSOR DERELICT: ${der.name.toUpperCase()}`,
           details: `Location: (${der.x}, ${der.y})\nStatus: ${der.searched ? 'Salvaged' : 'Unsearched Artifact Vault'}\nDetails: ${der.desc}`
@@ -1836,7 +1843,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "space_wreck",
-          known: this.isMapSectorKnown(sw.x, sw.y),
+          known: true, // reached only at tier 2 - see getContactTier
           x: swPx, y: swPy, radius: 12 * zScale,
           title: `🛸 ALIEN WRECK: ${sw.name.toUpperCase()}`,
           details: `Location: (${sw.x}, ${sw.y})\nStatus: ${sw.searched ? 'Salvaged' : 'Unsearched Tech Component Wreck'}`
@@ -1867,7 +1874,7 @@ const Navigation = {
 
         this.mapTargets.push({
           type: "distress",
-          known: this.isMapSectorKnown(sig.x, sig.y),
+          known: true, // reached only at tier 2 - see getContactTier
           x: sigPx, y: sigPy, radius: 12 * zScale,
           title: `📡 DISTRESS BEACON: ${sig.name.toUpperCase()}`,
           details: `Location: (${sig.x}, ${sig.y})\nBroadcast: ${sig.desc}`

@@ -81,6 +81,9 @@ const GameManager = {
     volumesRead: [],
     relics: {},
 
+    // Per-planet dossier: scan readings and everything recovered on the surface
+    planetSurveys: {},
+
     // Wormholes / black holes the ship has actually been through. Once traversed,
     // the star map draws a line to where it comes out.
     traversedLinks: {},
@@ -382,6 +385,7 @@ const GameManager = {
       const patrolModal = document.getElementById("patrol-modal");
       const archiveModal = document.getElementById("archive-modal");
       const puzzleModal = document.getElementById("puzzle-modal");
+      const rescueModal = document.getElementById("rescue-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
@@ -389,7 +393,8 @@ const GameManager = {
                           (starmapModal && !starmapModal.classList.contains("hidden")) ||
                           (patrolModal && !patrolModal.classList.contains("hidden")) ||
                           (archiveModal && !archiveModal.classList.contains("hidden")) ||
-                          (puzzleModal && !puzzleModal.classList.contains("hidden"));
+                          (puzzleModal && !puzzleModal.classList.contains("hidden")) ||
+                          (rescueModal && !rescueModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         if (cargoModal) cargoModal.classList.add("hidden");
@@ -397,6 +402,7 @@ const GameManager = {
         if (starmapModal) starmapModal.classList.add("hidden");
         if (archiveModal) archiveModal.classList.add("hidden");
         if (puzzleModal) puzzleModal.classList.add("hidden");
+        if (rescueModal) rescueModal.classList.add("hidden");
         // Only dismissable once the inspection has actually resolved
         if (patrolModal && !document.getElementById("patrol-close-btn").classList.contains("hidden")) {
           UI.closePatrolModal();
@@ -818,6 +824,7 @@ const GameManager = {
         if (!this.ship.puzzlesSolved) this.ship.puzzlesSolved = {};
         if (!Array.isArray(this.ship.volumesRead)) this.ship.volumesRead = [];
         if (!this.ship.relics) this.ship.relics = {};
+        if (!this.ship.planetSurveys) this.ship.planetSurveys = {};
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!this.ship.mapLayers) {
@@ -883,6 +890,7 @@ const GameManager = {
         puzzlesSolved: {},
         volumesRead: [],
         relics: {},
+        planetSurveys: {},
         traversedLinks: {},
         region: "core",
         regions: {},

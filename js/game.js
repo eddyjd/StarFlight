@@ -374,19 +374,22 @@ const GameManager = {
       const starmapModal = document.getElementById("starmap-modal");
       const patrolModal = document.getElementById("patrol-modal");
       const archiveModal = document.getElementById("archive-modal");
+      const puzzleModal = document.getElementById("puzzle-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
                           (tvModal && !tvModal.classList.contains("hidden")) ||
                           (starmapModal && !starmapModal.classList.contains("hidden")) ||
                           (patrolModal && !patrolModal.classList.contains("hidden")) ||
-                          (archiveModal && !archiveModal.classList.contains("hidden"));
+                          (archiveModal && !archiveModal.classList.contains("hidden")) ||
+                          (puzzleModal && !puzzleModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         if (cargoModal) cargoModal.classList.add("hidden");
         if (tvModal) tvModal.classList.add("hidden");
         if (starmapModal) starmapModal.classList.add("hidden");
         if (archiveModal) archiveModal.classList.add("hidden");
+        if (puzzleModal) puzzleModal.classList.add("hidden");
         // Only dismissable once the inspection has actually resolved
         if (patrolModal && !document.getElementById("patrol-close-btn").classList.contains("hidden")) {
           UI.closePatrolModal();

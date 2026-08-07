@@ -59,7 +59,7 @@ const GameData = {
   // Rare Drifting Alien Ship Wrecks in Hyperspace & Solar Systems
   spaceWrecks: [
     { id: "sw_1", name: "Alien Fighter Wreck Alpha", x: 160, y: 290, searched: false, techPartKey: "warp_conduit" },
-    { id: "sw_2", name: "Precursor Scout Wreck Beta", x: 340, y: 120, searched: false, techPartKey: "quantum_shield_core" },
+    { id: "sw_2", fragment: { setId: "aegis_cradle", id: "frag_lattice", name: "Resonance Lattice" }, name: "Precursor Scout Wreck Beta", x: 340, y: 120, searched: false, techPartKey: "quantum_shield_core" },
     { id: "sw_3", name: "Uhlek Assault Wreck Gamma", x: 430, y: 380, searched: false, techPartKey: "plasma_overcharger" },
     { id: "sw_4", name: "Deep Void Wreck Delta", x: 70, y: 370, searched: false, techPartKey: "titanium_composite" },
     { id: "sw_5", name: "Exploration Wreck Epsilon", x: 290, y: 440, searched: false, techPartKey: "hyper_cargo_compressor" }
@@ -206,12 +206,12 @@ const GameData = {
 
   // Abandoned Derelict Space Stations & Starships
   derelicts: [
-    { id: "der_1", name: "Derelict Station Kronos-9", x: 140, y: 290, searched: false, loot: { type: "endurium", amount: 25, credits: 450, artifact: null, tech: "Shield Overcharger", techPartKey: "quantum_shield_core" }, desc: "Abandoned military outpost. Inert power signature." },
+    { id: "der_1", puzzleId: "puz_kronos_lock", name: "Derelict Station Kronos-9", x: 140, y: 290, searched: false, loot: { type: "endurium", amount: 25, credits: 450, artifact: null, tech: "Shield Overcharger", techPartKey: "quantum_shield_core" }, desc: "Abandoned military outpost. Inert power signature." },
     { id: "der_2", name: "Precursor Quantum Relay", x: 310, y: 160, searched: false, loot: { type: "precursor_alloy", amount: 3, credits: 800, artifact: null, tech: "Sensor Amplifier", techPartKey: "sensor_amplifier" }, desc: "Massive ancient Precursor satellite matrix floating in high orbit." },
-    { id: "der_3", name: "Ghost Vessel Vanguard", x: 440, y: 180, searched: false, loot: { type: "platinum", amount: 4, credits: 600, artifact: null, tech: "Plasma Capacitors", techPartKey: "plasma_overcharger" }, desc: "Drifting Earth exploration cruiser from the early expansion era." },
+    { id: "der_3", puzzleId: "puz_vanguard_helm", name: "Ghost Vessel Vanguard", x: 440, y: 180, searched: false, loot: { type: "platinum", amount: 4, credits: 600, artifact: null, tech: "Plasma Capacitors", techPartKey: "plasma_overcharger" }, desc: "Drifting Earth exploration cruiser from the early expansion era." },
     { id: "der_4", name: "Spemin Abandoned Hub", x: 90, y: 110, searched: false, loot: { type: "alien_art", amount: 2, credits: 350, artifact: null, tech: "Cargo Injectors", techPartKey: "hyper_cargo_compressor" }, desc: "Deserted Spemin trading outpost filled with uncollected goods." },
     { id: "der_5", name: "Veloxi Dreadnought Wreck", x: 360, y: 390, searched: false, loot: { type: "endurium", amount: 40, credits: 1200, artifact: null, tech: "Heavy Armor Plating", techPartKey: "titanium_composite" }, desc: "Battle-scarred Veloxi flagship hull floating in deep space." },
-    { id: "der_6", name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive", techPartKey: "warp_conduit" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
+    { id: "der_6", fragment: { setId: "aegis_cradle", id: "frag_socket", name: "Conduit Socket Ring" }, name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive", techPartKey: "warp_conduit" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
   ],
 
   // Alien Starports. Neutral ground where a captain can dock, trade words rather

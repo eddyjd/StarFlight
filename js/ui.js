@@ -721,7 +721,32 @@ const UI = {
         ? `<span style="color:#ffcc00; font-weight:bold;">${part.icon} INTACT MODULE RECOVERED: ${part.name.toUpperCase()}</span>`
         : `<em>Tech Artifact Logged: ${loot.tech}</em>`);
 
+    // A site may also hold a relic fragment and/or a sealed mechanism. Both are
+    // authored on the host record, so no site needs bespoke code.
+    if (der.fragment && typeof PuzzleEngine !== "undefined") {
+      PuzzleEngine.grantFragment(der.fragment.setId, der.fragment.id, der.fragment.name);
+      lootDetails.innerHTML += `<br><span style="color:#00e5ff;">⚙ COMPONENT RECOVERED: ${der.fragment.name.toUpperCase()}</span>`;
+    }
+
     const btnScavenge = document.getElementById("btnScavengeDerelict");
+
+    if (der.puzzleId && typeof PuzzleEngine !== "undefined" && !PuzzleEngine.isSolved(der.puzzleId)) {
+      this.addLog("SENSORS: A SEALED PRECURSOR MECHANISM REMAINS ACTIVE ABOARD THIS HULL.");
+      if (part) {
+        lootDetails.innerHTML += `<br><span style="color:#ffcc00;">A sealed mechanism guards the module cache.</span>`;
+      }
+      // Held so the module is released when the mechanism yields, rather than lost
+      this.pendingTechPart = part || null;
+      btnScavenge.disabled = false;
+      btnScavenge.textContent = "⛭ EXAMINE SEALED MECHANISM";
+      btnScavenge.onclick = () => {
+        this.closeDerelictModal();
+        PuzzleEngine.open(der.puzzleId, der.name);
+      };
+      return;
+    }
+    this.pendingTechPart = null;
+
     if (part) {
       this.addLog(`SALVAGE: RECOVERED AN INTACT ${part.name.toUpperCase()} FROM THE HULL.`);
       btnScavenge.disabled = false;
@@ -856,6 +881,107 @@ const UI = {
     const modal = document.getElementById("patrol-modal");
     if (modal) modal.classList.add("hidden");
     this.currentPatrol = null;
+  },
+
+  // Puzzle shell. The type's own render() supplies the controls, so this method
+  // never grows a branch per puzzle kind.
+  openPuzzleModal(puzzle, hostName, impl) {
+    const modal = document.getElementById("puzzle-modal");
+    if (!modal) return;
+
+    this.puzzleSequence = [];
+    document.getElementById("puzzle-title").textContent = puzzle.title || "PRECURSOR MECHANISM";
+    document.getElementById("puzzle-host").textContent = hostName || "";
+
+    const body = document.getElementById("puzzle-body");
+    const result = document.getElementById("puzzle-result");
+    const submit = document.getElementById("puzzle-submit");
+    result.textContent = "";
+    result.className = "";
+
+    if (PuzzleEngine.isSolved(puzzle.id)) {
+      body.innerHTML = `<div class="log-card"><div class="log-card-body" style="color:#00ff66;">
+        This mechanism has already been solved. Its records are in your Captain's Log.</div></div>`;
+      submit.classList.add("hidden");
+    } else if (!PuzzleEngine.hasPrerequisite(puzzle)) {
+      body.innerHTML = `<div class="log-card"><div class="log-card-body" style="color:#ffcc00;">
+        🔒 ${PuzzleEngine.prerequisiteHint(puzzle)}</div></div>`;
+      submit.classList.add("hidden");
+    } else {
+      body.innerHTML = impl.render(puzzle);
+      submit.classList.remove("hidden");
+
+      // Live preview for types that offer one (the cipher dial)
+      const input = document.getElementById("puzzle-input");
+      if (input && typeof impl.onInput === "function") {
+        const preview = document.getElementById("puzzle-preview");
+        const update = () => { if (preview) preview.textContent = impl.onInput(puzzle, input.value); };
+        input.addEventListener("input", update);
+        update();
+      }
+    }
+
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  puzzleGlyphPressed(glyph) {
+    if (!Array.isArray(this.puzzleSequence)) this.puzzleSequence = [];
+    this.puzzleSequence.push(glyph);
+    const box = document.getElementById("puzzle-sequence");
+    const input = document.getElementById("puzzle-input");
+    if (box) box.textContent = this.puzzleSequence.join(" ");
+    if (input) input.value = this.puzzleSequence.join("");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  puzzleClearSequence() {
+    this.puzzleSequence = [];
+    const box = document.getElementById("puzzle-sequence");
+    const input = document.getElementById("puzzle-input");
+    if (box) box.textContent = "";
+    if (input) input.value = "";
+  },
+
+  submitPuzzle() {
+    const input = document.getElementById("puzzle-input");
+    const result = document.getElementById("puzzle-result");
+    const value = input ? input.value : "";
+    const ok = PuzzleEngine.attempt(value);
+
+    if (ok) {
+      result.textContent = "✔ MECHANISM ACCEPTS. SEQUENCE COMPLETE.";
+      result.style.color = "#00ff66";
+      document.getElementById("puzzle-submit").classList.add("hidden");
+
+      // Release anything the mechanism was sealing
+      if (this.pendingTechPart) {
+        const released = this.pendingTechPart;
+        this.pendingTechPart = null;
+        this.addLog(`THE MECHANISM DISENGAGES. MODULE CACHE OPEN: ${released.name.toUpperCase()}.`);
+        setTimeout(() => { this.closePuzzleModal(); this.openTechPartModal(released); }, 1400);
+      }
+      const cur = PuzzleEngine.current;
+      if (cur) {
+        const body = document.getElementById("puzzle-body");
+        if (cur.puzzle.type === "cipher") {
+          body.innerHTML = `<div class="log-card"><div class="log-card-body" style="color:#00e5ff; font-size:15px; letter-spacing:1px;">
+            ${cur.puzzle.plaintext}</div></div>`;
+        }
+      }
+    } else {
+      result.textContent = "✖ REJECTED. The mechanism resets.";
+      result.style.color = "#ff5555";
+      this.puzzleClearSequence();
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('error');
+    }
+  },
+
+  closePuzzleModal() {
+    const modal = document.getElementById("puzzle-modal");
+    if (modal) modal.classList.add("hidden");
+    PuzzleEngine.current = null;
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
 
   // Archive shelf. Locked volumes stay visible but state plainly why - a shelf you

@@ -678,6 +678,9 @@ const Navigation = {
     const sw = this.nearbySpaceWreck;
     sw.searched = true;
     if (window.game && window.game.markSalvaged) window.game.markSalvaged(sw.id);
+    if (sw.fragment && typeof PuzzleEngine !== "undefined") {
+      PuzzleEngine.grantFragment(sw.fragment.setId, sw.fragment.id, sw.fragment.name);
+    }
     const part = GameData.techParts[sw.techPartKey] || GameData.techParts.warp_conduit;
     UI.openTechPartModal(part);
   },

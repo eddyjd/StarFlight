@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.10.1</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.10.1</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.10.2</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.10.2</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -608,6 +608,25 @@
     </div>
   </div>
 
+  <!-- Precursor Mechanism / Puzzle Panel -->
+  <div id="puzzle-modal" class="modal hidden">
+    <div class="modal-content" style="width: 700px; max-width: 95%; padding: 18px; box-sizing: border-box;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--primary-color); padding-bottom:6px; margin-bottom:12px;">
+        <h2 id="puzzle-title" style="color:#ffcc00; margin:0; border:none; padding:0;">PRECURSOR MECHANISM</h2>
+        <span id="puzzle-host" style="font-size:11px; color:#88ccaa;"></span>
+      </div>
+
+      <div id="puzzle-body" style="min-height:120px;"></div>
+
+      <div id="puzzle-result" style="margin-top:12px; font-size:13px; font-weight:bold; min-height:20px;"></div>
+
+      <div style="display:flex; justify-content:space-between; margin-top:14px;">
+        <button id="puzzle-submit" class="glow-btn btn-large green-glow" onclick="UI.submitPuzzle()">ENGAGE MECHANISM</button>
+        <button class="glow-btn btn-large" onclick="UI.closePuzzleModal()">DISENGAGE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Archive / Library Reader -->
   <div id="archive-modal" class="modal hidden">
     <div class="modal-content" style="width: 860px; max-width: 96%; max-height: 92vh; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column;">
@@ -724,18 +743,20 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.10.1"></script>
-  <script src="js/audio.js?v=1.10.1"></script>
-  <script src="js/ui.js?v=1.10.1"></script>
-  <script src="js/spaceport.js?v=1.10.1"></script>
-  <script src="js/navigation.js?v=1.10.1"></script>
-  <script src="js/planet.js?v=1.10.1"></script>
-  <script src="js/content/quests.js?v=1.10.1"></script>
-  <script src="js/content/archives.js?v=1.10.1"></script>
-  <script src="js/clues.js?v=1.10.1"></script>
-  <script src="js/quest.js?v=1.10.1"></script>
-  <script src="js/archive.js?v=1.10.1"></script>
-  <script src="js/encounter.js?v=1.10.1"></script>
-  <script src="js/game.js?v=1.10.1"></script>
+  <script src="js/data.js?v=1.10.2"></script>
+  <script src="js/audio.js?v=1.10.2"></script>
+  <script src="js/ui.js?v=1.10.2"></script>
+  <script src="js/spaceport.js?v=1.10.2"></script>
+  <script src="js/navigation.js?v=1.10.2"></script>
+  <script src="js/planet.js?v=1.10.2"></script>
+  <script src="js/content/quests.js?v=1.10.2"></script>
+  <script src="js/content/archives.js?v=1.10.2"></script>
+  <script src="js/content/puzzles.js?v=1.10.2"></script>
+  <script src="js/clues.js?v=1.10.2"></script>
+  <script src="js/quest.js?v=1.10.2"></script>
+  <script src="js/archive.js?v=1.10.2"></script>
+  <script src="js/puzzle.js?v=1.10.2"></script>
+  <script src="js/encounter.js?v=1.10.2"></script>
+  <script src="js/game.js?v=1.10.2"></script>
 </body>
 </html>

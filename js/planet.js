@@ -736,6 +736,12 @@ const PlanetExploration = {
         if (typeof QuestEngine !== "undefined") {
           QuestEngine.notify("artifact", { artifact: artifactName });
         }
+
+        // Ruin worlds also yield the cradle's field governor - the one component
+        // that cannot be found in space.
+        if (typeof PuzzleEngine !== "undefined") {
+          PuzzleEngine.grantFragment("aegis_cradle", "frag_governor", "Field Governor");
+        }
         window.game.saveGame();
         Spaceport.renderHqLogs();
       }

@@ -102,8 +102,19 @@ window.GameData.regions = {
 
     distressSignals: [
       { id: "sig_reach_1", name: "Distress Beacon: Corps Survey Lost", x: 205, y: 375, active: true,
-        event: "probe_salvage",
-        desc: "A Corps survey beacon. Its registry predates the founding of Starbase Prime by four centuries." }
+        event: "corps_beacon", bounty: 900, chartRadius: 130,
+        desc: "A Corps survey beacon, still transmitting on a carrier the fleet retired long ago. " +
+              "Its registry predates the founding of Starbase Prime by four centuries.",
+        grantsClue: {
+          id: "clue_corps_first_survey",
+          title: "The First Survey",
+          text: "SURVEY VESSEL ENDURANCE, CORPS REGISTRY 004. FINAL ENTRY, UNDATED: " +
+                "\"WE CAME THROUGH THE WELL AND IT CLOSED BEHIND US. NO RETURN VECTOR. " +
+                "THE CHART IS ATTACHED - IT IS ALL WE HAVE LEFT TO SEND. " +
+                "TELL THEM THE CORPS WAS HERE FIRST, AND THAT WE DID NOT FIND IT EMPTY.\" " +
+                "STARBASE PRIME WAS FOUNDED FOUR CENTURIES AFTER THIS TRANSMISSION BEGAN.",
+          coords: { x: 205, y: 375 }
+        } }
     ],
 
     nebulae: [

@@ -181,6 +181,10 @@ const GameManager = {
     if (!id) return;
     if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
     this.ship.salvagedIds[id] = true;
+    // The salvage_site objective reads salvagedIds, but nothing told the engine the
+    // set had changed - so a "salvage X" objective sat unresolved until some other
+    // event happened to fire an evaluation.
+    if (typeof QuestEngine !== "undefined") QuestEngine.notify("salvage", { siteId: id });
     this.saveGame();
   },
 

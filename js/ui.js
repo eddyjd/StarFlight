@@ -1272,6 +1272,11 @@ const UI = {
         <button class="glow-btn blue-glow" onclick="UI.handleDistressOption('rescue_pod')">RETRIEVE CRYO-POD NAVIGATOR (REWARD: RECOVERED CREW DATA & 800 M.U.)</button>
         <button class="glow-btn" onclick="UI.handleDistressOption('ignore')">LEAVE BEACON ACTIVE</button>
       `;
+    } else if (signal.event === "corps_beacon") {
+      html += `
+        <button class="glow-btn green-glow" onclick="UI.handleDistressOption('read_beacon')">DECODE THE FINAL TRANSMISSION (RECOVERS: SURVEY CHART & SHIP'S LOG)</button>
+        <button class="glow-btn" onclick="UI.handleDistressOption('ignore')">LEAVE IT TRANSMITTING</button>
+      `;
     }
 
     optBox.innerHTML = html;
@@ -1303,15 +1308,52 @@ const UI = {
       ship.credits += 500;
       if (sig) { sig.active = false; if (window.game && window.game.markSalvaged) window.game.markSalvaged(sig.id); }
       this.addLog("PROBE SALVAGED: Downloaded ancient telemetry logs. Received 500 M.U. data bounty!");
+      this.mergeProbeTelemetry(sig);
       if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
     } else if (choiceKey === "rescue_pod") {
       ship.credits += 800;
       if (sig) { sig.active = false; if (window.game && window.game.markSalvaged) window.game.markSalvaged(sig.id); }
       this.addLog("CRYO-POD RECOVERED: Rescued stranded specialist navigator. Received 800 M.U. Starbase bounty!");
       if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    } else if (choiceKey === "read_beacon") {
+      // A derelict Corps beacon is a record, not a bounty. What it is worth is the
+      // survey it died carrying - out here that chart is the only one there is.
+      const bounty = (sig && sig.bounty) || 300;
+      ship.credits += bounty;
+      if (sig) { sig.active = false; if (window.game && window.game.markSalvaged) window.game.markSalvaged(sig.id); }
+      this.addLog(`BEACON DECODED: Recovered the survey's final transmission. ${bounty} M.U. records bounty pending at Starbase Prime.`);
+      this.mergeProbeTelemetry(sig);
+      if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    }
+
+    // Any beacon may carry a clue, whatever its event type. Authored as data on
+    // the signal so a new beacon is a content record, never an edit here.
+    if (choiceKey !== "ignore" && sig && sig.grantsClue && typeof ClueLog !== "undefined") {
+      const c = sig.grantsClue;
+      if (ClueLog.record(Object.assign({ source: "beacon", sourceName: sig.name }, c))) {
+        this.addLog(`INTELLIGENCE LOGGED: ${String(c.title || c.id).toUpperCase()} - SEE CAPTAIN'S LOG.`);
+      }
+    }
+    if (choiceKey !== "ignore" && sig && typeof QuestEngine !== "undefined") {
+      QuestEngine.notify("beacon", { signalId: sig.id, event2: sig.event });
     }
 
     this.closeDistressModal();
+  },
+
+  /**
+   * Fold a salvaged probe's survey data into the captain's chart. The button has
+   * always promised "MAP DISCOVERIES" and the handler never granted any - this is
+   * the reveal that was advertised but never wired.
+   */
+  mergeProbeTelemetry(sig) {
+    const radius = (sig && sig.chartRadius) || 90;
+    const charted = (typeof Navigation !== "undefined" && Navigation.revealSectorsWithin)
+      ? Navigation.revealSectorsWithin(radius) : 0;
+    this.addLog(charted > 0
+      ? `TELEMETRY MERGED: ${charted} NEW SECTORS CHARTED FROM THE PROBE'S SURVEY RUN.`
+      : "TELEMETRY MERGED: THE PROBE'S SURVEY COVERS SPACE ALREADY CHARTED.");
+    if (window.game && window.game.saveGame) window.game.saveGame();
   },
 
   openTechPartModal(techPart) {

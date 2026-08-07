@@ -1076,7 +1076,7 @@ const UI = {
     const clues = (ship.clues || []).length;
 
     document.getElementById("victory-stats-body").innerHTML =
-      `Star systems charted: <strong>${systems} / ${(GameData.starSystems || []).length}</strong><br>` +
+      `Star systems charted: <strong>${systems} / ${RegionManager.content('starSystems').length}</strong><br>` +
       `Sectors surveyed: <strong>${sectors}</strong><br>` +
       `Worlds walked: <strong>${planets}</strong><br>` +
       `Sites salvaged: <strong>${salvaged}</strong><br>` +
@@ -1369,7 +1369,7 @@ const UI = {
       }
       let html = '';
       discovered.forEach(sysName => {
-        const sys = GameData.starSystems.find(s => s.name === sysName);
+        const sys = RegionManager.content('starSystems').find(s => s.name === sysName);
         if (sys) {
           html += `
             <div class="log-card">

@@ -176,6 +176,13 @@ const Navigation = {
     }
   },
 
+  /** If some region declares this singularity as its entry point, name it. */
+  regionEntryFor(blackHoleId) {
+    const regions = (typeof GameData !== "undefined" && GameData.regions) || {};
+    const hit = Object.keys(regions).find(k => regions[k].entryFrom === blackHoleId);
+    return hit || null;
+  },
+
   // ---- Starbase Prime Customs Patrols -------------------------------------
   // Cutters sweep the core sectors and hail any vessel that comes close. What
   // they find depends on whether Shielded Cargo Bays (cargo class 3+) are fitted,
@@ -205,6 +212,7 @@ const Navigation = {
   updatePatrols(dt) {
     const game = window.game;
     const ship = game.ship;
+    if (typeof RegionManager !== "undefined" && !RegionManager.isCore()) { this.nearbyPatrol = null; return; }
     const zone = GameData.patrolZone || { x: 250, y: 250, radius: 130 };
     const cfg = GameData.customs || {};
 
@@ -303,8 +311,8 @@ const Navigation = {
         }
       });
     }
-    if (GameData.blackHoles) {
-      GameData.blackHoles.forEach(bh => {
+    if (RegionManager.content('blackHoles').length) {
+      RegionManager.content('blackHoles').forEach(bh => {
         if (ship.traversedLinks[bh.id]) {
           links.push({ x: bh.x, y: bh.y, tx: bh.destX, ty: bh.destY, color: "#b46bff", label: "DISPLACEMENT" });
         }
@@ -433,12 +441,14 @@ const Navigation = {
       if (!arr) return;
       arr.forEach(o => out.push({ id: o.id, x: o.x, y: o.y, name: o.name, label: label, obj: o }));
     };
-    add(D.derelicts, "DERELICT STATION");
-    add(D.spaceWrecks, "ALIEN WRECK");
-    add(D.distressSignals, "DISTRESS BEACON");
-    add(D.wormholes, "QUANTUM WORMHOLE");
-    add(D.blackHoles, "GRAVITATIONAL SINGULARITY");
-    add(D.nebulae, "NEBULA FIELD");
+    const R = (typeof RegionManager !== "undefined") ? RegionManager : null;
+    const pick = (kind, fallback) => R ? R.content(kind) : (fallback || []);
+    add(pick("derelicts", D.derelicts), "DERELICT STATION");
+    add(pick("spaceWrecks", D.spaceWrecks), "ALIEN WRECK");
+    add(pick("distressSignals", D.distressSignals), "DISTRESS BEACON");
+    add(pick("wormholes", D.wormholes), "QUANTUM WORMHOLE");
+    add(pick("blackHoles", D.blackHoles), "GRAVITATIONAL SINGULARITY");
+    add(pick("nebulae", D.nebulae), "NEBULA FIELD");
     return out;
   },
 
@@ -533,7 +543,7 @@ const Navigation = {
 
     // Distant stars register as contacts too, but stay unnamed until identified
     let sysFresh = 0;
-    GameData.starSystems.forEach(sys => {
+    RegionManager.content('starSystems').forEach(sys => {
       const dist = Math.hypot(this.shipX - sys.x, this.shipY - sys.y);
       if (dist <= r.long && !game.ship.discoveredSystems[sys.name]) {
         if (this.markContact("sys_" + sys.name, 1)) sysFresh++;
@@ -921,8 +931,8 @@ const Navigation = {
 
     // 1. Singularity Black Hole Gravitational Pull Physics
     this.nearbyBlackHole = null;
-    if (GameData.blackHoles) {
-      GameData.blackHoles.forEach(bh => {
+    if (RegionManager.content('blackHoles').length) {
+      RegionManager.content('blackHoles').forEach(bh => {
         const dist = Math.hypot(this.shipX - bh.x, this.shipY - bh.y);
         if (dist < bh.gravityRadius) {
           this.nearbyBlackHole = bh;
@@ -943,6 +953,21 @@ const Navigation = {
             this.shipVy = 0;
             this.markLinkTraversed(bh.id);
             this.markContact(bh.id, 2);
+
+            // A singularity that names a destination region is a gateway, not a
+            // displacement - it carries the ship out of this volume entirely.
+            const gateway = bh.returnsTo || this.regionEntryFor(bh.id);
+            if (gateway && typeof RegionManager !== "undefined") {
+              // Leaving a region uses that region's authored returnTo point;
+              // entering one uses the destination's own arrival point.
+              let ax, ay;
+              if (bh.returnsTo) {
+                const here = RegionManager.current();
+                if (here && here.returnTo) { ax = here.returnTo.x; ay = here.returnTo.y; }
+              }
+              RegionManager.travelTo(gateway, ax, ay);
+              return;
+            }
           }
         }
       });
@@ -950,8 +975,8 @@ const Navigation = {
 
     // 2. Derelict Station Proximity
     this.nearbyDerelict = null;
-    if (GameData.derelicts) {
-      GameData.derelicts.forEach(der => {
+    if (RegionManager.content('derelicts').length) {
+      RegionManager.content('derelicts').forEach(der => {
         const dist = Math.hypot(this.shipX - der.x, this.shipY - der.y);
         if (dist < 4.0) {
           this.nearbyDerelict = der;
@@ -961,8 +986,8 @@ const Navigation = {
 
     // 3. Subspace Distress Signal Proximity
     this.nearbyDistressSignal = null;
-    if (GameData.distressSignals && this.isLayerOn("salvage")) {
-      GameData.distressSignals.forEach(sig => {
+    if (this.isLayerOn("salvage")) {
+      RegionManager.content('distressSignals').forEach(sig => {
         if (sig.active) {
           const dist = Math.hypot(this.shipX - sig.x, this.shipY - sig.y);
           if (dist < 4.0) {
@@ -991,7 +1016,7 @@ const Navigation = {
 
     // 4c. Alien Starport Proximity - neutral ground, always approachable
     this.nearbyAlienPort = null;
-    if (GameData.alienPorts) {
+    if (GameData.alienPorts && (typeof RegionManager === "undefined" || RegionManager.isCore())) {
       GameData.alienPorts.forEach(port => {
         if (Math.hypot(this.shipX - port.x, this.shipY - port.y) < 5.0) {
           this.nearbyAlienPort = port;
@@ -1002,8 +1027,8 @@ const Navigation = {
 
     // 5. Drifting Alien Space Wrecks Proximity
     this.nearbySpaceWreck = null;
-    if (GameData.spaceWrecks) {
-      GameData.spaceWrecks.forEach(sw => {
+    if (RegionManager.content('spaceWrecks').length) {
+      RegionManager.content('spaceWrecks').forEach(sw => {
         if (!sw.searched) {
           const dist = Math.hypot(this.shipX - sw.x, this.shipY - sw.y);
           if (dist < 4.0) {
@@ -1025,7 +1050,7 @@ const Navigation = {
     // that chain's trailing `else` unconditionally re-disables btnLand every frame.
 
     // Automatic Proximity Star System Discovery
-    GameData.starSystems.forEach(sys => {
+    RegionManager.content('starSystems').forEach(sys => {
       const dist = Math.hypot(this.shipX - sys.x, this.shipY - sys.y);
       if (dist < 18.0) {
         if (!ship.discoveredSystems[sys.name]) {
@@ -1146,7 +1171,7 @@ const Navigation = {
     let nearSystem = null;
     let nearStarbase = false;
 
-    GameData.starSystems.forEach(sys => {
+    RegionManager.content('starSystems').forEach(sys => {
       const dist = Math.hypot(this.shipX - sys.x, this.shipY - sys.y);
       if (sys.name === "Starbase Prime") {
         if (dist < 4.0) {
@@ -1619,8 +1644,8 @@ const Navigation = {
     const fontSize = Math.min(18, Math.max(9, Math.round(10 * zScale)));
 
     // Draw Deep Space Nebulae Gas Clouds on Star Map
-    if (GameData.nebulae && this.isLayerOn("nebulae")) {
-      GameData.nebulae.forEach(neb => {
+    if (this.isLayerOn("nebulae")) {
+      RegionManager.content('nebulae').forEach(neb => {
         const nx = toCanvasX(neb.x);
         const ny = toCanvasY(neb.y);
         const tier = this.getContactTier(neb.id, neb.x, neb.y);
@@ -1684,8 +1709,8 @@ const Navigation = {
     }
 
     // Draw Supermassive Black Holes on Star Map
-    if (GameData.blackHoles && this.isLayerOn("anomalies")) {
-      GameData.blackHoles.forEach(bh => {
+    if (this.isLayerOn("anomalies")) {
+      RegionManager.content('blackHoles').forEach(bh => {
         const bhPx = toCanvasX(bh.x);
         const bhPy = toCanvasY(bh.y);
         const tier = this.getContactTier(bh.id, bh.x, bh.y);
@@ -1717,8 +1742,8 @@ const Navigation = {
     }
 
     // Draw Derelict Space Stations on Star Map
-    if (GameData.derelicts && this.isLayerOn("salvage")) {
-      GameData.derelicts.forEach(der => {
+    if (this.isLayerOn("salvage")) {
+      RegionManager.content('derelicts').forEach(der => {
         const derPx = toCanvasX(der.x);
         const derPy = toCanvasY(der.y);
         const tier = this.getContactTier(der.id, der.x, der.y);
@@ -1740,8 +1765,8 @@ const Navigation = {
     }
 
     // Draw Drifting Space Alien Wrecks on Star Map
-    if (GameData.spaceWrecks && this.isLayerOn("salvage")) {
-      GameData.spaceWrecks.forEach(sw => {
+    if (this.isLayerOn("salvage")) {
+      RegionManager.content('spaceWrecks').forEach(sw => {
         const swPx = toCanvasX(sw.x);
         const swPy = toCanvasY(sw.y);
         const tier = this.getContactTier(sw.id, sw.x, sw.y);
@@ -1763,8 +1788,8 @@ const Navigation = {
     }
 
     // Draw Subspace Distress Beacons on Star Map
-    if (GameData.distressSignals) {
-      GameData.distressSignals.forEach(sig => {
+    if (RegionManager.content('distressSignals').length) {
+      RegionManager.content('distressSignals').forEach(sig => {
         if (!sig.active) return;
         const sigPx = toCanvasX(sig.x);
         const sigPy = toCanvasY(sig.y);
@@ -1795,7 +1820,7 @@ const Navigation = {
 
     // Check if any star system in a sector is discovered
     const systemInSectorDiscovered = (sx, sy) => {
-      return GameData.starSystems.some(sys => {
+      return RegionManager.content('starSystems').some(sys => {
         return sys.x >= sx && sys.x < sx + 25 && sys.y >= sy && sys.y < sy + 25 && ship.discoveredSystems[sys.name];
       });
     };
@@ -1823,7 +1848,7 @@ const Navigation = {
     }
 
     // Draw Explored/Discovered Star Systems (including Starbase Prime)
-    if (this.isLayerOn("systems")) GameData.starSystems.forEach(sys => {
+    if (this.isLayerOn("systems")) RegionManager.content('starSystems').forEach(sys => {
       const secX = Math.floor(sys.x / 25) * 25;
       const secY = Math.floor(sys.y / 25) * 25;
       const isDiscovered = ship.discoveredSystems && ship.discoveredSystems[sys.name];
@@ -2056,7 +2081,7 @@ Action: Hails and scans passing vessels for contraband.`
     const infoText = document.getElementById("starmap-info-text");
     if (infoText) {
       const stateStr = (window.game.spaceState === "system" && ship.currentSystem) ? `ORBITING ${ship.currentSystem.name.toUpperCase()}` : "HYPERSPACE";
-      infoText.textContent = `VESSEL POSITION: X ${galCoords.x.toFixed(1)}, Y ${galCoords.y.toFixed(1)} (${stateStr}) | SYSTEMS LOGGED: ${discoveredCount} / ${GameData.starSystems.length} | SECTORS: ${Object.keys(ship.exploredSectors).length} / 100`;
+      infoText.textContent = `[${String(RegionManager.current().name).toUpperCase()}] VESSEL POSITION: X ${galCoords.x.toFixed(1)}, Y ${galCoords.y.toFixed(1)} (${stateStr}) | SYSTEMS LOGGED: ${discoveredCount} / ${RegionManager.content('starSystems').length} | SECTORS: ${Object.keys(ship.exploredSectors).length} / 100`;
     }
   },
 
@@ -2074,7 +2099,7 @@ Action: Hails and scans passing vessels for contraband.`
       const r = this.getScanRanges();
       UI.addLog(`SHORT RANGE SCAN EMITTED. RANGE ${r.short.toFixed(1)} LY (NAV SKILL ${r.navSkill} / SCANNER CLASS ${r.scannerLevel}).`);
 
-      GameData.starSystems.forEach(sys => {
+      RegionManager.content('starSystems').forEach(sys => {
         const dist = Math.hypot(this.shipX - sys.x, this.shipY - sys.y);
         if (dist < r.short) {
           this.markContact("sys_" + sys.name, 2);
@@ -2218,7 +2243,7 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Draw all Star Systems in viewport
-    GameData.starSystems.forEach(sys => {
+    RegionManager.content('starSystems').forEach(sys => {
       const dx = (sys.x - this.shipX) * scale;
       const dy = (sys.y - this.shipY) * scale;
       
@@ -2271,8 +2296,8 @@ Action: Hails and scans passing vessels for contraband.`
     });
 
     // Render Supermassive Black Holes in Viewport
-    if (GameData.blackHoles) {
-      GameData.blackHoles.forEach(bh => {
+    if (RegionManager.content('blackHoles').length) {
+      RegionManager.content('blackHoles').forEach(bh => {
         const dx = (bh.x - this.shipX) * scale;
         const dy = (bh.y - this.shipY) * scale;
         const px = centerX + dx;
@@ -2313,8 +2338,8 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Render Space Alien Wrecks in Viewport
-    if (GameData.spaceWrecks) {
-      GameData.spaceWrecks.forEach(sw => {
+    if (RegionManager.content('spaceWrecks').length) {
+      RegionManager.content('spaceWrecks').forEach(sw => {
         const dx = (sw.x - this.shipX) * scale;
         const dy = (sw.y - this.shipY) * scale;
         const px = centerX + dx;
@@ -2460,8 +2485,8 @@ Action: Hails and scans passing vessels for contraband.`
       });
     }
 
-    if (GameData.derelicts) {
-      GameData.derelicts.forEach(der => {
+    if (RegionManager.content('derelicts').length) {
+      RegionManager.content('derelicts').forEach(der => {
         const dx = (der.x - this.shipX) * scale;
         const dy = (der.y - this.shipY) * scale;
         const px = centerX + dx;
@@ -2483,8 +2508,8 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Render Subspace Distress Beacons in Viewport
-    if (GameData.distressSignals) {
-      GameData.distressSignals.forEach(sig => {
+    if (RegionManager.content('distressSignals').length) {
+      RegionManager.content('distressSignals').forEach(sig => {
         if (!sig.active) return;
         const dx = (sig.x - this.shipX) * scale;
         const dy = (sig.y - this.shipY) * scale;

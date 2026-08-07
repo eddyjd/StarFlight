@@ -85,6 +85,12 @@ const GameManager = {
     // the star map draws a line to where it comes out.
     traversedLinks: {},
 
+    // Which volume of space the ship is in, and the per-region exploration record.
+    // See js/region.js - the five knowledge fields above are the working copy for
+    // whichever region is active.
+    region: "core",
+    regions: {},
+
     // Rare Precursor tech modules bolted onto the hull, by GameData.techParts id.
     // Their stat boosts are already folded into the numbers above; this is the
     // record of WHICH ones, so Ship Diagnostics can list them.
@@ -123,6 +129,7 @@ const GameManager = {
     try { PlanetExploration.init(); } catch (e) { errors.push("PlanetExploration.init: " + e.message); console.error("PlanetExploration.init error:", e); }
     try { Encounter.init(); } catch (e) { errors.push("Encounter.init: " + e.message); console.error("Encounter.init error:", e); }
 
+    try { RegionManager.migrate(this.ship); } catch (e) { errors.push("RegionManager.migrate: " + e.message); console.error("RegionManager.migrate error:", e); }
     try { QuestEngine.init(); } catch (e) { errors.push("QuestEngine.init: " + e.message); console.error("QuestEngine.init error:", e); }
     try { this.setupGlobalListeners(); } catch (e) { errors.push("setupGlobalListeners: " + e.message); console.error("setupGlobalListeners error:", e); }
 
@@ -642,6 +649,15 @@ const GameManager = {
   // Save game state
   saveGame() {
     try {
+      // Flush the live exploration fields into the region they describe, or a
+      // reload would attribute them to whichever region loads first.
+      try {
+        if (typeof RegionManager !== "undefined") {
+          RegionManager.migrate(this.ship);
+          RegionManager.stash(this.ship, this.ship.region || "core");
+        }
+      } catch (e) {}
+
       const shipToSave = Object.assign({}, this.ship);
       if (this.spaceState === "hyper" || this.ship.isInSpacebase) {
         shipToSave.currentPlanet = null;
@@ -710,6 +726,7 @@ const GameManager = {
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
         if (!this.ship.quests) this.ship.quests = {};
         if (!Array.isArray(this.ship.clues)) this.ship.clues = [];
+        try { RegionManager.migrate(this.ship); } catch (e) {}
         this.applySalvageState();
         try { QuestEngine.init(); } catch (e) { console.warn("QuestEngine re-init failed", e); }
 
@@ -867,6 +884,8 @@ const GameManager = {
         volumesRead: [],
         relics: {},
         traversedLinks: {},
+        region: "core",
+        regions: {},
         installedTechParts: [],
         mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true },
         launchConfig: { autoShields: true, autoWeapons: true },
@@ -877,6 +896,8 @@ const GameManager = {
 
       // Refill every derelict, wreck and distress beacon for the new game
       this.applySalvageState();
+
+      try { RegionManager.migrate(this.ship); } catch (e) {}
 
       // Restart the story. Without this a NEW GAME leaves every quest unstarted,
       // because resetGame() rebuilds ship.quests as an empty object.

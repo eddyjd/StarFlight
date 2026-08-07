@@ -858,6 +858,36 @@ const UI = {
     this.currentPatrol = null;
   },
 
+  openVictoryModal() {
+    const modal = document.getElementById("victory-modal");
+    if (!modal) return;
+    const ship = window.game.ship;
+
+    const sectors = Object.keys(ship.exploredSectors || {}).length;
+    const systems = Object.keys(ship.discoveredSystems || {}).length;
+    const planets = Object.keys(ship.exploredPlanets || {}).length;
+    const salvaged = Object.keys(ship.salvagedIds || {}).length;
+    const modules = (ship.installedTechParts || []).length;
+    const clues = (ship.clues || []).length;
+
+    document.getElementById("victory-stats-body").innerHTML =
+      `Star systems charted: <strong>${systems} / ${(GameData.starSystems || []).length}</strong><br>` +
+      `Sectors surveyed: <strong>${sectors}</strong><br>` +
+      `Worlds walked: <strong>${planets}</strong><br>` +
+      `Sites salvaged: <strong>${salvaged}</strong><br>` +
+      `Precursor modules installed: <strong>${modules}</strong><br>` +
+      `Intelligence recovered: <strong>${clues} clues</strong><br>` +
+      `Credits in the vault: <strong>${(ship.credits || 0).toLocaleString()} M.U.</strong>`;
+
+    modal.classList.remove("hidden");
+  },
+
+  closeVictoryModal() {
+    const modal = document.getElementById("victory-modal");
+    if (modal) modal.classList.add("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
   openDistressModal(signal) {
     this.currentDistress = signal;
     const modal = document.getElementById("distress-modal");
@@ -1099,15 +1129,19 @@ const UI = {
     }
   },
 
+  // Scoped to the Captain's Log modal and matched by name rather than index. The
+  // old version queried `.log-tab-btn` across the whole document - which also
+  // matches the Help modal's tabs - and mapped tabs to positions 0..3, so adding
+  // a tab meant editing an if-chain and risked deactivating the wrong modal.
   switchLogTab(tabName) {
-    document.querySelectorAll('.log-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.log-content-panel').forEach(panel => panel.classList.remove('active'));
+    const modal = document.getElementById('captains-log-modal');
+    if (!modal) return;
 
-    const tabBtns = document.querySelectorAll('.log-tab-btn');
-    if (tabName === 'systems' && tabBtns[0]) tabBtns[0].classList.add('active');
-    else if (tabName === 'planets' && tabBtns[1]) tabBtns[1].classList.add('active');
-    else if (tabName === 'artifacts' && tabBtns[2]) tabBtns[2].classList.add('active');
-    else if (tabName === 'aliens' && tabBtns[3]) tabBtns[3].classList.add('active');
+    modal.querySelectorAll('.log-tab-btn').forEach(btn => {
+      const target = (btn.getAttribute('onclick') || '').match(/switchLogTab\('([^']+)'\)/);
+      btn.classList.toggle('active', !!target && target[1] === tabName);
+    });
+    modal.querySelectorAll('.log-content-panel').forEach(panel => panel.classList.remove('active'));
 
     const panel = document.getElementById(`log-panel-${tabName}`);
     if (panel) panel.classList.add('active');
@@ -1211,11 +1245,13 @@ const UI = {
       }
       let html = '';
       history.forEach(enc => {
+        // Guarded like the star map reader: a malformed record must not blank the tab
+        const race = String(enc.raceName || enc.raceKey || 'UNKNOWN').toUpperCase();
         html += `
           <div class="log-card">
             <div class="log-card-header">
-              <span>👽 ${enc.raceName.toUpperCase()} SUBSPACE CONTACT</span>
-              <span style="color:#ffcc00;">COORDS: (${enc.x.toFixed(1)}, ${enc.y.toFixed(1)})</span>
+              <span>👽 ${race} SUBSPACE CONTACT</span>
+              <span style="color:#ffcc00;">COORDS: (${Number(enc.x || 0).toFixed(1)}, ${Number(enc.y || 0).toFixed(1)})</span>
             </div>
             <div class="log-card-body">
               Encounter Classification: ${enc.type || 'Subspace Communication'}<br>
@@ -1225,6 +1261,61 @@ const UI = {
           </div>
         `;
       });
+      panel.innerHTML = html;
+    }
+
+    else if (tabName === 'clues') {
+      const panel = document.getElementById('log-panel-clues');
+      if (!panel) return;
+      const clues = (typeof ClueLog !== 'undefined') ? ClueLog.list() : [];
+
+      if (clues.length === 0) {
+        panel.innerHTML = `<div class="log-card"><div class="log-card-body">` +
+          `No intelligence gathered yet. Clues are recorded automatically from Starbase dispatches, ` +
+          `Precursor ruins, alien transmissions, archives and salvaged data cores.` +
+          `</div></div>`;
+        return;
+      }
+
+      // Group by quest so an active investigation reads as one thread, with
+      // unattached lore collected at the end.
+      const groups = {};
+      const loose = [];
+      clues.forEach(c => {
+        if (c.questId) (groups[c.questId] = groups[c.questId] || []).push(c);
+        else loose.push(c);
+      });
+
+      const questTitle = (qid) => {
+        const q = (typeof GameData !== 'undefined' && GameData.quests)
+          ? GameData.quests.find(q => q.id === qid) : null;
+        return q ? q.title : qid;
+      };
+
+      const renderClue = (c) => {
+        const src = ClueLog.SOURCES[c.source] || ClueLog.SOURCES.survey;
+        return `
+          <div class="log-card">
+            <div class="log-card-header">
+              <span>${src.icon} ${c.title || src.label}</span>
+              <span style="color:#88ccaa; font-size:10px;">${c.sourceName || src.label}</span>
+            </div>
+            <div class="log-card-body">
+              ${c.text}
+              ${c.coords ? `<br><span style="color:#ffcc00; font-weight:bold;">REFERENCED COORDINATES: (${c.coords.x}, ${c.coords.y})</span>` : ''}
+            </div>
+          </div>`;
+      };
+
+      let html = '';
+      Object.keys(groups).forEach(qid => {
+        html += `<div style="color:#00ccff; font-weight:bold; margin:10px 0 6px;">🎯 ${questTitle(qid).toUpperCase()}</div>`;
+        groups[qid].forEach(c => { html += renderClue(c); });
+      });
+      if (loose.length) {
+        html += `<div style="color:#88ccaa; font-weight:bold; margin:10px 0 6px;">📎 UNFILED INTELLIGENCE</div>`;
+        loose.forEach(c => { html += renderClue(c); });
+      }
       panel.innerHTML = html;
     }
   }

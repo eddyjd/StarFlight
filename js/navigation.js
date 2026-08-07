@@ -890,7 +890,17 @@ const Navigation = {
     if (!ship.discoveredSystems) ship.discoveredSystems = { "Starbase Prime": true };
     const secX = Math.floor(this.shipX / 25) * 25;
     const secY = Math.floor(this.shipY / 25) * 25;
-    ship.exploredSectors[`${secX}_${secY}`] = true;
+    const secKey = `${secX}_${secY}`;
+    ship.exploredSectors[secKey] = true;
+
+    // Position-based quest objectives are evaluated on sector change only - doing
+    // this every frame would run the whole objective table 60 times a second.
+    if (this.lastSectorKey !== secKey) {
+      this.lastSectorKey = secKey;
+      if (typeof QuestEngine !== "undefined") {
+        QuestEngine.notify("position", { x: this.shipX, y: this.shipY });
+      }
+    }
 
     // 1. Singularity Black Hole Gravitational Pull Physics
     this.nearbyBlackHole = null;
@@ -1326,6 +1336,10 @@ const Navigation = {
       });
       UI.updateCrew(game.ship);
       UI.addLog("MEDICAL INFIRMARY: ALL CREW MEMBERS TREATED AND RESTORED TO 100% HEALTH.");
+    }
+
+    if (typeof QuestEngine !== "undefined") {
+      QuestEngine.notify("dock", { station: "Starbase Prime" });
     }
 
     UI.switchView("spaceport");

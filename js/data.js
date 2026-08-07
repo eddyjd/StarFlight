@@ -168,7 +168,7 @@ const GameData = {
   // Starport Command logs (unlocked through progression)
   hqLogs: [
     { title: "DISPATCH LOG 1 (URGENT)", text: "Commander, stellar activity in outer quadrants shows sudden collapse cycles. Sol-like G stars are bloating rapidly, emitting hyper-radiation. We need data from precursor monoliths. Scan sector 180, 220 for clues." },
-    { title: "DECODED RUIN RECORD ALPHA", text: "Found on Arth-IV: '...the Flare occurred 20,000 cycles ago. The Precursor Aegis matrix stabilized the cores. It requires three crystal conduits: Earth Artifact, Nebular Crystal, and Void Core. They were scattered to coordinate matrices: (180, 220), (320, 190), and (85, 380).'" },
+    { title: "DECODED RUIN RECORD ALPHA", text: "Found on Arth-IV: '...the Flare occurred 20,000 cycles ago. The Precursor Aegis matrix stabilized the cores. It requires three crystal conduits: Earth Artifact, Nebular Crystal, and Void Core. The first was interred on the ancient world of our own home star. The other two were carried to the luminous white star at (180, 220) and the dying red supergiant at (320, 190).'" },
     { title: "INTELLIGENCE REPORT: UHLEK BORDER", text: "Warning: The Uhlek race is extremely territorial. They guard the quantum wormhole in coordinate sector (440, 420). DO NOT attempt communication. Shields must be fully charged if entering their territory." },
     { title: "RESEARCH SUMMARY: SAVING THE CORPS", text: "Bring all three Precursor Artifacts to Starbase Prime at (250, 250). The Depot engineers can integrate them with the warp reactor, triggering a dampening wave to stabilize all local stars." }
   ],
@@ -637,7 +637,7 @@ const GameData = {
         friendly: {
           greeting: "Greetings mighty traveler! We are the glorious Spemin. Please do not hurt us! We are extremely peaceful blob creatures.",
           choices: [
-            { text: "Ask about precursor artifacts.", response: "Ah, the old precursor relics! We heard they are located in sectors 120,85 and 80,140. We Spemin would never dare touch them! Too spooky." },
+            { text: "Ask about precursor artifacts.", response: "Ah, the old precursor relics! We heard they sit in sectors 180,220 and 320,190. We Spemin would never dare touch them! Too spooky." },
             { text: "Propose a cargo trade.", action: "trade", response: "Trade? Yes! We love bargaining. We have rare spice and art, very cheap!" },
             { text: "Politely say goodbye.", action: "exit", response: "Farewell! Remember the Spemin are your friends!" }
           ]
@@ -653,7 +653,7 @@ const GameData = {
         obsequious: {
           greeting: "Oh, great masters of the cosmos! Your ship is so shiny! We bow before your immense planetary wisdom.",
           choices: [
-            { text: "Inquire about Uhlek territories.", response: "The Uhlek? They are horrible cyber-bugs! They live near (145, 150) and shoot anyone on sight. Stay away!" },
+            { text: "Inquire about Uhlek territories.", response: "The Uhlek? They are horrible cyber-bugs! They live near (440, 420) and shoot anyone on sight. Stay away!" },
             { text: "Offer a trade.", action: "trade", response: "We would be honored to trade with such majestic beings!" },
             { text: "Leave them.", action: "exit", response: "May your exhaust ports never clog, masters!" }
           ]
@@ -691,7 +691,7 @@ const GameData = {
         obsequious: {
           greeting: "You speak with flattering syllables, traveler. Respect for Veloxi authority is noted in database.",
           choices: [
-            { text: "Ask about other alien species.", response: "The Spemin blobs are classified as Class-D nuisance. The Uhlek are Class-S lethal threat at coordinate (145, 150)." },
+            { text: "Ask about other alien species.", response: "The Spemin blobs are classified as Class-D nuisance. The Uhlek are Class-S lethal threat at coordinate (440, 420)." },
             { text: "Initiate cargo swap.", action: "trade", response: "Agreed. Let us examine the exchange rate matrix." },
             { text: "Bid respect and leave.", action: "exit", response: "Imperial blessing given. Vector cleared." }
           ]

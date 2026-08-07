@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.9.24</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.9.24</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.10.0</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.10.0</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -398,12 +398,14 @@
         <button class="log-tab-btn" onclick="UI.switchLogTab('planets')">🪐 SURVEYED PLANETS</button>
         <button class="log-tab-btn" onclick="UI.switchLogTab('artifacts')">🏛️ PRECURSOR ARTIFACTS</button>
         <button class="log-tab-btn" onclick="UI.switchLogTab('aliens')">👽 ALIEN CONTACTS</button>
+        <button class="log-tab-btn" onclick="UI.switchLogTab('clues')">🔎 CLUES</button>
       </div>
 
       <div id="log-panel-systems" class="log-content-panel active"></div>
       <div id="log-panel-planets" class="log-content-panel"></div>
       <div id="log-panel-artifacts" class="log-content-panel"></div>
       <div id="log-panel-aliens" class="log-content-panel"></div>
+      <div id="log-panel-clues" class="log-content-panel"></div>
 
       <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
         <button class="glow-btn red-glow btn-large" onclick="UI.closeCaptainsLogModal()">CLOSE ARCHIVE [ESC]</button>
@@ -603,6 +605,31 @@
     </div>
   </div>
 
+  <!-- Victory: Precursor Aegis Complete -->
+  <div id="victory-modal" class="modal hidden">
+    <div class="modal-content" style="width: 720px; max-width: 95%; padding: 20px; box-sizing: border-box; border-color: #ffcc00; box-shadow: 0 0 40px rgba(255,204,0,0.45);">
+      <h2 style="color:#ffcc00; border-color:#ffcc00; text-align:center; font-size:20px;">⭐ THE PRECURSOR AEGIS IS COMPLETE ⭐</h2>
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-body" style="font-size:13px; line-height:1.8;">
+          The three crystal conduits sit locked in the warp reactor cradle, and for the first time in
+          twenty thousand cycles the Aegis matrix draws power.<br><br>
+          A dampening wave rolls outward from Starbase Prime. Across the quadrant, bloated stellar cores
+          shudder, steady, and hold. Sirius stops climbing. The red supergiant at Nebular Gate pulls back
+          from collapse. The inhabited worlds will see another century.<br><br>
+          <span style="color:#ffcc00;">Starbase Command logs your name against the survival of every
+          settled system in the sector, Captain.</span>
+        </div>
+      </div>
+      <div id="victory-stats" class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#00e5ff;">FINAL SERVICE RECORD</span></div>
+        <div id="victory-stats-body" class="log-card-body" style="font-size:12px; line-height:1.8;"></div>
+      </div>
+      <div style="display:flex; justify-content:center; gap:12px;">
+        <button class="glow-btn btn-large green-glow" onclick="UI.closeVictoryModal()">CONTINUE EXPLORING</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Starbase Prime Customs Inspection Modal -->
   <div id="patrol-modal" class="modal hidden">
     <div class="modal-content" style="width: 660px; max-width: 95%; padding: 16px; box-sizing: border-box;">
@@ -666,13 +693,16 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.9.24"></script>
-  <script src="js/audio.js?v=1.9.24"></script>
-  <script src="js/ui.js?v=1.9.24"></script>
-  <script src="js/spaceport.js?v=1.9.24"></script>
-  <script src="js/navigation.js?v=1.9.24"></script>
-  <script src="js/planet.js?v=1.9.24"></script>
-  <script src="js/encounter.js?v=1.9.24"></script>
-  <script src="js/game.js?v=1.9.24"></script>
+  <script src="js/data.js?v=1.10.0"></script>
+  <script src="js/audio.js?v=1.10.0"></script>
+  <script src="js/ui.js?v=1.10.0"></script>
+  <script src="js/spaceport.js?v=1.10.0"></script>
+  <script src="js/navigation.js?v=1.10.0"></script>
+  <script src="js/planet.js?v=1.10.0"></script>
+  <script src="js/content/quests.js?v=1.10.0"></script>
+  <script src="js/clues.js?v=1.10.0"></script>
+  <script src="js/quest.js?v=1.10.0"></script>
+  <script src="js/encounter.js?v=1.10.0"></script>
+  <script src="js/game.js?v=1.10.0"></script>
 </body>
 </html>

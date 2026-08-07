@@ -76,6 +76,10 @@ const Encounter = {
       });
     }
 
+    if (typeof QuestEngine !== "undefined") {
+      QuestEngine.notify("dialogue", { raceKey: raceKey });
+    }
+
     AudioController.playAlarm();
     setTimeout(() => AudioController.stopAlarm(), 1200);
 

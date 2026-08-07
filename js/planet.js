@@ -733,6 +733,9 @@ const PlanetExploration = {
         UI.addLog(`PRECURSOR MONOLITH DECRYPTED! ARCHIVE RETRIEVED: ${artifactName.toUpperCase()}`);
         UI.addLog("Lore logs decrypted. Starbase Prime HQ database unlocked.");
         
+        if (typeof QuestEngine !== "undefined") {
+          QuestEngine.notify("artifact", { artifact: artifactName });
+        }
         window.game.saveGame();
         Spaceport.renderHqLogs();
       }

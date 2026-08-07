@@ -71,6 +71,16 @@ const GameManager = {
     // Deep space sensor log: id -> 1 (long range contact) | 2 (identified)
     contactLog: {},
 
+    // Every hint the captain has learned, from any source. See js/clues.js.
+    clues: [],
+    victory: false,
+
+    // Quest progress: questId -> { stage, done, objectives }. See js/quest.js.
+    quests: {},
+    puzzlesSolved: {},
+    volumesRead: [],
+    relics: {},
+
     // Wormholes / black holes the ship has actually been through. Once traversed,
     // the star map draws a line to where it comes out.
     traversedLinks: {},
@@ -112,6 +122,7 @@ const GameManager = {
     try { PlanetExploration.init(); } catch (e) { errors.push("PlanetExploration.init: " + e.message); console.error("PlanetExploration.init error:", e); }
     try { Encounter.init(); } catch (e) { errors.push("Encounter.init: " + e.message); console.error("Encounter.init error:", e); }
 
+    try { QuestEngine.init(); } catch (e) { errors.push("QuestEngine.init: " + e.message); console.error("QuestEngine.init error:", e); }
     try { this.setupGlobalListeners(); } catch (e) { errors.push("setupGlobalListeners: " + e.message); console.error("setupGlobalListeners error:", e); }
 
     if (errors.length > 0) {
@@ -122,6 +133,35 @@ const GameManager = {
     // Start main game ticking loop
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.tick(t));
+  },
+
+  /**
+   * The endgame. The lore in GameData.hqLogs has always described this - integrate
+   * the three Precursor conduits with the warp reactor and stabilise the local
+   * stars - but no code ever ran it, so returning with all three did nothing.
+   * Invoked declaratively by the quest's onComplete.fn.
+   */
+  triggerAegisVictory() {
+    const ship = this.ship;
+    ship.victory = true;
+    ship.victoryAt = (ship.victoryAt || (ship.clues || []).length);
+
+    const lines = [
+      "STARBASE PRIME: ALL THREE PRECURSOR CONDUITS RECEIVED.",
+      "DEPOT ENGINEERS INTEGRATING CRYSTAL MATRIX WITH THE WARP REACTOR...",
+      "AEGIS MATRIX ONLINE. DAMPENING WAVE PROPAGATING ACROSS THE QUADRANT.",
+      "STELLAR COLLAPSE ARRESTED. G-CLASS CORES RETURNING TO NOMINAL OUTPUT.",
+      "COMMAND: THE INHABITED WORLDS WILL SURVIVE, CAPTAIN. THE CORPS OWES YOU EVERYTHING.",
+      "=== PRECURSOR AEGIS COMPLETE - THE QUADRANT IS SAVED ==="
+    ];
+    lines.forEach((line, i) => setTimeout(() => { try { UI.addLog(line); } catch (e) {} }, i * 900));
+
+    try {
+      if (typeof AudioController !== "undefined" && AudioController.playVictory) AudioController.playVictory();
+    } catch (e) {}
+
+    setTimeout(() => { try { UI.openVictoryModal(); } catch (e) {} }, lines.length * 900);
+    try { this.saveGame(); } catch (e) {}
   },
 
   // Record a one-shot deep space site as consumed, and persist it immediately.
@@ -657,7 +697,10 @@ const GameManager = {
         this.resetGameData();
         this.ship = Object.assign({}, this.ship, shipData);
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
+        if (!this.ship.quests) this.ship.quests = {};
+        if (!Array.isArray(this.ship.clues)) this.ship.clues = [];
         this.applySalvageState();
+        try { QuestEngine.init(); } catch (e) { console.warn("QuestEngine re-init failed", e); }
 
         if (this.ship.isInSpacebase || this.spaceState === "hyper") {
           this.ship.currentPlanet = null;
@@ -742,6 +785,11 @@ const GameManager = {
         // Migration: saves from before v1.9.10 have no salvage ledger
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
         if (!this.ship.contactLog) this.ship.contactLog = {};
+        if (!Array.isArray(this.ship.clues)) this.ship.clues = [];
+        if (!this.ship.quests) this.ship.quests = {};
+        if (!this.ship.puzzlesSolved) this.ship.puzzlesSolved = {};
+        if (!Array.isArray(this.ship.volumesRead)) this.ship.volumesRead = [];
+        if (!this.ship.relics) this.ship.relics = {};
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!this.ship.mapLayers) {
@@ -801,6 +849,12 @@ const GameManager = {
         exploredPlanets: {},
         salvagedIds: {},
         contactLog: {},
+        clues: [],
+        victory: false,
+        quests: {},
+        puzzlesSolved: {},
+        volumesRead: [],
+        relics: {},
         traversedLinks: {},
         installedTechParts: [],
         mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, nebulae: true, unknown: true },
@@ -812,6 +866,10 @@ const GameManager = {
 
       // Refill every derelict, wreck and distress beacon for the new game
       this.applySalvageState();
+
+      // Restart the story. Without this a NEW GAME leaves every quest unstarted,
+      // because resetGame() rebuilds ship.quests as an empty object.
+      try { QuestEngine.init(); } catch (e) { console.warn("QuestEngine restart failed", e); }
 
       // Reset navigation and system physics
       this.spaceState = "hyper";
@@ -854,6 +912,10 @@ const GameManager = {
 };
 
 window.game = GameManager;
+
+// Quest rewards reference bespoke payoffs by name (onComplete.fn), so the engine
+// stays free of story-specific code.
+window.triggerAegisVictory = function () { GameManager.triggerAegisVictory(); };
 window.onload = () => {
   GameManager.init();
 };

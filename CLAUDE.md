@@ -40,14 +40,38 @@ a stopped loop.
 ## Version bump ritual (required on every user-visible change)
 
 The game is loaded from `file://` or a static host, so browser caching is the #1 source of
-"my fix didn't apply". Every release bumps the version in **three** places in `index.html`:
+"my fix didn't apply". Every release bumps the version in **every** place it appears in
+`index.html` — currently ~21 occurrences:
 
-1. The `?v=1.9.8` cache-busting query string on **all eight** `<script src="js/*.js?v=...">` tags.
-2. The `v1.9.8` span in `.header-title`.
-3. The `VER 1.9.8` span in `.header-decor`.
+1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (18 of them).
+2. The version span in `.header-title`.
+3. The `VER` span in `.header-decor`.
+
+In practice: a single global string replace of the old version with the new one across
+`index.html`, then confirm the replacement count matches what you expected.
 
 Commit messages follow `vX.Y.Z: <summary>`, and significant changes get a new numbered entry appended
 to `PROJECT_DOCUMENTATION.md` section 6.
+
+## Regression sweep
+
+There is no test framework, but there **is** a 249-check regression harness kept outside the repo in
+the session scratchpad (`sweep-final.js`). It is a self-contained IIFE that drives the real game in a
+headless browser and writes its results to `window.__SWEEP__`.
+
+```bash
+# gstack browse: `goto` (not `open`), and `eval` takes a FILE PATH, not inline JS
+B=~/.claude/skills/gstack/browse/dist/browse.exe
+$B goto "file:///C:/Data/Dev/Starflight/index.html"
+# the harness is too large for a command-line argument - inject it as a <script src>
+$B eval _inject.js      # _inject.js appends <script src="_sweep_tmp.js?t=...">
+$B eval _poll.js        # reads window.__SWEEP__ -> {pass, fail, total, failures[]}
+```
+
+Extend it whenever you add a system, and treat a newly failing check as a real signal before
+assuming the check is stale — several genuine design bugs surfaced that way (charting silently
+collapsing the two-tier scan; making every singularity a gateway silently deleting the displacement
+mechanic; the region view-override leaking out of the star map into gameplay).
 
 ## Architecture
 
@@ -56,8 +80,10 @@ to `PROJECT_DOCUMENTATION.md` section 6.
 Each `js/*.js` file defines one object literal and assigns it to `window` at the bottom
 (`window.Navigation = Navigation;`). There are no imports; everything is a global reached by name.
 **Script order in `index.html` matters** — `data.js` → `audio.js` → `ui.js` → `spaceport.js` →
-`navigation.js` → `planet.js` → `encounter.js` → `game.js`. `game.js` is last because
-`window.onload → GameManager.init()` wires all the others together.
+`navigation.js` → `planet.js` → `content/*.js` → `clues.js` → `quest.js` → `archive.js` →
+`region.js` → `wormholes.js` → `puzzle.js` → `encounter.js` → `game.js`. `game.js` is last because
+`window.onload → GameManager.init()` wires all the others together. Files under `js/content/` are
+**pure data** that append to `GameData` after `data.js` has defined it.
 
 | Global | File | Responsibility |
 | --- | --- | --- |
@@ -69,6 +95,17 @@ Each `js/*.js` file defines one object literal and assigns it to `window` at the
 | `PlanetExploration` | `js/planet.js` | Surface exploration: 50×35 tile grid, rover driving, mining, landing-site picker |
 | `Encounter` | `js/encounter.js` | Alien dialogue state machine, tactical combat, bartering |
 | `GameManager` | `js/game.js` | Owns all state, the rAF loop, keyboard routing, save/load. Aliased as `window.game` |
+| `ClueLog` | `js/clues.js` | Deduped record of every hint learned, from any source. Captain's Log CLUES tab |
+| `QuestEngine` | `js/quest.js` | Data-driven quest chains. New objective types register via `registerObjective()` |
+| `ArchiveReader` | `js/archive.js` | Readable archive volumes with unlock gates. Fails closed |
+| `PuzzleEngine` | `js/puzzle.js` | Puzzle type registry (`register(type, {render, validate})`) |
+| `RegionManager` | `js/region.js` | Separate volumes of space; per-region exploration records; singularity transit |
+| `WormholeNet` | `js/wormholes.js` | Rolls the wormhole network per save and publishes it into `GameData` |
+
+The governing principle for everything added after v1.10: **build engines, author content as data.**
+A new quest, archive volume, puzzle, region, alien port or nebula should be a record in
+`js/content/*.js` (or `js/data.js`), not new engine code. If adding one requires touching an engine,
+the engine is not finished.
 
 ### State: one object, one localStorage key
 
@@ -105,6 +142,25 @@ owns the canvas that frame. Never assume the canvas contents belong to Navigatio
 try/catch. This is deliberate hardening (see PROJECT_DOCUMENTATION §6.5): a thrown draw error must
 never kill the 60 FPS loop. `dt` is clamped to `[0.001, 0.05]`. When adding loop work, preserve both
 properties — put new logic inside the existing try block, don't wrap the rAF call.
+
+### Regions, gates and the rolled wormhole network
+
+The galaxy is no longer one volume. `ship.region` names the active one and `ship.regions[id]` holds a
+**per-region copy of five fields** (`exploredSectors`, `discoveredSystems`, `contactLog`,
+`salvagedIds`, `traversedLinks`) — see `RegionManager.SCOPED`. The live fields on `ship` are the
+working copy for whichever region is active; `travelTo()` stashes and restores them. **Anything that
+reads world content must go through `RegionManager.content(kind)`**, never `GameData[kind]` directly,
+or it will show the core quadrant's contents while the ship is somewhere else. The star map uses
+`viewedContent()` instead, because a captain may review a region they have left.
+
+Black holes declare their destination in data (`leadsTo` / `oneWay` / `exitAt`), resolved in exactly
+one place by `Navigation.resolveGateway()`. A well with no gateway is a plain displacement hazard —
+keep some, or the mechanic disappears. Topology and rationale are documented at the top of
+`js/content/regions.js`.
+
+Wormholes are **not authored**. `WormholeNet` rolls them per save and writes them into
+`GameData.wormholes` and each region's `wormholes` array; the result is stored whole in
+`ship.wormholeNet` so a chart never rearranges itself if the generator is tuned later.
 
 ### Coordinates
 

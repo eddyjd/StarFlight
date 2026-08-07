@@ -183,6 +183,277 @@ const Navigation = {
     }
   },
 
+  // ---- In-system sites ---------------------------------------------------
+  // System mode rendered planets and nothing else, so every star looked the same
+  // once you were inside it: a sun, some worlds, no reason to fly anywhere except
+  // straight at the nearest planet.
+  //
+  // Sites are generated deterministically from the system name, the same trick
+  // planet surfaces use - so a given system always holds the same things, in
+  // every save, without authoring 29 systems by hand and getting nothing for free
+  // in the regions. Roughly a third of systems carry anything at all.
+
+  SITE_TYPES: {
+    station: { icon: "⬟", color: "#00e5ff", label: "ORBITAL STATION", action: "BOARD STATION [B]" },
+    wreck:   { icon: "🛸", color: "#ff9955", label: "DRIFTING WRECK", action: "SALVAGE WRECK [B]" },
+    debris:  { icon: "∷", color: "#ccbb88", label: "DEBRIS FIELD",    action: "SWEEP DEBRIS [B]" }
+  },
+
+  /** Mulberry32 off a string, so a system's contents never move between saves. */
+  siteRandom(seedString) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < seedString.length; i++) {
+      h ^= seedString.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return WormholeNet.prng(h);
+  },
+
+  /**
+   * What orbits this star besides planets. Cached per system object so the
+   * generator runs once, not every frame.
+   */
+  getSystemSites(system) {
+    if (!system) return [];
+    if (system.__sites) return system.__sites;
+
+    const rand = this.siteRandom("sites:" + system.name);
+    const sites = [];
+
+    // Not every system. A system with nothing in it is a real answer - it makes
+    // the ones that do carry something worth the flight.
+    if (rand() < 0.34) {
+      const count = rand() < 0.25 ? 2 : 1;
+      const kinds = ["station", "wreck", "debris", "station", "wreck", "debris"];
+      for (let i = 0; i < count; i++) {
+        const kind = kinds[Math.floor(rand() * kinds.length)];
+        sites.push({
+          id: "site_" + system.name.replace(/\s+/g, "_").toLowerCase() + "_" + i,
+          kind: kind,
+          name: this.siteName(kind, system, rand),
+          orbit: 0.42 + rand() * 0.5,     // fraction of the system radius
+          angle: rand() * Math.PI * 2,
+          drift: (rand() - 0.5) * 0.05,   // slow relative motion
+          seed: Math.floor(rand() * 1e9)
+        });
+      }
+    }
+
+    system.__sites = sites;
+    return sites;
+  },
+
+  siteName(kind, system, rand) {
+    const stem = system.name.split(/\s+/)[0];
+    if (kind === "station") {
+      return [stem + " Waystation", stem + " Relay Post", "Abandoned " + stem + " Platform"][Math.floor(rand() * 3)];
+    }
+    if (kind === "wreck") {
+      return [stem + " Hulk", "Wreck of the " + stem + " Runner", "Broken Hull, " + stem + " Orbit"][Math.floor(rand() * 3)];
+    }
+    return [stem + " Debris Belt", "Scattered Field, " + stem, stem + " Shatter Ring"][Math.floor(rand() * 3)];
+  },
+
+  /** Screen position of a site this frame. */
+  sitePosition(system, site, starX, starY, systemRadius) {
+    const r = systemRadius * site.orbit;
+    return { x: starX + Math.cos(site.angle) * r, y: starY + Math.sin(site.angle) * r };
+  },
+
+  /** Already stripped? Uses the same salvage ledger as everything else. */
+  siteLooted(site) {
+    const ship = window.game && window.game.ship;
+    return !!(ship && ship.salvagedIds && ship.salvagedIds[site.id]);
+  },
+
+  /**
+   * Work a site. Stations and wrecks pay in modules and credits; debris is swept
+   * for whatever the field happens to hold, which is where the minerals come from.
+   */
+  workNearbySite() {
+    const site = this.nearbySite;
+    if (!site || this.siteLooted(site)) return;
+    const ship = window.game.ship;
+    const rand = this.siteRandom("loot:" + site.id);
+
+    window.game.markSalvaged(site.id);
+    site.__looted = true;
+
+    if (site.kind === "debris") {
+      // A sweep yields ore, and occasionally something better. Respects the hold:
+      // the tractor-scoop bug taught us not to load cargo we have no room for.
+      const pool = ["iron", "silicate", "titanium", "gold", "platinum", "iridium", "precursor_alloy"];
+      const key = pool[Math.floor(Math.pow(rand(), 2.2) * pool.length)];
+      const qty = 1 + Math.floor(rand() * 3);
+      const used = Object.keys(ship.cargo || {}).reduce((n, k) => n + (ship.cargo[k] || 0), 0);
+      const room = Math.max(0, (ship.cargoCap || 20) - used);
+      const took = Math.min(qty, room);
+
+      UI.addLog(`SWEEPING ${site.name.toUpperCase()}...`);
+      if (took > 0) {
+        ship.cargo[key] = (ship.cargo[key] || 0) + took;
+        const c = GameData.commodities[key];
+        UI.addLog(`RECOVERED ${took}x ${String((c && c.name) || key).toUpperCase()} FROM THE FIELD.`);
+      } else {
+        UI.addLog("HOLD FULL. THE FIELD IS LEFT WHERE IT DRIFTS.");
+      }
+      if (rand() < 0.22 && typeof ClueLog !== "undefined") {
+        ClueLog.record({
+          id: "clue_" + site.id,
+          title: "Salvaged Telemetry",
+          text: `RECOVERED FROM ${site.name.toUpperCase()}: a fragment of a flight recorder. ` +
+                `Whoever they were, they were logging the same thing you are.`,
+          source: "wreck", sourceName: site.name
+        });
+        UI.addLog("A FLIGHT RECORDER FRAGMENT SURVIVED. LOGGED TO THE CAPTAIN'S LOG.");
+      }
+      if (typeof AudioController !== "undefined") AudioController.playBeep("success");
+      UI.updateShip(ship);
+      window.game.saveGame();
+      return;
+    }
+
+    if (site.kind === "wreck") {
+      const keys = Object.keys(GameData.techParts);
+      const part = GameData.techParts[keys[Math.floor(rand() * keys.length)]];
+      UI.addLog(`BOARDING ${site.name.toUpperCase()}. A MODULE SURVIVED THE BREAK-UP.`);
+      UI.openTechPartModal(part);
+      return;
+    }
+
+    // station
+    const credits = 400 + Math.floor(rand() * 1400);
+    ship.credits += credits;
+    UI.addLog(`${site.name.toUpperCase()} IS DARK AND OPEN. STRIPPED THE LOCKERS FOR ${credits.toLocaleString()} M.U.`);
+    if (rand() < 0.45) {
+      const keys = Object.keys(GameData.techParts);
+      const part = GameData.techParts[keys[Math.floor(rand() * keys.length)]];
+      UI.addLog("SOMETHING IN THE ENGINEERING BAY IS STILL INTACT.");
+      UI.openTechPartModal(part);
+    } else {
+      if (typeof AudioController !== "undefined") AudioController.playBeep("success");
+    }
+    UI.updateShip(ship);
+    window.game.saveGame();
+  },
+
+  // ---- Nebulae -----------------------------------------------------------
+  // Every nebula in the game shipped with a description promising an effect -
+  // boosted shield recharge, scanner interference, Endurium concentrations - and
+  // none of them did anything at all. They were also invisible from the cockpit:
+  // drawn on the star map only, so you could fly through one and never know.
+
+  NEBULA_EFFECTS: {
+    shield_boost:  { label: "IONISED FIELD",       hud: "SHIELD RECHARGE x3",        color: "#66ffcc" },
+    scanner_blind: { label: "SENSOR INTERFERENCE", hud: "SCAN RANGE -60%",           color: "#ff8866" },
+    fuel_rich:     { label: "ENDURIUM RICH",       hud: "SLOW REACTOR REPLENISH",    color: "#ffee88" },
+    radiation:     { label: "GAMMA RIFT",          hud: "SHIELD DRAIN - HULL AT RISK", color: "#ff5555" },
+    hull_stress:   { label: "COMPRESSION FIELD",   hud: "HULL UNDER LOAD",           color: "#ffaa44" },
+    stealth:       { label: "DAMPENING FIELD",     hud: "RUNNING DARK - NO CONTACT", color: "#88aaff" },
+    bio_rich:      { label: "BIO-PLASMA MIST",     hud: "SCAN RANGE +40%",           color: "#66ff99" },
+    safe:          { label: "CORE AURA",           hud: "NO MEASURABLE EFFECT",      color: "#00ffaa" }
+  },
+
+  /** The nebula the ship is currently inside, or null. Set once per frame. */
+  updateNebula() {
+    this.activeNebula = null;
+    const list = RegionManager.content('nebulae');
+    for (let i = 0; i < list.length; i++) {
+      const n = list[i];
+      if (Math.hypot(this.shipX - n.x, this.shipY - n.y) < (n.radius || 60)) {
+        this.activeNebula = n;
+        this.markContact(n.id, 2);
+        break;
+      }
+    }
+    return this.activeNebula;
+  },
+
+  /** Effect key of the nebula the ship is in, or null in clear space. */
+  nebulaEffect() {
+    const n = this.activeNebula;
+    return (n && n.effect) || null;
+  },
+
+  /**
+   * Per-frame consequences of sitting inside a cloud. Kept in one place so the
+   * HUD readout and the actual mechanics can never disagree.
+   */
+  applyNebulaEffects(dt) {
+    const eff = this.nebulaEffect();
+    if (!eff) {
+      if (this.nebulaWarned) { UI.addLog("CLEAR OF THE CLOUD. SENSORS AND SYSTEMS NOMINAL."); this.nebulaWarned = null; }
+      return;
+    }
+
+    const ship = window.game.ship;
+    const meta = this.NEBULA_EFFECTS[eff];
+
+    // Announce once on entry rather than every frame
+    if (this.nebulaWarned !== this.activeNebula.id) {
+      this.nebulaWarned = this.activeNebula.id;
+      UI.addLog(`ENTERING ${this.activeNebula.name.toUpperCase()} - ${(meta ? meta.label : eff).toUpperCase()}.`);
+      if (this.activeNebula.desc) UI.addLog(this.activeNebula.desc);
+      if (meta) UI.addLog(`EFFECT: ${meta.hud}`);
+    }
+
+    if (eff === "fuel_rich") {
+      // Scooping raw Endurium out of the cloud. Deliberately slow - about a unit
+      // every eight seconds - so it relieves a bad situation without replacing
+      // the need to buy fuel.
+      if (ship.fuel < ship.maxFuel) {
+        ship.fuel = Math.min(ship.maxFuel, ship.fuel + dt * 0.125);
+      }
+    } else if (eff === "radiation") {
+      // Shields soak it. With none up, the hull takes it instead.
+      if (ship.shieldsActive && (ship.shieldsCharge || 0) > 0) {
+        ship.shieldsCharge = Math.max(0, ship.shieldsCharge - dt * 4.0);
+      } else {
+        ship.hull = Math.max(0, (ship.hull || 0) - dt * 1.2);
+        this.nebulaHurtAccum = (this.nebulaHurtAccum || 0) + dt;
+        if (this.nebulaHurtAccum > 3) {
+          this.nebulaHurtAccum = 0;
+          UI.addLog(`GAMMA FLUX BURNING THROUGH UNSHIELDED PLATING - HULL ${Math.round(ship.hull)}.`);
+        }
+      }
+    } else if (eff === "hull_stress") {
+      // Pressure, not radiation, so shields do not help. Slower than the rift.
+      ship.hull = Math.max(0, (ship.hull || 0) - dt * 0.6);
+      this.nebulaHurtAccum = (this.nebulaHurtAccum || 0) + dt;
+      if (this.nebulaHurtAccum > 4) {
+        this.nebulaHurtAccum = 0;
+        UI.addLog(`THE HULL IS GROANING UNDER THE PRESSURE - INTEGRITY ${Math.round(ship.hull)}.`);
+      }
+    }
+
+    // Same end-of-ship path combat uses, rather than a second one that would
+    // leave the captain flying a wreck with zero hull.
+    if ((ship.hull || 0) <= 0 && typeof Encounter !== "undefined" && Encounter.triggerGameOver) {
+      Encounter.triggerGameOver();
+    }
+  },
+
+  /** Scanner multiplier from the surrounding cloud. 1.0 in clear space. */
+  nebulaScanMult() {
+    const eff = this.nebulaEffect();
+    if (eff === "scanner_blind") return 0.4;
+    if (eff === "bio_rich") return 1.4;
+    return 1.0;
+  },
+
+  /** Shield recharge multiplier from the surrounding cloud. */
+  nebulaShieldMult() {
+    const eff = this.nebulaEffect();
+    if (eff === "shield_boost") return 3.0;
+    if (eff === "radiation") return 0.0;
+    return 1.0;
+  },
+
+  /** Running dark: a dampening field keeps aliens from finding you. */
+  nebulaHidesShip() {
+    return this.nebulaEffect() === "stealth";
+  },
+
   /** If some region declares this singularity as its entry point, name it. */
   regionEntryFor(blackHoleId) {
     const regions = (typeof GameData !== "undefined" && GameData.regions) || {};
@@ -482,11 +753,14 @@ const Navigation = {
     const lvl = Math.max(1, Math.min(4, ship.scannerLevel || 1));
     const scannerMult = 1 + (lvl - 1) / 3; // 1.00, 1.33, 1.67, 2.00
     const navBonus = 1 + nav / 100;
+    // A cloud that says it blinds sensors now actually blinds them.
+    const neb = this.nebulaScanMult();
     return {
-      short: 25 * scannerMult * navBonus,
-      long: 70 * scannerMult * navBonus,
+      short: 25 * scannerMult * navBonus * neb,
+      long: 70 * scannerMult * navBonus * neb,
       navSkill: nav,
-      scannerLevel: lvl
+      scannerLevel: lvl,
+      nebulaMult: neb
     };
   },
 
@@ -1089,6 +1363,11 @@ const Navigation = {
       }
     }
 
+    // 0. Which cloud, if any, the ship is currently inside. Runs before the
+    //    hazards below so scan range and shield behaviour are already correct.
+    this.updateNebula();
+    this.applyNebulaEffects(dt);
+
     // 1. Singularity Black Hole Gravitational Pull Physics
     this.nearbyBlackHole = null;
     if (RegionManager.content('blackHoles').length) {
@@ -1335,12 +1614,15 @@ const Navigation = {
       alien.angle = Math.atan2(alien.vy, alien.vx);
 
       const dist = Math.hypot(this.shipX - alien.x, this.shipY - alien.y);
-      if (dist < 6.5) {
+      // A dampening field is worth flying into: inside one, nothing can find you.
+      // This is what the Aquila Dark Veil has always claimed to do.
+      const hidden = this.nebulaHidesShip();
+      if (dist < 6.5 && !hidden) {
         this.nearbyAlien = alien;
       }
 
       // Alien Tactical Firing
-      if (dist < 18.0) {
+      if (dist < 18.0 && !hidden) {
         alien.fireCooldown = (alien.fireCooldown || 2.0) - dt;
         if (alien.fireCooldown <= 0) {
           alien.fireCooldown = 3.5;
@@ -1534,6 +1816,16 @@ const Navigation = {
       }
     });
 
+    // Drift the in-system sites and see if we are alongside one
+    this.nearbySite = null;
+    this.getSystemSites(system).forEach(site => {
+      site.angle += site.drift * dt;
+      const pos = this.sitePosition(system, site, starX, starY, systemRadius);
+      if (!this.siteLooted(site) && Math.hypot(this.shipX - pos.x, this.shipY - pos.y) < 20) {
+        this.nearbySite = site;
+      }
+    });
+
     // Check if we walked out of planet gravity
     if (ship.currentPlanet) {
       const planet = ship.currentPlanet;
@@ -1552,6 +1844,18 @@ const Navigation = {
     
     // Enable buttons on HUD based on orbital proximity
     UI.updateControlPanel(true, ship.currentPlanet, ship.shieldsActive, ship.weaponsArmed);
+
+    // A site alongside claims the LAND control, exactly as deep space objects do
+    // in hyperspace - otherwise there is nothing on screen to say you can act.
+    if (this.nearbySite && !ship.currentPlanet) {
+      const meta = this.SITE_TYPES[this.nearbySite.kind];
+      UI.elements.btnLand.disabled = false;
+      UI.elements.btnLand.textContent = meta.action;
+      if (this.keys["b"] || this.keys["B"]) {
+        this.keys["b"] = false; this.keys["B"] = false;
+        this.workNearbySite();
+      }
+    }
   },
 
   // Dock at base (repairs hull, treats crew, locks tactical systems, loads Spaceport View)
@@ -2407,6 +2711,16 @@ Action: Hails and scans passing vessels for contraband.`
       sys.planets.forEach(planet => {
         UI.addLog(`PLANET: ${planet.name.toUpperCase()} (ORBITAL OFFSET: ${planet.radius} MILLION MILES)`);
       });
+      // A scan that lists only planets in a system holding a wreck is a scan that lied.
+      const sites = this.getSystemSites(sys);
+      if (sites.length) {
+        sites.forEach(site => {
+          const meta = this.SITE_TYPES[site.kind];
+          UI.addLog(`${meta.label}: ${site.name.toUpperCase()}` + (this.siteLooted(site) ? " [ALREADY STRIPPED]" : " - UNWORKED"));
+        });
+      } else {
+        UI.addLog("NO ARTIFICIAL BODIES IN THIS SYSTEM. PLANETS ONLY.");
+      }
     }
   },
 
@@ -2440,7 +2754,8 @@ Action: Hails and scans passing vessels for contraband.`
       this.ctx.fillRect(sx, sy, s.size, s.size);
     });
 
-    // Nebula drawing across full canvas resolution
+    // Faint screen-locked haze. This is scenery only - the REAL nebulae from
+    // GameData are drawn world-locked in drawHyper() so the ship flies into them.
     if (this.nebulae) {
       this.nebulae.forEach(n => {
         const nx = (n.u !== undefined ? n.u * w : n.x);
@@ -2558,6 +2873,51 @@ Action: Hails and scans passing vessels for contraband.`
         }
       }
     });
+
+    // Render the real nebulae, world-locked, so they can actually be flown into.
+    // Previously these existed only on the star map, and the cockpit showed an
+    // unrelated screen-locked haze that never moved.
+    RegionManager.content('nebulae').forEach(neb => {
+      const px = centerX + (neb.x - this.shipX) * scale;
+      const py = centerY + (neb.y - this.shipY) * scale;
+      const pr = (neb.radius || 60) * scale;
+      if (px + pr < -40 || px - pr > viewWidth + 40 || py + pr < -40 || py - pr > viewHeight + 40) return;
+
+      const meta = this.NEBULA_EFFECTS[neb.effect] || this.NEBULA_EFFECTS.safe;
+      const grad = this.ctx.createRadialGradient(px, py, pr * 0.1, px, py, pr);
+      grad.addColorStop(0, neb.color);
+      grad.addColorStop(0.65, neb.color.replace(/[\d.]+\)$/, "0.10)"));
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      this.ctx.fillStyle = grad;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, pr, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Boundary, so the edge of the cloud is a place you can see yourself cross
+      this.ctx.save();
+      this.ctx.setLineDash([6, 8]);
+      this.ctx.strokeStyle = meta.color;
+      this.ctx.globalAlpha = 0.35;
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, pr, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.restore();
+
+      this.ctx.font = "bold 10px Share Tech Mono";
+      this.ctx.fillStyle = meta.color;
+      this.ctx.globalAlpha = 0.75;
+      this.ctx.fillText(neb.name.toUpperCase(), px - 30, py - pr + 14);
+      this.ctx.globalAlpha = 1;
+    });
+
+    // Standing inside one is worth saying plainly, over the cloud itself.
+    if (this.activeNebula) {
+      const meta = this.NEBULA_EFFECTS[this.activeNebula.effect] || this.NEBULA_EFFECTS.safe;
+      this.ctx.font = "bold 12px Share Tech Mono";
+      this.ctx.fillStyle = meta.color;
+      this.ctx.fillText(`◈ IN ${this.activeNebula.name.toUpperCase()} - ${meta.hud}`, 14, viewHeight - 16);
+    }
 
     // Render Supermassive Black Holes in Viewport
     if (RegionManager.content('blackHoles').length) {
@@ -3008,6 +3368,45 @@ Action: Hails and scans passing vessels for contraband.`
     this.ctx.setLineDash([5, 5]);
     this.ctx.stroke();
     this.ctx.setLineDash([]); // reset
+
+    // Draw whatever else is in orbit here - stations, hulks, debris belts. Drawn
+    // under the planets so a world always wins the foreground.
+    this.getSystemSites(system).forEach(site => {
+      const meta = this.SITE_TYPES[site.kind];
+      const pos = this.sitePosition(system, site, starX, starY, systemRadius);
+      const looted = this.siteLooted(site);
+      const near = (this.nearbySite && this.nearbySite.id === site.id);
+
+      this.ctx.save();
+      this.ctx.globalAlpha = looted ? 0.35 : 1;
+
+      if (site.kind === "debris") {
+        // A scatter rather than an object, seeded so it does not boil frame to frame
+        const rnd = this.siteRandom("draw:" + site.id);
+        this.ctx.fillStyle = meta.color;
+        for (let i = 0; i < 14; i++) {
+          const a = rnd() * Math.PI * 2, d = 4 + rnd() * 22;
+          this.ctx.fillRect(pos.x + Math.cos(a) * d, pos.y + Math.sin(a) * d, 2, 2);
+        }
+      } else {
+        this.ctx.font = "16px Share Tech Mono";
+        this.ctx.fillStyle = meta.color;
+        this.ctx.shadowBlur = looted ? 0 : 10;
+        this.ctx.shadowColor = meta.color;
+        this.ctx.fillText(meta.icon, pos.x - 8, pos.y + 6);
+        this.ctx.shadowBlur = 0;
+      }
+
+      this.ctx.font = "bold 10px Share Tech Mono";
+      this.ctx.fillStyle = looted ? "#777777" : meta.color;
+      this.ctx.fillText(`${site.name.toUpperCase()}${looted ? " [STRIPPED]" : ""}`, pos.x + 14, pos.y + 3);
+      if (near && !looted) {
+        this.ctx.fillStyle = "#ffcc00";
+        this.ctx.font = "bold 11px Share Tech Mono";
+        this.ctx.fillText("▶ " + meta.action, pos.x + 14, pos.y + 16);
+      }
+      this.ctx.restore();
+    });
 
     // Draw orbiting planets
     this.ensureOrbitAngles(system);

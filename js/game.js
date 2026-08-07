@@ -486,12 +486,16 @@ const GameManager = {
         UI.addLog("DOCKING UNAVAILABLE: APPROACH STARBASE PRIME AT (250, 250), AN ALIEN WRECK, DERELICT, WORMHOLE OR BEACON.");
       }
     } else if (this.spaceState === "system") {
-      // In Solar System: landing on current planet
+      // In Solar System: landing on current planet, or working an orbital site.
+      // A world always wins - the site prompt only claims the control when the
+      // ship is not already inside a planet's gravity.
       if (this.ship.currentPlanet) {
         PlanetExploration.startLanding();
+      } else if (Navigation.nearbySite) {
+        Navigation.workNearbySite();
       } else {
         AudioController.playBeep('error');
-        UI.addLog("LANDING UNAVAILABLE: APPROACH A PLANET ORBIT FIRST.");
+        UI.addLog("LANDING UNAVAILABLE: APPROACH A PLANET ORBIT, STATION, WRECK OR DEBRIS FIELD FIRST.");
       }
     }
   },
@@ -598,7 +602,12 @@ const GameManager = {
     // Same 40 "no specialist aboard" baseline the drain side uses, so an unmanned
     // engineering station behaves consistently in both directions.
     const engSkill = (ship.crew && ship.crew.engineer) ? ship.crew.engineer.skill : 40;
-    const rate = max * (0.008 + engSkill / 12000);
+    // An ionised cloud is a capacitor you can park in; a gamma rift is the
+    // opposite. The Tarantula Nebula has promised this since it was written.
+    const nebMult = (typeof Navigation !== "undefined" && Navigation.nebulaShieldMult)
+      ? Navigation.nebulaShieldMult() : 1.0;
+    const rate = max * (0.008 + engSkill / 12000) * nebMult;
+    if (rate <= 0) return;
 
     const before = ship.shieldsCharge || 0;
     ship.shieldsCharge = Math.min(max, before + rate * dt);

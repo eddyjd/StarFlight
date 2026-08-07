@@ -178,14 +178,14 @@ const GameData = {
 
   // Deep Space Nebulae Regions (500x500 map)
   nebulae: [
-    { id: "neb_1", name: "Tarantula Nebula", x: 100, y: 120, radius: 65, color: "rgba(255, 50, 120, 0.28)", desc: "Ionized hydrogen cloud. Shield recharge rate boosted by 50% inside gas field." },
-    { id: "neb_2", name: "Crimson Cloud", x: 400, y: 320, radius: 75, color: "rgba(255, 80, 50, 0.28)", desc: "Dense energetic dust cloud. Scanners experience severe interference." },
-    { id: "neb_3", name: "Emerald Veil", x: 160, y: 380, radius: 70, color: "rgba(50, 255, 120, 0.28)", desc: "Bio-organic plasma mist. Rich in rare flora and mineral deposits." },
-    { id: "neb_4", name: "Orion Expanse", x: 280, y: 150, radius: 60, color: "rgba(80, 120, 255, 0.28)", desc: "Luminous stellar nursery. High Endurium energy concentrations." },
-    { id: "neb_5", name: "Cygnus Rift", x: 430, y: 100, radius: 80, color: "rgba(180, 80, 255, 0.28)", desc: "Gamma radiation rift. Unstable warp vectors." },
-    { id: "neb_6", name: "Phoenix Dust Field", x: 350, y: 440, radius: 70, color: "rgba(255, 180, 50, 0.28)", desc: "Glowing stellar ash. Ancient Precursor combat debris." },
-    { id: "neb_7", name: "Aquila Dark Veil", x: 60, y: 260, radius: 55, color: "rgba(50, 200, 255, 0.28)", desc: "Dark absorption nebula. Stealth dampening field." },
-    { id: "neb_8", name: "Precursor Core Mist", x: 250, y: 250, radius: 45, color: "rgba(0, 255, 160, 0.22)", desc: "Central sector aura surrounding Starbase Prime." }
+    { id: "neb_1", name: "Tarantula Nebula", x: 100, y: 120, radius: 65, color: "rgba(255, 50, 120, 0.28)", desc: "Ionized hydrogen cloud. Shield recharge rate boosted by 50% inside gas field.", effect: "shield_boost" },
+    { id: "neb_2", name: "Crimson Cloud", x: 400, y: 320, radius: 75, color: "rgba(255, 80, 50, 0.28)", desc: "Dense energetic dust cloud. Scanners experience severe interference.", effect: "scanner_blind" },
+    { id: "neb_3", name: "Emerald Veil", x: 160, y: 380, radius: 70, color: "rgba(50, 255, 120, 0.28)", desc: "Bio-organic plasma mist. Rich in rare flora and mineral deposits.", effect: "bio_rich" },
+    { id: "neb_4", name: "Orion Expanse", x: 280, y: 150, radius: 60, color: "rgba(80, 120, 255, 0.28)", desc: "Luminous stellar nursery. High Endurium energy concentrations.", effect: "fuel_rich" },
+    { id: "neb_5", name: "Cygnus Rift", x: 430, y: 100, radius: 80, color: "rgba(180, 80, 255, 0.28)", desc: "Gamma radiation rift. Unstable warp vectors.", effect: "radiation" },
+    { id: "neb_6", name: "Phoenix Dust Field", x: 350, y: 440, radius: 70, color: "rgba(255, 180, 50, 0.28)", desc: "Glowing stellar ash. Ancient Precursor combat debris.", effect: "hull_stress" },
+    { id: "neb_7", name: "Aquila Dark Veil", x: 60, y: 260, radius: 55, color: "rgba(50, 200, 255, 0.28)", desc: "Dark absorption nebula. Stealth dampening field.", effect: "stealth" },
+    { id: "neb_8", name: "Precursor Core Mist", x: 250, y: 250, radius: 45, color: "rgba(0, 255, 160, 0.22)", desc: "Central sector aura surrounding Starbase Prime.", effect: "safe" }
   ],
 
   // Quantum Wormhole Pairs (500x500 map bidirectional teleporters)

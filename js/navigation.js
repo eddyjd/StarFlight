@@ -24,6 +24,8 @@ const Navigation = {
   sonarRadius: 0,
   sonarActive: false,
   longScanCooldown: 0,
+  fuelDryAnnounced: false,
+  lastShownFuel: -1,
   needsResize: true,
   starPhase: 0,
   patrolCooldown: 0,
@@ -416,6 +418,31 @@ const Navigation = {
     return obj.__label;
   },
 
+  /**
+   * Chart the fog-of-war sectors a sweep actually covers. Scanning used to name
+   * objects without revealing any map, so the star map stayed dark in places the
+   * sensors had plainly just swept.
+   */
+  revealSectorsWithin(radius) {
+    const ship = window.game.ship;
+    if (!ship.exploredSectors) ship.exploredSectors = {};
+    let fresh = 0;
+    const step = 25;
+    const minX = Math.max(0, Math.floor((this.shipX - radius) / step) * step);
+    const maxX = Math.min(500, Math.ceil((this.shipX + radius) / step) * step);
+    const minY = Math.max(0, Math.floor((this.shipY - radius) / step) * step);
+    const maxY = Math.min(500, Math.ceil((this.shipY + radius) / step) * step);
+    for (let x = minX; x <= maxX; x += step) {
+      for (let y = minY; y <= maxY; y += step) {
+        // sector centre inside the sweep
+        if (Math.hypot((x + step / 2) - this.shipX, (y + step / 2) - this.shipY) > radius) continue;
+        const key = `${x}_${y}`;
+        if (!ship.exploredSectors[key]) { ship.exploredSectors[key] = true; fresh++; }
+      }
+    }
+    return fresh;
+  },
+
   // Sensor reach. Range scales with the assigned Navigator's skill and with the
   // Scanner module fitted at the Depot, so both upgrade paths stack:
   //   nav 65 + scanner 1  ->  short  41 LY | long 116 LY
@@ -528,6 +555,9 @@ const Navigation = {
     AudioController.playScan();
 
     UI.addLog(`LONG RANGE SWEEP EMITTED. RANGE ${r.long.toFixed(1)} LY (NAV SKILL ${r.navSkill} / SCANNER CLASS ${r.scannerLevel}).`);
+
+    const chartedLong = this.revealSectorsWithin(r.long);
+    if (chartedLong > 0) UI.addLog(`NAV-COMPUTER: ${chartedLong} NEW SECTOR(S) CHARTED BY THE SWEEP.`);
 
     let fresh = 0, already = 0;
     this.getDeepSpaceContacts().forEach(c => {
@@ -1061,16 +1091,43 @@ const Navigation = {
       }
     });
 
+    // Reserve power only. Running dry used to log a reactor failure and then let
+    // the ship fly exactly as before, which made fuel meaningless.
+    if (ship.fuel <= 0) {
+      this.shipVx *= Math.pow(0.90, dt * 60);
+      this.shipVy *= Math.pow(0.90, dt * 60);
+      const speed = Math.hypot(this.shipVx, this.shipVy);
+      const IMPULSE_CAP = 0.45;
+      if (speed > IMPULSE_CAP) {
+        const k = IMPULSE_CAP / speed;
+        this.shipVx *= k;
+        this.shipVy *= k;
+      }
+      if (!this.fuelDryAnnounced) {
+        this.fuelDryAnnounced = true;
+        if (typeof AudioController !== "undefined" && AudioController.stopEngine) AudioController.stopEngine();
+        UI.addLog("REACTOR OFFLINE: ENDURIUM EXHAUSTED. MANOEUVRING ON RESERVE POWER ONLY.");
+        UI.addLog("DISTRESS PROTOCOL AVAILABLE - PRESS [E] OR USE THE DISTRESS CONTROL TO CALL FOR AID.");
+        if (typeof UI !== "undefined" && UI.updateShip) UI.updateShip(ship);
+      }
+    } else if (this.fuelDryAnnounced) {
+      this.fuelDryAnnounced = false;
+      UI.addLog("REACTOR RESTART: ENDURIUM FLOW RESTORED.");
+    }
+
     // Fuel Consumption based on thrust and engine efficiency
     if (isThrusting && ship.fuel > 0) {
       const engSkill = ship.crew.engineer ? ship.crew.engineer.skill : 40;
       const fuelCost = (engine.fuelMult * (1.2 - engSkill / 200)) * dt;
       ship.fuel = Math.max(0, ship.fuel - fuelCost);
       AudioController.updateEnginePitch(0.8);
-      
-      if (ship.fuel <= 0) {
-        AudioController.stopEngine();
-        UI.addLog("REACTOR FAILURE: ENDURIUM OUT OF FUEL.");
+
+      // Refresh the gauge when the displayed integer moves. Without this the
+      // readout only changed when some unrelated event happened to redraw it, so
+      // fuel appeared frozen for long stretches of flight.
+      if (Math.ceil(this.lastShownFuel) !== Math.ceil(ship.fuel)) {
+        this.lastShownFuel = ship.fuel;
+        if (typeof UI !== "undefined" && UI.updateShip) UI.updateShip(ship);
       }
     } else {
       AudioController.updateEnginePitch(0.1);
@@ -1949,7 +2006,7 @@ const Navigation = {
 
     // Draw Active Alien Spacecraft flying in space on Starmap
     // Alien starports - fixed installations, so shown once detected like any site
-    if (GameData.alienPorts && this.isLayerOn("ports")) {
+    if (GameData.alienPorts && this.isLayerOn("ports") && RegionManager.isCore()) {
       GameData.alienPorts.forEach(port => {
         const tier = this.getContactTier(port.id, port.x, port.y);
         if (tier === 0) return;
@@ -1974,7 +2031,7 @@ Facility: Archive open to visiting captains. Dock with [B].`
     }
 
     // Customs patrols, plotted like alien contacts and limited to sensor reach
-    if (this.isLayerOn("patrols")) {
+    if (this.isLayerOn("patrols") && RegionManager.isCore()) {
       const reach = this.getScanRanges().short * 1.15;
       const me = this.getShipGalaxyCoords();
       this.getPatrols().forEach(p => {
@@ -2002,7 +2059,7 @@ Action: Hails and scans passing vessels for contraband.`
     // range triggerSonar() uses, so the map shows exactly what the scanner can see.
     const alienReach = this.getScanRanges().short * 1.15;
     const selfPos = this.getShipGalaxyCoords();
-    if (this.isLayerOn("aliens")) this.alienShips.forEach(alien => {
+    if (this.isLayerOn("aliens") && RegionManager.isCore()) this.alienShips.forEach(alien => {
       if (Math.hypot(selfPos.x - alien.x, selfPos.y - alien.y) > alienReach) return;
       const alienPx = toCanvasX(alien.x);
       const alienPy = toCanvasY(alien.y);
@@ -2113,19 +2170,28 @@ Action: Hails and scans passing vessels for contraband.`
         }
       });
 
-      // Resolve deep space contacts inside short range into full identifications
-      let identified = 0;
+      const charted = this.revealSectorsWithin(r.short);
+      if (charted > 0) UI.addLog(`NAV-COMPUTER: ${charted} NEW SECTOR(S) CHARTED FROM SENSOR RETURNS.`);
+
+      // Resolve deep space contacts inside short range into full identifications.
+      // Every contact in range is reported, not only the newly-found ones - a scan
+      // that lists nothing on a re-sweep reads as a scan that failed.
+      let identified = 0, known = 0;
       this.getDeepSpaceContacts().forEach(c => {
         const dist = Math.hypot(this.shipX - c.x, this.shipY - c.y);
         if (dist > r.short) return;
         const wasNew = this.markContact(c.id, 2);
+        const bearing = Math.round(((Math.atan2(c.y - this.shipY, c.x - this.shipX) * 180 / Math.PI) + 360) % 360);
         if (wasNew) {
           identified++;
-          const bearing = Math.round(((Math.atan2(c.y - this.shipY, c.x - this.shipX) * 180 / Math.PI) + 360) % 360);
           UI.addLog(`CONTACT IDENTIFIED - ${c.label}: ${c.name.toUpperCase()} AT (${c.x}, ${c.y}) - ${dist.toFixed(1)} LY BEARING ${bearing}°`);
+        } else {
+          known++;
+          UI.addLog(`CONTACT (LOGGED) - ${c.label}: ${c.name.toUpperCase()} - ${dist.toFixed(1)} LY BEARING ${bearing}°`);
         }
       });
       if (identified > 0) AudioController.playBeep('success');
+      if (identified === 0 && known === 0) UI.addLog("NO DEEP SPACE CONTACTS WITHIN SHORT RANGE.");
 
       // Scan active alien spacecraft in space
       this.alienShips.forEach(alien => {
@@ -2361,8 +2427,10 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Render Derelict Space Stations in Viewport
-    // Render Alien Starports in the Viewport
-    if (GameData.alienPorts) {
+    // Render Alien Starports in the Viewport. Core-only installations: previously
+    // only the interaction was region-gated, so they still DREW in the Reach and
+    // could be flown to for no reason.
+    if (GameData.alienPorts && RegionManager.isCore()) {
       GameData.alienPorts.forEach(port => {
         const px = centerX + (port.x - this.shipX) * scale;
         const py = centerY + (port.y - this.shipY) * scale;
@@ -2397,8 +2465,8 @@ Action: Hails and scans passing vessels for contraband.`
       });
     }
 
-    // Render Customs Patrol cutters in the Viewport
-    if (GameData.patrols) {
+    // Customs jurisdiction does not extend beyond the fold
+    if (GameData.patrols && RegionManager.isCore()) {
       this.getPatrols().forEach(p => {
         const px = centerX + (p.x - this.shipX) * scale;
         const py = centerY + (p.y - this.shipY) * scale;

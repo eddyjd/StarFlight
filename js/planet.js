@@ -517,14 +517,14 @@ const PlanetExploration = {
     let tx = rx;
     let ty = ry;
 
-    if (!["mineral", "bio", "dropped", "ruin"].includes(targetTile.type)) {
+    if (!["mineral", "bio", "dropped", "ruin", "ruin_spent"].includes(targetTile.type)) {
       const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
       for (let [dx, dy] of dirs) {
         const nx = rx + dx;
         const ny = ry + dy;
         if (nx >= 0 && nx < this.gridWidth && ny >= 0 && ny < this.gridHeight) {
           const tile = this.grid[ny][nx];
-          if (["mineral", "bio", "dropped", "ruin"].includes(tile.type)) {
+          if (["mineral", "bio", "dropped", "ruin", "ruin_spent"].includes(tile.type)) {
             targetTile = tile;
             tx = nx;
             ty = ny;
@@ -536,7 +536,7 @@ const PlanetExploration = {
 
     AudioController.playScan();
 
-    if (["mineral", "bio", "dropped", "ruin"].includes(targetTile.type)) {
+    if (["mineral", "bio", "dropped", "ruin", "ruin_spent"].includes(targetTile.type)) {
       const pState = this.getPlanetState();
       pState.analyzedTiles[`${tx}_${ty}`] = true;
     }
@@ -560,9 +560,20 @@ const PlanetExploration = {
       UI.addLog(`- SPECIFIC MASS: ${item.mass} TONS | VALUE: ${item.sellVal} M.U.`);
       UI.addLog(`- STATUS: READY FOR RECOVERY INTO TV ROVER BED.`);
     } else if (targetTile.type === "ruin") {
+      // `name` is null on the 20 ruin worlds that carry no artifact. Reading it
+      // unguarded threw here, so analysing most monoliths silently did nothing.
       UI.addLog(`PRECURSOR MONOLITH ANALYSIS AT SECTOR (${tx}, ${ty}):`);
-      UI.addLog(`- ARCHIVE ANOMALY: ANCIENT PRECURSOR DATA VAULT [${targetTile.name.toUpperCase()}]`);
-      UI.addLog(`- DECRYPTION: READY FOR EXTRACT ON INTERACTION.`);
+      if (targetTile.name) {
+        UI.addLog(`- ARCHIVE ANOMALY: ANCIENT PRECURSOR DATA VAULT [${String(targetTile.name).toUpperCase()}]`);
+        UI.addLog(`- DECRYPTION: READY FOR EXTRACT ON INTERACTION.`);
+      } else {
+        UI.addLog(`- STRUCTURE: INTACT INTERMENT CHAMBER, PRECURSOR CONSTRUCTION.`);
+        UI.addLog(`- CONTENTS: SENSORS READ NO ARTIFACT SIGNATURE. THE CHAMBER APPEARS EMPTY.`);
+        UI.addLog(`- EXCAVATE ANYWAY TO CONFIRM AND LOG THE SURVEY.`);
+      }
+    } else if (targetTile.type === "ruin_spent") {
+      UI.addLog(`PRECURSOR MONOLITH ANALYSIS AT SECTOR (${tx}, ${ty}):`);
+      UI.addLog(`- STATUS: ALREADY EXCAVATED BY THIS VESSEL. CHAMBER CONFIRMED EMPTY.`);
     } else {
       UI.addLog(`SURFACE SCANNER AT SECTOR (${rx}, ${ry}): STANDARD PLANETARY SOIL & ROCK FORMATIONS.`);
     }
@@ -772,7 +783,31 @@ const PlanetExploration = {
     }
     else if (tile.type === "ruin") {
       const artifactName = tile.name;
-      
+
+      // 20 of the 24 ruin worlds carry no artifact at all, so this tile's name is
+      // null. Calling null.toUpperCase() below threw, the frame handler swallowed
+      // it, and excavating simply appeared to do nothing. An empty ruin is a
+      // legitimate outcome - it just has to SAY so.
+      if (!artifactName) {
+        this.grid[y][x] = { type: "ruin_spent", name: null };
+        pState.minedTiles[`${x}_${y}`] = true;
+        if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("error");
+        UI.addLog("PRECURSOR MONOLITH EXCAVATED: CHAMBER ALREADY EMPTIED. NO ARTIFACT REMAINS.");
+        UI.addLog("Survey logged. Whatever was interred here was taken long before the Corps arrived.");
+        if (typeof ClueLog !== "undefined") {
+          ClueLog.record({
+            id: "ruin_empty_" + (this.planet ? this.planet.name.replace(/\s+/g, "_") : "unknown"),
+            title: "EMPTY INTERMENT CHAMBER",
+            source: "ruin",
+            sourceName: (this.planet && this.planet.name) || "Unknown World",
+            text: "The monolith on " + ((this.planet && this.planet.name) || "this world") +
+                  " stands open and empty. Someone reached it first."
+          });
+        }
+        window.game.saveGame();
+        return;
+      }
+
       // Collect artifact directly to ship's special manifest (massless)
       if (!ship.artifactsCollected.includes(artifactName)) {
         ship.artifactsCollected.push(artifactName);
@@ -1356,6 +1391,9 @@ const PlanetExploration = {
   getItemIconAndBadge(itemKey, tileType) {
     if (tileType === "ruin") {
       return { icon: "🏛️", label: "RUIN", color: "#00ff66" };
+    }
+    if (tileType === "ruin_spent") {
+      return { icon: "🏛️", label: "EMPTIED", color: "#777777" };
     }
     switch (itemKey) {
       case "endurium_ore":

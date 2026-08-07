@@ -542,6 +542,14 @@ const UI = {
     // Check if docked in Spaceport
     const isDocked = (game.viewState === "spaceport");
 
+    // updateHyper leaves btnLand reading "DOCK AT BASE [L]" from the approach, and
+    // nothing reset it once docking succeeded - so the control still invited you to
+    // dock at a base you were already standing on.
+    if (isDocked && this.elements.btnLand) {
+      this.elements.btnLand.disabled = true;
+      this.elements.btnLand.textContent = "DOCKED AT STARBASE";
+    }
+
     // Shields toggling
     const hasShields = game.ship.shieldLevel > 0;
     this.elements.btnShields.disabled = !hasShields || isDocked;

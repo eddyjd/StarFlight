@@ -129,6 +129,16 @@ const PlanetExploration = {
       return;
     }
 
+    // Some worlds simply cannot be landed on. They are not off-limits, though -
+    // a Precursor gate on another world in the region opens onto them.
+    const blocked = this.landingBlockedReason(planet);
+    if (blocked) {
+      AudioController.playBeep('error');
+      UI.addLog(`DESCENT REFUSED: ${planet.name.toUpperCase()} - ${blocked}.`);
+      UI.addLog("ORBITAL SURVEY IS POSSIBLE. THE SURFACE IS NOT, BY LANDER.");
+      return;
+    }
+
     this.planet = planet;
     this.targetLandingX = 25;
     this.targetLandingY = 17;
@@ -454,6 +464,156 @@ const PlanetExploration = {
     return table[table.length - 1].key;
   },
 
+  // ---- Precursor gates ---------------------------------------------------
+  // Some ruins are not tombs. They are working transit gates, and they still run.
+  //
+  // A gate is the only way onto a world the lander cannot survive: a 3G furnace or
+  // a frozen rock where atmospheric descent is refused outright. Walking through
+  // one strands the rover somewhere with no lander of its own, so the return gate
+  // on the far side is not decoration - it is the only way home, and the arrival
+  // tile IS that gate.
+
+  /** Worlds the lander will not attempt. Reason string, or null if landable. */
+  landingBlockedReason(planet) {
+    if (!planet) return null;
+    const g = planet.gravity || 1.0;
+    const t = (typeof planet.temp === "number") ? planet.temp : 15;
+    if (g >= 3.0) return `SURFACE GRAVITY ${g.toFixed(1)}G EXCEEDS LANDER STRUCTURAL LIMIT`;
+    if (t >= 450) return `SURFACE TEMPERATURE ${t}°C WOULD COOK THE DESCENT MODULE`;
+    if (t <= -180) return `SURFACE TEMPERATURE ${t}°C WOULD FREEZE THE THRUSTER FEED`;
+    return null;
+  },
+
+  /** Every world reachable in this region, for gate destination picking. */
+  allPlanetsInRegion() {
+    const systems = (typeof RegionManager !== "undefined")
+      ? RegionManager.content("starSystems") : (GameData.starSystems || []);
+    const out = [];
+    systems.forEach(sy => (sy.planets || []).forEach(pl => out.push({ sys: sy, planet: pl })));
+    return out;
+  },
+
+  /**
+   * Does this ruin work, and where does it go? Deterministic from the planet name,
+   * so a gate world is always a gate world. Roughly one ruin in three still runs.
+   */
+  getGate(planet) {
+    if (!planet || !planet.hasRuins) return null;
+    if (planet.__gate !== undefined) return planet.__gate;
+
+    const rand = this.getSeededRandom("gate:" + planet.name);
+    if (rand() >= 0.34) { planet.__gate = null; return null; }
+
+    const here = this.allPlanetsInRegion();
+    // Prefer somewhere the lander cannot go - that is what a gate is FOR.
+    const hostile = here.filter(e => e.planet.name !== planet.name && this.landingBlockedReason(e.planet));
+    const others = here.filter(e => e.planet.name !== planet.name);
+    const pool = hostile.length ? hostile : others;
+
+    let dest = null;
+    if (pool.length && rand() < 0.8) {
+      dest = pool[Math.floor(rand() * pool.length)].planet;
+    }
+
+    planet.__gate = dest
+      ? { kind: "world", destPlanet: dest.name, x: 15, y: 8 }
+      // No partner world available, so it folds to the far side of this one -
+      // still useful on a big grid, and still a working gate.
+      : { kind: "local", destPlanet: planet.name, x: 38, y: 26, sx: 15, sy: 8 };
+    return planet.__gate;
+  },
+
+  /** The planet record behind a name, across every system in the region. */
+  findPlanet(name) {
+    const hit = this.allPlanetsInRegion().find(e => e.planet.name === name);
+    return hit ? hit.planet : null;
+  },
+
+  /**
+   * Step through. Records where to come back to before it moves anything, because
+   * a gate that forgets the way home is a trap, not a shortcut.
+   */
+  enterGate() {
+    const tile = this.grid[this.roverY][this.roverX];
+    const ship = window.game.ship;
+
+    if (tile.type === "gate_return") {
+      return this.exitGate();
+    }
+    if (tile.type !== "gate") return;
+
+    const gate = this.getGate(this.planet);
+    if (!gate) return;
+
+    const destName = gate.destPlanet;
+    const dest = this.findPlanet(destName);
+    if (!dest) {
+      UI.addLog("THE GATE FLARES AND DIES. WHATEVER IT ONCE CONNECTED TO IS NO LONGER THERE.");
+      return;
+    }
+
+    // Remember the exact tile to come back to, and which world it is on
+    ship.portalReturn = {
+      planet: this.planet.name,
+      x: this.roverX,
+      y: this.roverY,
+      system: (window.game.ship.currentSystem && window.game.ship.currentSystem.name) || null
+    };
+
+    UI.addLog(`THE MONOLITH IS NOT A TOMB. IT IS A DOOR, AND IT IS STILL POWERED.`);
+    UI.addLog(`TRANSIT: ${this.planet.name.toUpperCase()} → ${destName.toUpperCase()}.`);
+    const blocked = this.landingBlockedReason(dest);
+    if (blocked) UI.addLog(`NOTE: THIS WORLD CANNOT BE LANDED ON. ${blocked}.`);
+    UI.addLog("THE GATE BEHIND YOU IS STILL OPEN. IT IS THE ONLY WAY BACK - THERE IS NO LANDER HERE.");
+
+    this.planet = dest;
+    this.arrivedByGate = true;
+    this.roverX = gate.x;
+    this.roverY = gate.y;
+    this.generatePlanetaryGrid();
+
+    // Survey credit for a world reached the hard way
+    try {
+      const sv = this.survey(dest.name);
+      sv.landed = true;
+      sv.viaGate = true;
+      sv.landings = (sv.landings || 0) + 1;
+    } catch (e) {}
+
+    if (typeof AudioController !== "undefined") AudioController.playBeep("powerup");
+    if (typeof QuestEngine !== "undefined") QuestEngine.notify("gate", { from: ship.portalReturn.planet, to: destName });
+    UI.updateShip(ship);
+    window.game.saveGame();
+  },
+
+  /** Back through the return gate to the tile the rover left from. */
+  exitGate() {
+    const ship = window.game.ship;
+    const ret = ship.portalReturn;
+    if (!ret) {
+      UI.addLog("THE GATE WILL NOT HOLD A VECTOR. NOTHING ON THE FAR SIDE ANSWERS.");
+      return;
+    }
+
+    const home = this.findPlanet(ret.planet);
+    if (!home) {
+      UI.addLog("THE RETURN VECTOR POINTS SOMEWHERE THAT IS NO LONGER ON THE CHART.");
+      return;
+    }
+
+    UI.addLog(`TRANSIT: ${this.planet.name.toUpperCase()} → ${ret.planet.toUpperCase()}. THE DOOR CLOSES BEHIND YOU.`);
+    this.planet = home;
+    this.arrivedByGate = false;
+    this.roverX = ret.x;
+    this.roverY = ret.y;
+    ship.portalReturn = null;
+    this.generatePlanetaryGrid();
+
+    if (typeof AudioController !== "undefined") AudioController.playBeep("success");
+    UI.updateShip(ship);
+    window.game.saveGame();
+  },
+
   generatePlanetaryGrid() {
     const rand = this.getSeededRandom(this.planet.name);
     const pState = this.getPlanetState(this.planet.name);
@@ -473,9 +633,15 @@ const PlanetExploration = {
       }
     }
 
-    // Place ruins at (15, 8) if hasRuins
+    // Place ruins at (15, 8) if hasRuins. A working gate replaces the monolith -
+    // the ruin IS the gate on those worlds, rather than sitting next to one.
     if (this.planet.hasRuins) {
-      this.grid[8][15] = { type: "ruin", name: this.planet.artifact };
+      const gate = this.getGate(this.planet);
+      if (gate && !this.arrivedByGate) {
+        this.grid[8][15] = { type: "gate", name: this.planet.artifact, dest: gate.destPlanet };
+      } else {
+        this.grid[8][15] = { type: "ruin", name: this.planet.artifact };
+      }
     }
 
     // Place Rare Tech Component Ruin/Wreck on ~18% of planets (seeded random check)
@@ -537,9 +703,16 @@ const PlanetExploration = {
     }
 
     // Restore Previous Landing Sites as marked gold lander pads [H]
+    // The lander sits at the site that was actually descended to, which is NOT
+    // always where the rover is standing: walking back through a Precursor gate
+    // puts the rover on the gate tile, and placing the lander under it there
+    // destroyed the gate and moved the ship's only ride across the map.
+    const landerX = (typeof this.targetLandingX === "number") ? this.targetLandingX : this.roverX;
+    const landerY = (typeof this.targetLandingY === "number") ? this.targetLandingY : this.roverY;
+
     if (pState.landingSites) {
       pState.landingSites.forEach((site, idx) => {
-        if (site.x !== this.roverX || site.y !== this.roverY) {
+        if (site.x !== landerX || site.y !== landerY) {
           if (this.grid[site.y] && this.grid[site.y][site.x]) {
             this.grid[site.y][site.x] = { type: "past_lander", label: `[H${idx + 1}]` };
           }
@@ -547,8 +720,13 @@ const PlanetExploration = {
       });
     }
 
-    // Place current Lander at target coordinates (targetLandingX, targetLandingY)
-    this.grid[this.roverY][this.roverX] = { type: "lander" };
+    // A rover that walked through a gate has NO lander on this world - the tile it
+    // stands on is the return gate, and that is deliberately the only way off.
+    if (this.arrivedByGate) {
+      this.grid[this.roverY][this.roverX] = { type: "gate_return" };
+    } else if (this.grid[landerY] && this.grid[landerY][landerX]) {
+      this.grid[landerY][landerX] = { type: "lander" };
+    }
 
     // Spawn 3 wandering storm hazards
     for (let i = 0; i < 3; i++) {
@@ -623,6 +801,18 @@ const PlanetExploration = {
         UI.addLog(`- CONTENTS: SENSORS READ NO ARTIFACT SIGNATURE. THE CHAMBER APPEARS EMPTY.`);
         UI.addLog(`- EXCAVATE ANYWAY TO CONFIRM AND LOG THE SURVEY.`);
       }
+    } else if (targetTile.type === "gate") {
+      UI.addLog(`PRECURSOR MONOLITH ANALYSIS AT SECTOR (${tx}, ${ty}):`);
+      UI.addLog(`- STRUCTURE: NOT A CHAMBER. A FRAME, AND IT IS DRAWING POWER.`);
+      UI.addLog(`- RESONANCE: LOCKED ONTO ${String(targetTile.dest || "SOMEWHERE").toUpperCase()}.`);
+      const destPl = this.findPlanet(targetTile.dest);
+      const why = destPl ? this.landingBlockedReason(destPl) : null;
+      if (why) UI.addLog(`- ADVISORY: THAT WORLD REFUSES A LANDER. ${why}.`);
+      UI.addLog(`- PRESS [ENTER] TO STEP THROUGH. THE FRAME HOLDS OPEN BEHIND YOU.`);
+    } else if (targetTile.type === "gate_return") {
+      UI.addLog(`PRECURSOR GATE ANALYSIS AT SECTOR (${tx}, ${ty}):`);
+      UI.addLog(`- STATUS: RETURN FRAME, HOLDING A VECTOR BACK THE WAY YOU CAME.`);
+      UI.addLog(`- THIS IS THE ONLY WAY OFF THIS WORLD. THERE IS NO LANDER HERE.`);
     } else if (targetTile.type === "ruin_spent") {
       UI.addLog(`PRECURSOR MONOLITH ANALYSIS AT SECTOR (${tx}, ${ty}):`);
       UI.addLog(`- STATUS: ALREADY EXCAVATED BY THIS VESSEL. CHAMBER CONFIRMED EMPTY.`);
@@ -664,6 +854,13 @@ const PlanetExploration = {
   harvestCurrentTile() {
     const rx = this.roverX;
     const ry = this.roverY;
+
+    // Standing in a Precursor frame, [ENTER] means "step through", not "dig".
+    const here = this.grid[ry][rx];
+    if (here.type === "gate" || here.type === "gate_return") {
+      this.enterGate();
+      return;
+    }
 
     // Check current tile first, then adjacent 4-directional tiles
     let targetTile = this.grid[ry][rx];
@@ -1174,9 +1371,19 @@ const PlanetExploration = {
   returnToShip() {
     // Only works when standing on the lander tile
     const tile = this.grid[this.roverY][this.roverX];
+    if (tile.type === "gate_return") {
+      // There is no lander on a world reached through a gate. [L] here means the
+      // frame, which is the whole point of the return gate existing.
+      this.exitGate();
+      return;
+    }
     if (tile.type !== "lander") {
       AudioController.playBeep('error');
-      UI.addLog("ROVER ERROR: Must navigate back to Lander Zone coordinates to launch.");
+      if (this.arrivedByGate) {
+        UI.addLog("ROVER ERROR: NO LANDER ON THIS WORLD. RETURN TO THE PRECURSOR FRAME TO LEAVE.");
+      } else {
+        UI.addLog("ROVER ERROR: Must navigate back to Lander Zone coordinates to launch.");
+      }
       return;
     }
 
@@ -1451,6 +1658,12 @@ const PlanetExploration = {
     }
     if (tileType === "ruin_spent") {
       return { icon: "🏛️", label: "EMPTIED", color: "#777777" };
+    }
+    if (tileType === "gate") {
+      return { icon: "⬡", label: "GATE", color: "#cc88ff" };
+    }
+    if (tileType === "gate_return") {
+      return { icon: "⬡", label: "RETURN", color: "#ffcc00" };
     }
     switch (itemKey) {
       case "endurium_ore":

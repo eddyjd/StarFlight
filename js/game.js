@@ -125,6 +125,9 @@ const GameManager = {
     // Structural modules recovered in the field, waiting for the gravity drydock
     pendingModules: [],
 
+    // Where a Precursor gate must put the rover back. Null unless mid-transit.
+    portalReturn: null,
+
     isInSpacebase: true,
     currentSystem: null,
     currentPlanet: null
@@ -936,6 +939,7 @@ const GameManager = {
         wormholeSeed: null,
         wormholeNet: null,
         pendingModules: [],
+        portalReturn: null,
         isInSpacebase: true,
         currentSystem: null,
         currentPlanet: null

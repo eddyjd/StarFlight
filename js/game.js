@@ -93,6 +93,7 @@ const GameManager = {
     // whichever region is active.
     region: "core",
     regions: {},
+    visitedRegions: { core: true },
 
     // Rare Precursor tech modules bolted onto the hull, by GameData.techParts id.
     // Their stat boosts are already folded into the numbers above; this is the
@@ -451,6 +452,8 @@ const GameManager = {
     if (this.spaceState === "hyper") {
       if (Navigation.nearbySpaceWreck) {
         Navigation.salvageSpaceWreck();
+      } else if (Navigation.nearbyCombatWreck) {
+        Navigation.salvageCombatWreck();
       } else if (Navigation.nearbyDerelict) {
         Navigation.boardNearbyDerelict();
       } else if (Navigation.nearbyAlienPort) {
@@ -825,6 +828,7 @@ const GameManager = {
         if (!Array.isArray(this.ship.volumesRead)) this.ship.volumesRead = [];
         if (!this.ship.relics) this.ship.relics = {};
         if (!this.ship.planetSurveys) this.ship.planetSurveys = {};
+        if (!this.ship.visitedRegions) this.ship.visitedRegions = { core: true };
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!this.ship.mapLayers) {
@@ -894,6 +898,7 @@ const GameManager = {
         traversedLinks: {},
         region: "core",
         regions: {},
+        visitedRegions: { core: true },
         installedTechParts: [],
         mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true },
         launchConfig: { autoShields: true, autoWeapons: true },

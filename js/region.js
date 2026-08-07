@@ -103,6 +103,9 @@ const RegionManager = {
     this.migrate(ship);
     this.stash(ship, from);
     ship.region = regionId;
+    if (!ship.visitedRegions) ship.visitedRegions = { core: true };
+    ship.visitedRegions[regionId] = true;
+    this.mapView = regionId;         // follow the ship by default
     this.restore(ship, regionId);
 
     const ax = (typeof arrivalX === "number") ? arrivalX : ((target.arrival && target.arrival.x) || 250);
@@ -128,6 +131,46 @@ const RegionManager = {
 
     game.saveGame();
     return true;
+  },
+
+  /** Regions the captain has actually set foot in - used by the star map selector. */
+  visited() {
+    const ship = window.game && window.game.ship;
+    if (!ship) return ["core"];
+    if (!ship.visitedRegions) ship.visitedRegions = { core: true };
+    ship.visitedRegions[ship.region || "core"] = true;
+    return Object.keys(this.all()).filter(id => ship.visitedRegions[id]);
+  },
+
+  /**
+   * Which region the star map is currently DISPLAYING. Defaults to where the ship
+   * is, but a captain may review any region already visited - the charts do not
+   * evaporate because you flew home.
+   */
+  viewedId() {
+    return this.mapView || this.currentId();
+  },
+
+  setViewed(id) {
+    if (!this.get(id)) return;
+    this.mapView = id;
+  },
+
+  /** Content for whichever region the MAP is showing, not where the ship is. */
+  viewedContent(kind) {
+    const id = this.viewedId();
+    if (id === "core") return GameData[kind] || [];
+    const region = this.get(id);
+    return (region && region[kind]) || [];
+  },
+
+  /** The exploration record for the region being viewed. */
+  viewedRecord() {
+    const ship = window.game && window.game.ship;
+    const id = this.viewedId();
+    if (!ship) return {};
+    if (id === this.currentId()) return ship;             // live working copy
+    return (ship.regions && ship.regions[id]) || {};
   },
 
   /** Star systems visible from the active region - used by nav and the star map. */

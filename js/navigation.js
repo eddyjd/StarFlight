@@ -102,6 +102,8 @@ const Navigation = {
       if (e.key === "b" || e.key === "B") {
         if (this.nearbySpaceWreck) {
           this.salvageSpaceWreck();
+        } else if (this.nearbyCombatWreck) {
+          this.salvageCombatWreck();
         } else if (this.nearbyDerelict) {
           this.boardNearbyDerelict();
         } else if (this.nearbyAlienPort) {
@@ -489,6 +491,15 @@ const Navigation = {
   getContactTier(id, x, y) {
     const ship = window.game && window.game.ship;
     if (!ship) return 0;
+    // When the map is reviewing another region, judge by that region's log
+    const mapOpen = (() => {
+      const m = document.getElementById("starmap-modal");
+      return m && !m.classList.contains("hidden");
+    })();
+    if (mapOpen && typeof RegionManager !== "undefined" && RegionManager.viewedId() !== RegionManager.currentId()) {
+      const rec = RegionManager.viewedRecord();
+      return (rec.contactLog && rec.contactLog[id]) || 0;
+    }
     // Identification comes ONLY from the contact log - a short scan, or flying
     // within interaction range. It deliberately no longer keys off charted
     // sectors: now that a long sweep charts the fog of war it swept, treating
@@ -708,6 +719,61 @@ const Navigation = {
     UI.openDerelictModal(this.nearbyDerelict);
   },
 
+  /**
+   * Drop a salvageable hull where a ship died. These are transient - they live in
+   * Navigation rather than GameData, and are not persisted, because a battlefield
+   * should be worth returning to only while it is still warm.
+   */
+  spawnCombatWreck(alien) {
+    if (!this.combatWrecks) this.combatWrecks = [];
+    const id = "cw_" + alien.raceKey + "_" + Math.round(alien.x) + "_" + Math.round(alien.y);
+    if (this.combatWrecks.some(w => w.id === id)) return;
+
+    // Loot scales with what the ship was: tougher hulls carry better material.
+    const tiers = { spemin: "iron", thrynn: "titanium", veloxi: "platinum", uhlek: "iridium" };
+    const ore = tiers[alien.raceKey] || "titanium";
+    this.combatWrecks.push({
+      id: id,
+      name: alien.name + " Hull",
+      raceKey: alien.raceKey,
+      x: alien.x, y: alien.y,
+      searched: false,
+      credits: 150 + Math.floor(Math.random() * 250),
+      ore: ore,
+      oreCount: 1 + Math.floor(Math.random() * 3)
+    });
+    UI.addLog("SENSORS: THE SHATTERED HULL IS DRIFTING AND INTACT ENOUGH TO BOARD [B].");
+  },
+
+  salvageCombatWreck() {
+    const wreck = this.nearbyCombatWreck;
+    if (!wreck || wreck.searched) return;
+    const ship = window.game.ship;
+    wreck.searched = true;
+
+    ship.credits += wreck.credits;
+    const comm = GameData.commodities[wreck.ore];
+    const mass = (comm ? comm.mass : 2) * wreck.oreCount;
+    const room = (ship.cargoCap || 20) - UI.calculateCargoMass(ship.cargo);
+    let took = 0;
+    if (room >= mass) {
+      ship.cargo[wreck.ore] = (ship.cargo[wreck.ore] || 0) + wreck.oreCount;
+      took = wreck.oreCount;
+    }
+
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
+    UI.addLog(`HULL STRIPPED: +${wreck.credits} M.U. SALVAGE VALUE.`);
+    UI.addLog(took > 0
+      ? `RECOVERED ${took} x ${(comm ? comm.name : wreck.ore).toUpperCase()} FROM THE WRECKAGE.`
+      : `HOLD FULL - THE ${(comm ? comm.name : wreck.ore).toUpperCase()} WAS LEFT IN THE DEBRIS.`);
+
+    // The hull breaks up once stripped
+    this.combatWrecks = this.combatWrecks.filter(w => w.id !== wreck.id);
+    this.nearbyCombatWreck = null;
+    UI.updateShip(ship);
+    window.game.saveGame();
+  },
+
   dockAtAlienPort() {
     if (!this.nearbyAlienPort) return;
     const port = this.nearbyAlienPort;
@@ -809,10 +875,24 @@ const Navigation = {
         const ship = window.game.ship;
         const typeName = chunk.type.replace("_ore", "").toUpperCase();
         if (!ship.cargo) ship.cargo = {};
+
+        // Respect the hold, like every other acquisition route. The scoop used to
+        // ignore capacity entirely and load ore into a full ship.
+        const comm = GameData.commodities[chunk.type];
+        const mass = comm ? (comm.mass || 1) : 1;
+        if (UI.calculateCargoMass(ship.cargo) + mass > (ship.cargoCap || 20)) {
+          if (!this.scoopFullWarned) {
+            this.scoopFullWarned = true;
+            if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("error");
+            UI.addLog(`TRACTOR SCOOP OFFLINE: HOLD FULL. THE ${typeName} DRIFTS PAST.`);
+          }
+          return chunk.lifetime > 0;
+        }
+        this.scoopFullWarned = false;
         ship.cargo[chunk.type] = (ship.cargo[chunk.type] || 0) + 1;
 
         if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
-        UI.addLog(`TRACTOR SCOOP: RECOVERED 1 UNIT OF ${typeName} ORE INTO CARGO!`);
+        UI.addLog(`TRACTOR SCOOP: RECOVERED 1 UNIT OF ${typeName} (${(comm ? comm.tier : "common").toUpperCase()}) INTO CARGO!`);
         UI.updateShip(ship);
         return false;
       }
@@ -1051,6 +1131,14 @@ const Navigation = {
       });
     }
 
+    // 4b2. Drifting hulls from ships destroyed in combat
+    this.nearbyCombatWreck = null;
+    if (this.combatWrecks && this.combatWrecks.length) {
+      this.combatWrecks.forEach(w => {
+        if (!w.searched && Math.hypot(this.shipX - w.x, this.shipY - w.y) < 5.0) this.nearbyCombatWreck = w;
+      });
+    }
+
     // 4c. Alien Starport Proximity - neutral ground, always approachable
     this.nearbyAlienPort = null;
     if (GameData.alienPorts && (typeof RegionManager === "undefined" || RegionManager.isCore())) {
@@ -1166,6 +1254,10 @@ const Navigation = {
               UI.addLog(`TACTICAL VICTORY: ${alien.name.toUpperCase()} DESTROYED IN SPACE!`);
               ship.credits += 300;
               UI.updateShip(ship);
+
+              // A kill leaves a hull worth picking over. Previously the wreck
+              // simply vanished, so winning a fight produced nothing but a bounty.
+              this.spawnCombatWreck(alien);
               alien.x = -999;
             }
           }
@@ -1253,6 +1345,7 @@ const Navigation = {
     // [B]/[E]/[W] keys with nothing on screen to hint at them.
     const deepActionLabel =
         this.nearbySpaceWreck     ? "SALVAGE ALIEN WRECK [B]"
+      : this.nearbyCombatWreck    ? "STRIP SHATTERED HULL [B]"
       : this.nearbyDerelict       ? "BOARD DERELICT [B]"
       : this.nearbyAlienPort      ? "DOCK AT ALIEN PORT [B]"
       : this.nearbyDistressSignal ? "INVESTIGATE SIGNAL [E]"
@@ -1599,6 +1692,32 @@ const Navigation = {
     this.drawStarMapCanvas();
   },
 
+  /** Region selector - only regions actually visited are offered. */
+  refreshMapRegionButtons() {
+    const bar = document.getElementById("starmap-regions");
+    if (!bar) return;
+    const visited = RegionManager.visited();
+    if (visited.length < 2) { bar.innerHTML = ""; bar.classList.add("hidden"); return; }
+    bar.classList.remove("hidden");
+    const viewed = RegionManager.viewedId();
+    bar.innerHTML = '<span style="font-size:10px; color:#ffcc00; font-weight:bold; margin-right:2px;">CHARTS:</span>' +
+      visited.map(id => {
+        const r = RegionManager.get(id);
+        const here = (id === RegionManager.currentId()) ? " ◉" : "";
+        return `<button class="glow-btn btn-sm ${id === viewed ? "green-glow" : ""}" ` +
+               `style="${id === viewed ? "" : "opacity:0.55;"}" ` +
+               `onclick="Navigation.viewRegionMap('${id}')">${r.name.toUpperCase()}${here}</button>`;
+      }).join("");
+  },
+
+  viewRegionMap(id) {
+    RegionManager.setViewed(id);
+    this.resetStarMapPanZoom();
+    this.refreshMapRegionButtons();
+    this.drawStarMapCanvas();
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("click");
+  },
+
   openStarMapModal() {
     AudioController.playBeep('click');
     const modal = document.getElementById("starmap-modal");
@@ -1610,6 +1729,8 @@ const Navigation = {
     // backing store - which CSS then stretches to full screen, producing a
     // massively zoomed in, blurry map on first open.
     modal.classList.remove("hidden");
+    RegionManager.setViewed(RegionManager.currentId());   // always open on where you are
+    this.refreshMapRegionButtons();
     this.refreshMapLayerButtons();
     this.drawStarMapCanvas();
   },
@@ -1619,6 +1740,9 @@ const Navigation = {
     const modal = document.getElementById("starmap-modal");
     if (modal) modal.classList.add("hidden");
     this.hideStarMapTooltip();
+    // Clear the archived-chart override. Left set, it leaks out of the map and
+    // makes gameplay contact lookups consult a region the ship is not in.
+    if (typeof RegionManager !== "undefined") RegionManager.mapView = null;
   },
 
   drawStarMapCanvas() {
@@ -1642,8 +1766,12 @@ const Navigation = {
 
     const ctx = canvas.getContext("2d");
     const ship = window.game.ship;
-    if (!ship.exploredSectors) ship.exploredSectors = { "250_250": true };
-    if (!ship.discoveredSystems) ship.discoveredSystems = { "Starbase Prime": true };
+    // The map may be reviewing a region the ship has left, so read that
+    // region's own exploration record rather than the live working copy.
+    const view = RegionManager.viewedRecord();
+    const viewingElsewhere = RegionManager.viewedId() !== RegionManager.currentId();
+    
+    
 
     const zoomText = document.getElementById("starmap-zoom-level");
     if (zoomText) {
@@ -1709,7 +1837,7 @@ const Navigation = {
 
     // Draw Deep Space Nebulae Gas Clouds on Star Map
     if (this.isLayerOn("nebulae")) {
-      RegionManager.content('nebulae').forEach(neb => {
+      RegionManager.viewedContent('nebulae').forEach(neb => {
         const nx = toCanvasX(neb.x);
         const ny = toCanvasY(neb.y);
         const tier = this.getContactTier(neb.id, neb.x, neb.y);
@@ -1774,7 +1902,7 @@ const Navigation = {
 
     // Draw Supermassive Black Holes on Star Map
     if (this.isLayerOn("anomalies")) {
-      RegionManager.content('blackHoles').forEach(bh => {
+      RegionManager.viewedContent('blackHoles').forEach(bh => {
         const bhPx = toCanvasX(bh.x);
         const bhPy = toCanvasY(bh.y);
         const tier = this.getContactTier(bh.id, bh.x, bh.y);
@@ -1807,7 +1935,7 @@ const Navigation = {
 
     // Draw Derelict Space Stations on Star Map
     if (this.isLayerOn("salvage")) {
-      RegionManager.content('derelicts').forEach(der => {
+      RegionManager.viewedContent('derelicts').forEach(der => {
         const derPx = toCanvasX(der.x);
         const derPy = toCanvasY(der.y);
         const tier = this.getContactTier(der.id, der.x, der.y);
@@ -1830,7 +1958,7 @@ const Navigation = {
 
     // Draw Drifting Space Alien Wrecks on Star Map
     if (this.isLayerOn("salvage")) {
-      RegionManager.content('spaceWrecks').forEach(sw => {
+      RegionManager.viewedContent('spaceWrecks').forEach(sw => {
         const swPx = toCanvasX(sw.x);
         const swPy = toCanvasY(sw.y);
         const tier = this.getContactTier(sw.id, sw.x, sw.y);
@@ -1852,8 +1980,8 @@ const Navigation = {
     }
 
     // Draw Subspace Distress Beacons on Star Map
-    if (RegionManager.content('distressSignals').length) {
-      RegionManager.content('distressSignals').forEach(sig => {
+    if (RegionManager.viewedContent('distressSignals').length) {
+      RegionManager.viewedContent('distressSignals').forEach(sig => {
         if (!sig.active) return;
         const sigPx = toCanvasX(sig.x);
         const sigPy = toCanvasY(sig.y);
@@ -1884,8 +2012,8 @@ const Navigation = {
 
     // Check if any star system in a sector is discovered
     const systemInSectorDiscovered = (sx, sy) => {
-      return RegionManager.content('starSystems').some(sys => {
-        return sys.x >= sx && sys.x < sx + 25 && sys.y >= sy && sys.y < sy + 25 && ship.discoveredSystems[sys.name];
+      return RegionManager.viewedContent('starSystems').some(sys => {
+        return sys.x >= sx && sys.x < sx + 25 && sys.y >= sy && sys.y < sy + 25 && (view.discoveredSystems || {})[sys.name];
       });
     };
 
@@ -1893,7 +2021,7 @@ const Navigation = {
     for (let sx = 0; sx < 500; sx += 25) {
       for (let sy = 0; sy < 500; sy += 25) {
         const secKey = `${sx}_${sy}`;
-        const isExplored = ship.exploredSectors[secKey] || systemInSectorDiscovered(sx, sy) || (Math.hypot(sx - 250, sy - 250) < 40);
+        const isExplored = (view.exploredSectors || {})[secKey] || systemInSectorDiscovered(sx, sy) || (Math.hypot(sx - 250, sy - 250) < 40);
         if (!isExplored) {
           const px1 = toCanvasX(sx);
           const py1 = toCanvasY(sy);
@@ -1912,11 +2040,11 @@ const Navigation = {
     }
 
     // Draw Explored/Discovered Star Systems (including Starbase Prime)
-    if (this.isLayerOn("systems")) RegionManager.content('starSystems').forEach(sys => {
+    if (this.isLayerOn("systems")) RegionManager.viewedContent('starSystems').forEach(sys => {
       const secX = Math.floor(sys.x / 25) * 25;
       const secY = Math.floor(sys.y / 25) * 25;
-      const isDiscovered = ship.discoveredSystems && ship.discoveredSystems[sys.name];
-      const isExplored = isDiscovered || ship.exploredSectors[`${secX}_${secY}`] || (Math.hypot(sys.x - 250, sys.y - 250) < 40);
+      const isDiscovered = ship.discoveredSystems && (view.discoveredSystems || {})[sys.name];
+      const isExplored = isDiscovered || (view.exploredSectors || {})[`${secX}_${secY}`] || (Math.hypot(sys.x - 250, sys.y - 250) < 40);
 
       // A long range sweep registers a distant star as an unidentified return.
       // It stays a dim grey blip until a short range scan classifies it.
@@ -2129,7 +2257,7 @@ Action: Hails and scans passing vessels for contraband.`
     ctx.fillStyle = "#00ccff";
     ctx.fillText("▲ YOU ARE HERE", shipPx - (32 * zScale), shipPy - (14 * zScale));
 
-    this.mapTargets.push({
+    if (!viewingElsewhere) this.mapTargets.push({
       type: "ship",
       known: true,
       x: shipPx, y: shipPy, radius: 16 * zScale,
@@ -2138,14 +2266,14 @@ Action: Hails and scans passing vessels for contraband.`
     });
 
     // Count total discovered systems & encounters
-    const discoveredCount = Object.keys(ship.discoveredSystems || {}).length;
+    const discoveredCount = Object.keys(view.discoveredSystems || {}).length;
     const encounterCount = (ship.encounterHistory || []).length;
 
     // Update bottom info text
     const infoText = document.getElementById("starmap-info-text");
     if (infoText) {
       const stateStr = (window.game.spaceState === "system" && ship.currentSystem) ? `ORBITING ${ship.currentSystem.name.toUpperCase()}` : "HYPERSPACE";
-      infoText.textContent = `[${String(RegionManager.current().name).toUpperCase()}] VESSEL POSITION: X ${galCoords.x.toFixed(1)}, Y ${galCoords.y.toFixed(1)} (${stateStr}) | SYSTEMS LOGGED: ${discoveredCount} / ${RegionManager.content('starSystems').length} | SECTORS: ${Object.keys(ship.exploredSectors).length} / 100`;
+      infoText.textContent = `[${String(RegionManager.get(RegionManager.viewedId()).name).toUpperCase()}${viewingElsewhere ? " - ARCHIVED CHART" : ""}] ${viewingElsewhere ? "VESSEL NOT IN THIS REGION" : `VESSEL POSITION: X ${galCoords.x.toFixed(1)}, Y ${galCoords.y.toFixed(1)} (${stateStr})`} | SYSTEMS LOGGED: ${discoveredCount} / ${RegionManager.viewedContent('starSystems').length} | SECTORS: ${Object.keys(view.exploredSectors || {}).length} / 100`;
     }
   },
 
@@ -2434,6 +2562,26 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Render Derelict Space Stations in Viewport
+    // Drifting combat wrecks
+    if (this.combatWrecks && this.combatWrecks.length) {
+      this.combatWrecks.forEach(w => {
+        const px = centerX + (w.x - this.shipX) * scale;
+        const py = centerY + (w.y - this.shipY) * scale;
+        if (px < -40 || px > viewWidth + 40 || py < -40 || py > viewHeight + 40) return;
+        this.ctx.font = "15px Share Tech Mono";
+        this.ctx.fillStyle = "#ff9955";
+        this.ctx.shadowBlur = 8; this.ctx.shadowColor = "#ff9955";
+        this.ctx.fillText("☢", px - 7, py + 5);
+        this.ctx.shadowBlur = 0;
+        this.ctx.font = "bold 10px Share Tech Mono";
+        this.ctx.fillText(w.name.toUpperCase(), px + 12, py + 3);
+        if (this.nearbyCombatWreck && this.nearbyCombatWreck.id === w.id) {
+          this.ctx.fillStyle = "#ffcc00";
+          this.ctx.fillText("▶ STRIP HULL [B]", px + 12, py + 15);
+        }
+      });
+    }
+
     // Render Alien Starports in the Viewport. Core-only installations: previously
     // only the interaction was region-gated, so they still DREW in the Reach and
     // could be flown to for no reason.

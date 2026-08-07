@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.11.2</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.11.2</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.11.3</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.11.3</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -335,6 +335,7 @@
           <h2 style="color: #00ff66; margin: 0; border: none; padding: 0; font-size: 20px;">NAV-COMPUTER INTERACTIVE STAR MAP MATRIX</h2>
           <span style="font-size: 11px; color: #88ccaa;">MOUSE WHEEL: ZOOM | CLICK &amp; DRAG: PAN MAP | HOVER ICON: INSPECT LOGS</span>
           <div style="display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; align-items: center;">
+            <span id="starmap-regions" class="hidden" style="display:flex; gap:5px; align-items:center; margin-right:10px;"></span>
             <span style="font-size: 10px; color: #ffcc00; font-weight: bold; margin-right: 2px;">LAYERS:</span>
             <button id="layer-systems" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('systems')">★ SYSTEMS</button>
             <button id="layer-anomalies" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('anomalies')">🌀 ANOMALIES</button>
@@ -789,23 +790,23 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.11.2"></script>
-  <script src="js/audio.js?v=1.11.2"></script>
-  <script src="js/ui.js?v=1.11.2"></script>
-  <script src="js/spaceport.js?v=1.11.2"></script>
-  <script src="js/navigation.js?v=1.11.2"></script>
-  <script src="js/planet.js?v=1.11.2"></script>
-  <script src="js/content/quests.js?v=1.11.2"></script>
-  <script src="js/content/archives.js?v=1.11.2"></script>
-  <script src="js/content/puzzles.js?v=1.11.2"></script>
-  <script src="js/content/resources.js?v=1.11.2"></script>
-  <script src="js/content/regions.js?v=1.11.2"></script>
-  <script src="js/clues.js?v=1.11.2"></script>
-  <script src="js/quest.js?v=1.11.2"></script>
-  <script src="js/archive.js?v=1.11.2"></script>
-  <script src="js/region.js?v=1.11.2"></script>
-  <script src="js/puzzle.js?v=1.11.2"></script>
-  <script src="js/encounter.js?v=1.11.2"></script>
-  <script src="js/game.js?v=1.11.2"></script>
+  <script src="js/data.js?v=1.11.3"></script>
+  <script src="js/audio.js?v=1.11.3"></script>
+  <script src="js/ui.js?v=1.11.3"></script>
+  <script src="js/spaceport.js?v=1.11.3"></script>
+  <script src="js/navigation.js?v=1.11.3"></script>
+  <script src="js/planet.js?v=1.11.3"></script>
+  <script src="js/content/quests.js?v=1.11.3"></script>
+  <script src="js/content/archives.js?v=1.11.3"></script>
+  <script src="js/content/puzzles.js?v=1.11.3"></script>
+  <script src="js/content/resources.js?v=1.11.3"></script>
+  <script src="js/content/regions.js?v=1.11.3"></script>
+  <script src="js/clues.js?v=1.11.3"></script>
+  <script src="js/quest.js?v=1.11.3"></script>
+  <script src="js/archive.js?v=1.11.3"></script>
+  <script src="js/region.js?v=1.11.3"></script>
+  <script src="js/puzzle.js?v=1.11.3"></script>
+  <script src="js/encounter.js?v=1.11.3"></script>
+  <script src="js/game.js?v=1.11.3"></script>
 </body>
 </html>

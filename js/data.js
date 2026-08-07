@@ -249,11 +249,11 @@ const GameData = {
 
   // Deep Space Asteroid Mining Fields
   asteroidFields: [
-    { id: "ast_1", name: "Sirius Asteroid Belt", x: 190, y: 200, count: 12, density: "High", ores: ["iron", "platinum", "endurium_ore"] },
-    { id: "ast_2", name: "Orion Debris Ring", x: 270, y: 130, count: 15, density: "Rich", ores: ["titanium", "gold", "endurium_ore"] },
-    { id: "ast_3", name: "Vega Shattered Moon", x: 350, y: 430, count: 10, density: "Medium", ores: ["platinum", "titanium"] },
-    { id: "ast_4", name: "Rigel Dust Belt", x: 420, y: 90, count: 14, density: "Rich", ores: ["gold", "endurium_ore", "platinum"] },
-    { id: "ast_5", name: "Western Frontier Rocks", x: 50, y: 220, count: 8, density: "Standard", ores: ["iron", "titanium"] }
+    { id: "ast_1", name: "Sirius Asteroid Belt", x: 190, y: 200, count: 12, density: "High", ores: ["iron", "silicate", "platinum", "iridium"] },
+    { id: "ast_2", name: "Orion Debris Ring", x: 270, y: 130, count: 15, density: "Rich", ores: ["titanium", "gold", "endurium_ore", "iridium"] },
+    { id: "ast_3", name: "Vega Shattered Moon", x: 350, y: 430, count: 10, density: "Medium", ores: ["platinum", "titanium", "cryo_crystal"] },
+    { id: "ast_4", name: "Rigel Dust Belt", x: 420, y: 90, count: 14, density: "Rich", ores: ["gold", "endurium_ore", "iridium", "void_glass"] },
+    { id: "ast_5", name: "Western Frontier Rocks", x: 50, y: 220, count: 8, density: "Standard", ores: ["iron", "titanium", "silicate"] }
   ],
 
   // Dynamic Subspace Distress Signals

@@ -858,6 +858,85 @@ const UI = {
     this.currentPatrol = null;
   },
 
+  // Archive shelf. Locked volumes stay visible but state plainly why - a shelf you
+  // can see the shape of is an invitation to come back, an empty one is not.
+  openArchiveModal(locationId) {
+    const modal = document.getElementById("archive-modal");
+    if (!modal || typeof ArchiveReader === "undefined") return;
+    const loc = ArchiveReader.locations()[locationId];
+    if (!loc) return;
+
+    this.currentArchive = locationId;
+    const prog = ArchiveReader.progress(locationId);
+
+    document.getElementById("archive-title").textContent = `${loc.icon} ${loc.name.toUpperCase()}`;
+    document.getElementById("archive-progress").textContent =
+      `${prog.read} READ / ${prog.unlocked} AVAILABLE / ${prog.total} CATALOGUED`;
+    document.getElementById("archive-blurb").textContent = loc.blurb;
+
+    this.renderArchiveShelf(locationId);
+    document.getElementById("archive-reader").classList.add("hidden");
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  renderArchiveShelf(locationId) {
+    const shelf = document.getElementById("archive-shelf");
+    if (!shelf) return;
+    const vols = ArchiveReader.at(locationId);
+
+    if (!vols.length) {
+      shelf.innerHTML = `<div class="log-card"><div class="log-card-body">This archive is empty.</div></div>`;
+      return;
+    }
+
+    let html = "";
+    vols.forEach(v => {
+      const unlocked = ArchiveReader.isUnlocked(v);
+      const read = ArchiveReader.hasRead(v.id);
+      if (!unlocked) {
+        html += `
+          <div class="log-card" style="opacity:0.45;">
+            <div class="log-card-header"><span>🔒 ${v.title}</span></div>
+            <div class="log-card-body" style="font-size:11px;">${ArchiveReader.lockHint(v)}</div>
+          </div>`;
+      } else {
+        html += `
+          <div class="log-card">
+            <div class="log-card-header">
+              <span>${read ? "📖" : "📕"} ${v.title}</span>
+              <span style="font-size:10px; color:#88ccaa;">${v.author || ""}</span>
+            </div>
+            <div class="log-card-body" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <span style="font-size:11px; color:${read ? "#88ccaa" : "#ffcc00"};">
+                ${read ? "Studied" : "Not yet studied"}${v.grantsClue ? " &nbsp;|&nbsp; contains actionable intelligence" : ""}
+              </span>
+              <button class="glow-btn btn-sm ${read ? "" : "green-glow"}" onclick="UI.readArchiveVolume('${v.id}')">READ</button>
+            </div>
+          </div>`;
+      }
+    });
+    shelf.innerHTML = html;
+  },
+
+  readArchiveVolume(volumeId) {
+    const vol = ArchiveReader.volumes().find(v => v.id === volumeId);
+    if (!vol) return;
+    ArchiveReader.readVolume(volumeId);
+
+    document.getElementById("archive-reader-title").textContent = vol.title;
+    document.getElementById("archive-reader-author").textContent = vol.author || "";
+    document.getElementById("archive-reader-body").textContent = vol.text;
+    document.getElementById("archive-reader").classList.remove("hidden");
+    this.renderArchiveShelf(this.currentArchive);
+  },
+
+  closeArchiveModal() {
+    const modal = document.getElementById("archive-modal");
+    if (modal) modal.classList.add("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
   openVictoryModal() {
     const modal = document.getElementById("victory-modal");
     if (!modal) return;

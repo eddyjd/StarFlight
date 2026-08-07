@@ -412,6 +412,16 @@ const Encounter = {
     const dialogueBox = document.getElementById("dialogue-box");
     dialogueBox.innerHTML = choice.response || "Dialogue sequence terminated.";
 
+    // A dialogue branch can carry intelligence. Without this, anything an alien
+    // told you scrolled past in the terminal and was gone - which made talking to
+    // them feel pointless. Authored as data on the choice; see GameData.aliens.
+    if (choice.clue && typeof ClueLog !== "undefined") {
+      ClueLog.record(Object.assign({
+        source: "alien",
+        sourceName: (this.alien && this.alien.name) || "Unknown Vessel"
+      }, choice.clue));
+    }
+
     // Action handling
     if (choice.action === "exit") {
       setTimeout(() => this.endEncounter(), 1500);

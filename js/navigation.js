@@ -102,6 +102,8 @@ const Navigation = {
           this.salvageSpaceWreck();
         } else if (this.nearbyDerelict) {
           this.boardNearbyDerelict();
+        } else if (this.nearbyAlienPort) {
+          this.dockAtAlienPort();
         }
       }
       if (e.key === "e" || e.key === "E") {
@@ -252,7 +254,7 @@ const Navigation = {
     const ship = window.game && window.game.ship;
     if (!ship) return {};
     if (!ship.mapLayers) {
-      ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, nebulae: true, unknown: true };
+      ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true };
     }
     return ship.mapLayers;
   },
@@ -274,7 +276,7 @@ const Navigation = {
   refreshMapLayerButtons() {
     const defs = [
       ["systems", "systems"], ["anomalies", "anomalies"], ["salvage", "salvage"],
-      ["aliens", "aliens"], ["patrols", "patrols"], ["nebulae", "nebulae"], ["unknown", "unknown"]
+      ["aliens", "aliens"], ["patrols", "patrols"], ["ports", "ports"], ["nebulae", "nebulae"], ["unknown", "unknown"]
     ];
     defs.forEach(([key]) => {
       const btn = document.getElementById("layer-" + key);
@@ -659,6 +661,18 @@ const Navigation = {
     UI.openDerelictModal(this.nearbyDerelict);
   },
 
+  dockAtAlienPort() {
+    if (!this.nearbyAlienPort) return;
+    const port = this.nearbyAlienPort;
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("success");
+    UI.addLog(`DOCKING CLEARANCE GRANTED: ${port.name.toUpperCase()}.`);
+    if (port.greeting) UI.addLog(`"${port.greeting}"`);
+    if (typeof QuestEngine !== "undefined") {
+      QuestEngine.notify("dock", { station: port.name, raceKey: port.raceKey });
+    }
+    if (typeof ArchiveReader !== "undefined") ArchiveReader.open(port.archive);
+  },
+
   salvageSpaceWreck() {
     if (!this.nearbySpaceWreck || this.nearbySpaceWreck.searched) return;
     const sw = this.nearbySpaceWreck;
@@ -972,6 +986,17 @@ const Navigation = {
       });
     }
 
+    // 4c. Alien Starport Proximity - neutral ground, always approachable
+    this.nearbyAlienPort = null;
+    if (GameData.alienPorts) {
+      GameData.alienPorts.forEach(port => {
+        if (Math.hypot(this.shipX - port.x, this.shipY - port.y) < 5.0) {
+          this.nearbyAlienPort = port;
+          this.markContact(port.id, 2);
+        }
+      });
+    }
+
     // 5. Drifting Alien Space Wrecks Proximity
     this.nearbySpaceWreck = null;
     if (GameData.spaceWrecks) {
@@ -1137,6 +1162,7 @@ const Navigation = {
     const deepActionLabel =
         this.nearbySpaceWreck     ? "SALVAGE ALIEN WRECK [B]"
       : this.nearbyDerelict       ? "BOARD DERELICT [B]"
+      : this.nearbyAlienPort      ? "DOCK AT ALIEN PORT [B]"
       : this.nearbyDistressSignal ? "INVESTIGATE SIGNAL [E]"
       : this.nearbyWormhole       ? "ENTER WORMHOLE [W]"
       : null;
@@ -1894,6 +1920,31 @@ const Navigation = {
     }
 
     // Draw Active Alien Spacecraft flying in space on Starmap
+    // Alien starports - fixed installations, so shown once detected like any site
+    if (GameData.alienPorts && this.isLayerOn("ports")) {
+      GameData.alienPorts.forEach(port => {
+        const tier = this.getContactTier(port.id, port.x, port.y);
+        if (tier === 0) return;
+        const px = toCanvasX(port.x), py = toCanvasY(port.y);
+        if (tier === 1) { this.drawUnknownContact(ctx, px, py, zScale, port.x, port.y); return; }
+        ctx.strokeStyle = port.color || "#ffcc00";
+        ctx.lineWidth = Math.max(1, 1.5 * zScale);
+        ctx.shadowBlur = 8; ctx.shadowColor = port.color || "#ffcc00";
+        ctx.beginPath(); ctx.arc(px, py, Math.max(4, 5 * zScale), 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(px, py, Math.max(8, 9 * zScale), Math.max(3, 3 * zScale), 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+        this.mapTargets.push({
+          type: "port",
+          known: true,
+          x: px, y: py, radius: 12 * zScale,
+          title: `⌂ ALIEN STARPORT: ${this.labelFor(port)}`,
+          details: `Position: (${port.x}, ${port.y})
+Affiliation: ${String(port.raceKey || "").toUpperCase()}
+Facility: Archive open to visiting captains. Dock with [B].`
+        });
+      });
+    }
+
     // Customs patrols, plotted like alien contacts and limited to sensor reach
     if (this.isLayerOn("patrols")) {
       const reach = this.getScanRanges().short * 1.15;
@@ -2282,6 +2333,42 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Render Derelict Space Stations in Viewport
+    // Render Alien Starports in the Viewport
+    if (GameData.alienPorts) {
+      GameData.alienPorts.forEach(port => {
+        const px = centerX + (port.x - this.shipX) * scale;
+        const py = centerY + (port.y - this.shipY) * scale;
+        if (px < -50 || px > viewWidth + 50 || py < -50 || py > viewHeight + 50) return;
+
+        const near = (this.nearbyAlienPort && this.nearbyAlienPort.id === port.id);
+        this.ctx.save();
+        this.ctx.strokeStyle = port.color || "#ffcc00";
+        this.ctx.fillStyle = "rgba(10, 20, 14, 0.85)";
+        this.ctx.lineWidth = 2;
+        this.ctx.shadowBlur = near ? 16 : 9;
+        this.ctx.shadowColor = port.color || "#ffcc00";
+        // ringed station silhouette
+        this.ctx.beginPath();
+        this.ctx.arc(px, py, 8, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.ellipse(px, py, 15, 5, 0, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+        this.ctx.restore();
+
+        this.ctx.font = "bold 10px Share Tech Mono";
+        this.ctx.fillStyle = port.color || "#ffcc00";
+        this.ctx.fillText(this.labelFor(port), px + 20, py + 3);
+        if (near) {
+          this.ctx.fillStyle = "#ffcc00";
+          this.ctx.font = "bold 11px Share Tech Mono";
+          this.ctx.fillText("▶ DOCK AT ALIEN PORT [B]", px + 20, py + 16);
+        }
+      });
+    }
+
     // Render Customs Patrol cutters in the Viewport
     if (GameData.patrols) {
       this.getPatrols().forEach(p => {

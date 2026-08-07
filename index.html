@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.10.0</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.10.0</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.10.1</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.10.1</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -104,6 +104,7 @@
                 <button class="menu-item" data-action="personnel">PERSONNEL OFFICE</button>
                 <button class="menu-item" data-action="market">COMMODITY MARKET</button>
                 <button class="menu-item" data-action="hq">STARPORT HQ LOGS</button>
+                <button class="menu-item" data-action="archive">CENTRAL ARCHIVE</button>
                 <button class="menu-item launch-btn" data-action="launch">LAUNCH VESSEL</button>
                 <button class="menu-item" data-action="export-save" style="margin-top: 15px;">EXPORT SAVE FILE</button>
                 <button class="menu-item" data-action="import-save">IMPORT SAVE FILE</button>
@@ -338,6 +339,7 @@
             <button id="layer-anomalies" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('anomalies')">🌀 ANOMALIES</button>
             <button id="layer-salvage" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('salvage')">🛰️ SALVAGE</button>
             <button id="layer-aliens" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('aliens')">👾 ALIEN CONTACTS</button>
+            <button id="layer-ports" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('ports')">&#8962; PORTS</button>
             <button id="layer-nebulae" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('nebulae')">☁ NEBULAE</button>
             <button id="layer-patrols" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('patrols')">⚑ PATROLS</button>
             <button id="layer-unknown" class="glow-btn btn-sm green-glow" onclick="Navigation.toggleMapLayer('unknown')">? UNKNOWN</button>
@@ -444,6 +446,7 @@
             <strong>B</strong>: Board a derelict station or salvage an alien wreck when in range.<br>
             <strong>E</strong>: Investigate a subspace distress beacon.<br>
             <strong>W</strong>: Enter a quantum wormhole. The <strong>LAND</strong> control also performs whichever of these is in range.<br>
+            <span style="color:#ffcc00;">ARCHIVES</span>: Starbase Prime keeps a Central Archive, and three alien starports run their own - the <strong>Thrynn Trade Reliquary</strong>, the <strong>Veloxi Imperial Codex</strong> and the <strong>Spemin Collected Wisdoms</strong>. Dock with <strong>[B]</strong> and read. Some volumes are sealed until you have recovered enough artifacts or read the prerequisite text. Anything actionable is filed automatically under <strong>CLUES</strong> in the Captain's Log <strong>[G]</strong>.<br>
             <span style="color:#ffcc00;">CUSTOMS PATROLS</span>: Starbase Prime cutters sweep the core sectors within 130 LY of the base and hail passing ships for a cargo scan. Carrying <strong>Spemin Spice</strong> in an unshielded hold means seizure plus a 500 M.U. per-unit fine. <strong>Shielded Cargo Bays</strong> (cargo class 3) defeat the scan outright. You may also jettison the cargo before they sweep, or run - evasion odds improve with engine class. Outside their jurisdiction, nobody is checking.<br>
             <strong>L</strong>: Dock at Starbase Prime (at 100, 100) or launch Terrain Lander on planet surface.<br>
             <strong>M</strong>: Toggle Fullscreen Interactive Star Map with zoom & pan.<br>
@@ -605,6 +608,34 @@
     </div>
   </div>
 
+  <!-- Archive / Library Reader -->
+  <div id="archive-modal" class="modal hidden">
+    <div class="modal-content" style="width: 860px; max-width: 96%; max-height: 92vh; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--primary-color); padding-bottom:6px; margin-bottom:10px;">
+        <h2 id="archive-title" style="color:#00e5ff; margin:0; border:none; padding:0;">ARCHIVE</h2>
+        <span id="archive-progress" style="font-size:11px; color:#ffcc00; font-weight:bold;">0 READ</span>
+      </div>
+      <p id="archive-blurb" style="font-size:11px; color:#88ccaa; margin-bottom:10px;"></p>
+
+      <div style="display:flex; gap:12px; flex:1; min-height:0;">
+        <div id="archive-shelf" style="flex:1; overflow-y:auto; padding-right:4px; min-height:0;"></div>
+        <div id="archive-reader" class="log-card hidden" style="flex:1.15; overflow-y:auto; min-height:0;">
+          <div class="log-card-header">
+            <span id="archive-reader-title" style="color:#ffcc00;"></span>
+          </div>
+          <div class="log-card-body">
+            <div id="archive-reader-author" style="font-size:10px; color:#88ccaa; margin-bottom:8px; font-style:italic;"></div>
+            <div id="archive-reader-body" style="font-size:13px; line-height:1.8; white-space:pre-line;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+        <button class="glow-btn btn-large red-glow" onclick="UI.closeArchiveModal()">CLOSE ARCHIVE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Victory: Precursor Aegis Complete -->
   <div id="victory-modal" class="modal hidden">
     <div class="modal-content" style="width: 720px; max-width: 95%; padding: 20px; box-sizing: border-box; border-color: #ffcc00; box-shadow: 0 0 40px rgba(255,204,0,0.45);">
@@ -693,16 +724,18 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.10.0"></script>
-  <script src="js/audio.js?v=1.10.0"></script>
-  <script src="js/ui.js?v=1.10.0"></script>
-  <script src="js/spaceport.js?v=1.10.0"></script>
-  <script src="js/navigation.js?v=1.10.0"></script>
-  <script src="js/planet.js?v=1.10.0"></script>
-  <script src="js/content/quests.js?v=1.10.0"></script>
-  <script src="js/clues.js?v=1.10.0"></script>
-  <script src="js/quest.js?v=1.10.0"></script>
-  <script src="js/encounter.js?v=1.10.0"></script>
-  <script src="js/game.js?v=1.10.0"></script>
+  <script src="js/data.js?v=1.10.1"></script>
+  <script src="js/audio.js?v=1.10.1"></script>
+  <script src="js/ui.js?v=1.10.1"></script>
+  <script src="js/spaceport.js?v=1.10.1"></script>
+  <script src="js/navigation.js?v=1.10.1"></script>
+  <script src="js/planet.js?v=1.10.1"></script>
+  <script src="js/content/quests.js?v=1.10.1"></script>
+  <script src="js/content/archives.js?v=1.10.1"></script>
+  <script src="js/clues.js?v=1.10.1"></script>
+  <script src="js/quest.js?v=1.10.1"></script>
+  <script src="js/archive.js?v=1.10.1"></script>
+  <script src="js/encounter.js?v=1.10.1"></script>
+  <script src="js/game.js?v=1.10.1"></script>
 </body>
 </html>

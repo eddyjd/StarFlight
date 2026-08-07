@@ -40,6 +40,13 @@ const Spaceport = {
           return;
         }
 
+        // The archive opens as a modal rather than a sub-panel, so it must return
+        // before the tab-swapping code below tries to find a #spaceport-archive.
+        if (action === "archive") {
+          if (typeof ArchiveReader !== "undefined") ArchiveReader.open("starbase_prime");
+          return;
+        }
+
         // Deactivate all tabs
         tabs.forEach(t => t.classList.remove("active"));
         e.target.classList.add("active");

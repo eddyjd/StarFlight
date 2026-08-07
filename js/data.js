@@ -214,6 +214,21 @@ const GameData = {
     { id: "der_6", name: "Void Fortress Reliquary", x: 470, y: 440, searched: false, loot: { type: "precursor_alloy", amount: 5, credits: 1500, artifact: null, tech: "Subspace Warp Drive", techPartKey: "warp_conduit" }, desc: "Forbidden Precursor vault on the border of Uhlek territory." }
   ],
 
+  // Alien Starports. Neutral ground where a captain can dock, trade words rather
+  // than fire, and research an archive kept in that race's own voice. Placed well
+  // outside the Customs jurisdiction so they read as foreign territory.
+  alienPorts: [
+    { id: "port_thrynn", name: "Thrynn Trade Reliquary", raceKey: "thrynn", archive: "thrynn_reliquary",
+      x: 95, y: 165, color: "#ffcc00", icon: "⌂",
+      greeting: "The Ninth House welcomes your custom, Corps captain. Our ledgers are open to those who ask politely." },
+    { id: "port_veloxi", name: "Veloxi Imperial Codex", raceKey: "veloxi", archive: "veloxi_codex",
+      x: 390, y: 275, color: "#ff5533", icon: "⌂",
+      greeting: "You are logged and permitted, human. The Codex is not a library. It is a record of what is true." },
+    { id: "port_spemin", name: "Spemin Collected Wisdoms", raceKey: "spemin", archive: "spemin_hoard",
+      x: 135, y: 330, color: "#00ff66", icon: "⌂",
+      greeting: "OH! A visitor! We have SO MANY facts. Most of them are even facts!" }
+  ],
+
   // Starbase Prime Customs Patrols. They enforce the contraband ban only inside
   // their jurisdiction - the core sectors around the base. Beyond patrolZone.radius
   // is lawless space, which is what makes a Spemin Spice run worth the risk.
@@ -637,7 +652,9 @@ const GameData = {
         friendly: {
           greeting: "Greetings mighty traveler! We are the glorious Spemin. Please do not hurt us! We are extremely peaceful blob creatures.",
           choices: [
-            { text: "Ask about precursor artifacts.", response: "Ah, the old precursor relics! We heard they sit in sectors 180,220 and 320,190. We Spemin would never dare touch them! Too spooky." },
+            { text: "Ask about precursor artifacts.", response: "Ah, the old precursor relics! We heard they sit in sectors 180,220 and 320,190. We Spemin would never dare touch them! Too spooky.",
+              clue: { id: "spemin_artifact_sectors", title: "SPEMIN HEARSAY", questId: "quest_precursor_aegis", coords: { x: 180, y: 220 },
+                      text: "The Spemin claim precursor relics sit in sectors (180, 220) and (320, 190). They are frightened of both." } },
             { text: "Propose a cargo trade.", action: "trade", response: "Trade? Yes! We love bargaining. We have rare spice and art, very cheap!" },
             { text: "Politely say goodbye.", action: "exit", response: "Farewell! Remember the Spemin are your friends!" }
           ]
@@ -653,7 +670,9 @@ const GameData = {
         obsequious: {
           greeting: "Oh, great masters of the cosmos! Your ship is so shiny! We bow before your immense planetary wisdom.",
           choices: [
-            { text: "Inquire about Uhlek territories.", response: "The Uhlek? They are horrible cyber-bugs! They live near (440, 420) and shoot anyone on sight. Stay away!" },
+            { text: "Inquire about Uhlek territories.", response: "The Uhlek? They are horrible cyber-bugs! They live near (440, 420) and shoot anyone on sight. Stay away!",
+              clue: { id: "spemin_uhlek_warning", title: "SPEMIN WARNING", coords: { x: 440, y: 420 },
+                      text: "The Spemin place the Uhlek near (440, 420) and say they fire on sight." } },
             { text: "Offer a trade.", action: "trade", response: "We would be honored to trade with such majestic beings!" },
             { text: "Leave them.", action: "exit", response: "May your exhaust ports never clog, masters!" }
           ]
@@ -675,7 +694,9 @@ const GameData = {
         friendly: {
           greeting: "Halt, traveler. You have entered Veloxi space. State your business immediately. We operate under strict imperial protocols.",
           choices: [
-            { text: "State you are on a research mission.", response: "Research? Scan records indicate a catastrophic solar increase in our sectors. If you seek precursors, look to the ancient worlds. Arth-IV is key." },
+            { text: "State you are on a research mission.", response: "Research? Scan records indicate a catastrophic solar increase in our sectors. If you seek precursors, look to the ancient worlds. Arth-IV is key.",
+              clue: { id: "veloxi_arth_key", title: "VELOXI SURVEY REMARK", questId: "quest_precursor_aegis", coords: { x: 250, y: 250 },
+                      text: "Veloxi scan records confirm the solar increase. They name ARTH-IV as key - a world in your own home system at (250, 250)." } },
             { text: "Offer commercial barter.", action: "trade", response: "Commodity trade protocol initialized. Present cargo manifests." },
             { text: "Ask for permission to pass.", action: "exit", response: "Permission granted. Maintain speed vector and disengage blasters." }
           ]

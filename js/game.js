@@ -117,6 +117,11 @@ const GameManager = {
       autoWeapons: true
     },
 
+    // The wormhole network is rolled per save rather than authored, so the throats
+    // are somewhere new every game. Stored whole, not as a seed - see js/wormholes.js.
+    wormholeSeed: null,
+    wormholeNet: null,
+
     isInSpacebase: true,
     currentSystem: null,
     currentPlanet: null
@@ -849,6 +854,12 @@ const GameManager = {
       console.warn("Failed to load progress", e);
     }
 
+    // The wormhole network is rolled per save. An older save has none stored, so
+    // this is also the migration: it rolls once and keeps it from then on.
+    try {
+      if (typeof WormholeNet !== "undefined") WormholeNet.ensure(this.ship);
+    } catch (e) { console.warn("WormholeNet.ensure failed", e); }
+
     // Always run, even with no save present, so a fresh galaxy starts un-looted
     try { this.applySalvageState(); } catch (e) { console.warn("applySalvageState failed", e); }
   },
@@ -906,10 +917,16 @@ const GameManager = {
         installedTechParts: [],
         mapLayers: { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true },
         launchConfig: { autoShields: true, autoWeapons: true },
+        wormholeSeed: null,
+        wormholeNet: null,
         isInSpacebase: true,
         currentSystem: null,
         currentPlanet: null
       };
+
+      // A new galaxy gets a new set of throats. This is the point of rolling them
+      // per save - a captain who has played before should not already know the map.
+      try { WormholeNet.reroll(this.ship); } catch (e) { console.warn("WormholeNet.reroll failed", e); }
 
       // Refill every derelict, wreck and distress beacon for the new game
       this.applySalvageState();

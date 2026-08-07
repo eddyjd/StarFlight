@@ -200,8 +200,14 @@ const GameData = {
   // Supermassive Black Holes & Gravitational Singularities
   blackHoles: [
     { id: "bh_1", name: "Cygnus Singularity", x: 210, y: 310, gravityRadius: 35, coreRadius: 4, pullForce: 45, destX: 450, destY: 120, desc: "Extreme gravitational distortion field. High risk of warp displacement!" },
-    { id: "bh_2", name: "Abyssal Gate Void", x: 410, y: 220, gravityRadius: 40, coreRadius: 5, pullForce: 50, destX: 90, destY: 380, desc: "Collapses space-time continuum. Teleports ships to remote southwest rim." },
-    { id: "bh_3", name: "Precursor Singularity", x: 120, y: 440, gravityRadius: 30, coreRadius: 4, pullForce: 40, destX: 300, destY: 300, desc: "Ancient artificial gravity well created by Precursors." }
+    { id: "bh_2", name: "Abyssal Gate Void", x: 410, y: 220, gravityRadius: 40, coreRadius: 5, pullForce: 50, destX: 90, destY: 380, leadsTo: "the_marrow", oneWay: true, desc: "A fold that opens one way only. Nothing charted comes back out of it, including the four Corps wings sent to find out why." },
+    { id: "bh_3", name: "Precursor Singularity", x: 120, y: 440, gravityRadius: 30, coreRadius: 4, pullForce: 40, destX: 300, destY: 300, leadsTo: "the_lattice", desc: "Ancient artificial gravity well created by Precursors. Corps telemetry reads a matching mouth on the far side." },
+
+    // Not every well is a door. These two are pure hazard: they fling a ship
+    // across the quadrant and nothing more, which is what makes reading the
+    // chart before you fly worth doing.
+    { id: "bh_4", name: "The Millstone", x: 330, y: 65, gravityRadius: 33, coreRadius: 4, pullForce: 44, destX: 95, destY: 300, desc: "A collapsed stellar remnant. No fold structure - it simply throws whatever falls in across the quadrant." },
+    { id: "bh_5", name: "Kettle Void", x: 175, y: 460, gravityRadius: 28, coreRadius: 3, pullForce: 38, destX: 415, destY: 155, desc: "An unstable churn of collapsed matter. Survey wings have been displaced by it four times and mapped no destination twice." }
   ],
 
   // Abandoned Derelict Space Stations & Starships

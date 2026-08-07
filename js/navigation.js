@@ -190,6 +190,30 @@ const Navigation = {
     return hit || null;
   },
 
+  /**
+   * Where a singularity actually goes, in one place. Three authoring forms exist
+   * because the topology grew: `leadsTo` is explicit (preferred), `returnsTo`
+   * names the parent and takes the current region's authored return point, and
+   * `entryFrom` is declared on the far region instead of on the gate.
+   *
+   * Returns null for an ordinary displacement well that just throws you across
+   * the same quadrant.
+   */
+  resolveGateway(bh) {
+    if (!bh) return null;
+    const dest = bh.leadsTo || bh.returnsTo || this.regionEntryFor(bh.id);
+    if (!dest || typeof RegionManager === "undefined") return null;
+
+    let x, y;
+    if (bh.exitAt) {
+      x = bh.exitAt.x; y = bh.exitAt.y;
+    } else if (bh.returnsTo) {
+      const here = RegionManager.current();
+      if (here && here.returnTo) { x = here.returnTo.x; y = here.returnTo.y; }
+    }
+    return { region: dest, x: x, y: y, oneWay: !!bh.oneWay };
+  },
+
   // ---- Starbase Prime Customs Patrols -------------------------------------
   // Cutters sweep the core sectors and hail any vessel that comes close. What
   // they find depends on whether Shielded Cargo Bays (cargo class 3+) are fitted,
@@ -311,8 +335,8 @@ const Navigation = {
     if (!this.isLayerOn("anomalies")) return;
 
     const links = [];
-    if (GameData.wormholes) {
-      GameData.wormholes.forEach(wh => {
+    {
+      RegionManager.content('wormholes').forEach(wh => {
         if (ship.traversedLinks[wh.id]) {
           links.push({ x: wh.x, y: wh.y, tx: wh.targetX, ty: wh.targetY, color: "#00e5ff", label: "RIFT EXIT" });
         }
@@ -478,7 +502,12 @@ const Navigation = {
     add(pick("derelicts", D.derelicts), "DERELICT STATION");
     add(pick("spaceWrecks", D.spaceWrecks), "ALIEN WRECK");
     add(pick("distressSignals", D.distressSignals), "DISTRESS BEACON");
-    add(pick("wormholes", D.wormholes), "QUANTUM WORMHOLE");
+    // A short-range identify is what tells you whether a throat comes back. That
+    // is the payoff for spending the scan instead of just flying at it.
+    pick("wormholes", D.wormholes).forEach(o => out.push({
+      id: o.id, x: o.x, y: o.y, name: o.name, obj: o,
+      label: o.oneWay ? "ONE-WAY THROAT" : "QUANTUM WORMHOLE"
+    }));
     add(pick("blackHoles", D.blackHoles), "GRAVITATIONAL SINGULARITY");
     add(pick("nebulae", D.nebulae), "NEBULA FIELD");
     return out;
@@ -699,9 +728,22 @@ const Navigation = {
   enterNearbyWormhole() {
     if (!this.nearbyWormhole) return;
     const wh = this.nearbyWormhole;
+
+    // A one-way throat is a commitment. If the captain has not scanned it there is
+    // no way to know that in advance, which is exactly what makes the scan worth
+    // spending - but once it IS known, do not let a misclick strand anyone.
+    if (wh.oneWay && WormholeNet.isCharted(wh) &&
+        !confirm(`${wh.name.toUpperCase()} IS A ONE-WAY THROAT.\n\n` +
+                 `It ejects near (${wh.targetX}, ${wh.targetY}) and there is no return throat on the far side. ` +
+                 `You will have to fly home.\n\nEnter anyway?`)) {
+      UI.addLog(`HELD POSITION. ${wh.name.toUpperCase()} LEFT UNENTERED.`);
+      return;
+    }
+
     if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
     UI.addLog(`QUANTUM RIFT DETECTED! ENTERING ${wh.name.toUpperCase()}...`);
     UI.addLog(`SPACE-TIME WARP COMPLETED. ARRIVED AT ${wh.destName.toUpperCase()} (${wh.targetX}, ${wh.targetY}).`);
+    if (wh.oneWay) UI.addLog("THE THROAT COLLAPSES BEHIND YOU. THERE IS NOTHING HERE TO GO BACK THROUGH.");
     this.shipX = wh.targetX;
     this.shipY = wh.targetY;
     this.shipVx = 0;
@@ -1073,16 +1115,12 @@ const Navigation = {
 
             // A singularity that names a destination region is a gateway, not a
             // displacement - it carries the ship out of this volume entirely.
-            const gateway = bh.returnsTo || this.regionEntryFor(bh.id);
-            if (gateway && typeof RegionManager !== "undefined") {
-              // Leaving a region uses that region's authored returnTo point;
-              // entering one uses the destination's own arrival point.
-              let ax, ay;
-              if (bh.returnsTo) {
-                const here = RegionManager.current();
-                if (here && here.returnTo) { ax = here.returnTo.x; ay = here.returnTo.y; }
+            const gateway = this.resolveGateway(bh);
+            if (gateway) {
+              if (gateway.oneWay) {
+                UI.addLog("THE FOLD SEALS BEHIND THE SHIP. THERE IS NO MOUTH ON THIS SIDE.");
               }
-              RegionManager.travelTo(gateway, ax, ay);
+              RegionManager.travelTo(gateway.region, gateway.x, gateway.y);
               return;
             }
           }
@@ -1122,8 +1160,8 @@ const Navigation = {
 
     // Check Proximity to Quantum Wormholes
     this.nearbyWormhole = null;
-    if (GameData.wormholes) {
-      GameData.wormholes.forEach(wh => {
+    {
+      RegionManager.content('wormholes').forEach(wh => {
         const dist = Math.hypot(this.shipX - wh.x, this.shipY - wh.y);
         if (dist < 4.0) {
           this.nearbyWormhole = wh;
@@ -1868,8 +1906,8 @@ const Navigation = {
     }
 
     // Draw Quantum Wormholes Portals on Star Map
-    if (GameData.wormholes && this.isLayerOn("anomalies")) {
-      GameData.wormholes.forEach(wh => {
+    if (this.isLayerOn("anomalies")) {
+      RegionManager.viewedContent('wormholes').forEach(wh => {
         const whPx = toCanvasX(wh.x);
         const whPy = toCanvasY(wh.y);
         const tier = this.getContactTier(wh.id, wh.x, wh.y);
@@ -1877,25 +1915,40 @@ const Navigation = {
         if (tier === 1) { this.drawUnknownContact(ctx, whPx, whPy, zScale, wh.x, wh.y); return; }
         const pulseRad = (7 + Math.abs(Math.sin(Date.now() / 250)) * 4) * zScale;
 
-        ctx.strokeStyle = "#00e5ff";
+        // A one-way throat is drawn amber, not cyan. The colour is the warning -
+        // the network is rolled per game, so the chart is the only place to learn it.
+        const hue = wh.oneWay ? "#ffaa22" : "#00e5ff";
+        ctx.strokeStyle = hue;
         ctx.lineWidth = Math.max(1.5, 2 * zScale);
         ctx.shadowBlur = 10 * zScale;
-        ctx.shadowColor = "#00e5ff";
+        ctx.shadowColor = hue;
         ctx.beginPath();
-        ctx.arc(whPx, whPy, pulseRad, 0, Math.PI * 2);
-        ctx.stroke();
+        if (wh.oneWay) {
+          // Broken ring: a throat that does not close back on itself
+          for (let a = 0; a < 4; a++) {
+            ctx.arc(whPx, whPy, pulseRad, a * Math.PI / 2, a * Math.PI / 2 + Math.PI / 3);
+            ctx.stroke();
+            ctx.beginPath();
+          }
+        } else {
+          ctx.arc(whPx, whPy, pulseRad, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.shadowBlur = 0;
 
         ctx.font = `${fontSize + 4}px Share Tech Mono`;
-        ctx.fillStyle = "#00e5ff";
+        ctx.fillStyle = hue;
         ctx.fillText("🌀", whPx - (fontSize / 2), whPy + (fontSize / 3));
 
         this.mapTargets.push({
           type: "wormhole",
           known: true, // reached only at tier 2 - see getContactTier
           x: whPx, y: whPy, radius: 14 * zScale,
-          title: `🌀 QUANTUM WORMHOLE: ${wh.name.toUpperCase()}`,
-          details: `Coordinates: (${wh.x}, ${wh.y})\nTarget Jump Destination: ${wh.destName}\nStatus: Active Space-Time Fold Portal`
+          title: `🌀 ${wh.oneWay ? "COLLAPSING THROAT" : "QUANTUM WORMHOLE"}: ${wh.name.toUpperCase()}`,
+          details: `Coordinates: (${wh.x}, ${wh.y})\nTarget Jump Destination: ${wh.destName}\n` +
+                   (wh.oneWay
+                     ? "Status: ONE-WAY FOLD - no paired throat at the far end. Transit is irreversible."
+                     : "Status: Stable paired fold. A matching throat returns you here.")
         });
       });
     }
@@ -1923,12 +1976,21 @@ const Navigation = {
         ctx.fillStyle = "#d870ff";
         ctx.fillText("🕳", bhPx - (fontSize / 2), bhPy + (fontSize / 3));
 
+        // Once identified, a gateway well should read as a route on the chart, not
+        // just a hazard - that is the difference between a wall and a door.
+        const gate = this.resolveGateway(bh);
+        const gTarget = gate ? RegionManager.get(gate.region) : null;
+        const routeLine = gate
+          ? `\nRoute: ${gate.oneWay ? "ONE-WAY GATE" : "GATEWAY"} → ${String((gTarget && gTarget.name) || gate.region).toUpperCase()}` +
+            (gate.oneWay ? "\nWARNING: nothing on the far side leads back this way." : "")
+          : "";
+
         this.mapTargets.push({
           type: "blackhole",
           known: true, // reached only at tier 2 - see getContactTier
           x: bhPx, y: bhPy, radius: gravRad,
-          title: `🕳 BLACK HOLE: ${bh.name.toUpperCase()}`,
-          details: `Location: (${bh.x}, ${bh.y})\nHazard: Extreme Gravitational Core\nProperties: ${bh.desc}`
+          title: `🕳 ${gate ? (gate.oneWay ? "ONE-WAY GATE" : "REGION GATEWAY") : "BLACK HOLE"}: ${bh.name.toUpperCase()}`,
+          details: `Location: (${bh.x}, ${bh.y})\nHazard: Extreme Gravitational Core${routeLine}\nProperties: ${bh.desc}`
         });
       });
     }
@@ -2534,6 +2596,25 @@ Action: Hails and scans passing vessels for contraband.`
           this.ctx.font = "bold 10px Share Tech Mono";
           this.ctx.fillStyle = "#d870ff";
           this.ctx.fillText(`🕳 ${bh.name.toUpperCase()} (${bh.x}, ${bh.y})`, px + coreRadPx + 6, py + 3);
+
+          // A gateway singularity is not a hazard to be avoided, it is a door. Say
+          // where it goes, and say plainly when the door only opens one way - the
+          // ship is already being pulled in by the time this is readable.
+          const gate = this.resolveGateway(bh);
+          if (gate) {
+            const target = RegionManager.get(gate.region);
+            const caught = this.nearbyBlackHole && this.nearbyBlackHole.id === bh.id;
+            this.ctx.font = "9px Share Tech Mono";
+            this.ctx.fillStyle = gate.oneWay ? "#ff6644" : "#88ccaa";
+            this.ctx.fillText(
+              `${gate.oneWay ? "ONE-WAY GATE" : "GATEWAY"} → ${String((target && target.name) || gate.region).toUpperCase()}`,
+              px + coreRadPx + 6, py + 15);
+            if (caught && gate.oneWay) {
+              this.ctx.font = "bold 11px Share Tech Mono";
+              this.ctx.fillStyle = "#ff3322";
+              this.ctx.fillText("NO RETURN FOLD ON THE FAR SIDE - BREAK AWAY NOW", px + coreRadPx + 6, py + 28);
+            }
+          }
         }
       });
     }
@@ -2659,21 +2740,25 @@ Action: Hails and scans passing vessels for contraband.`
     // Render Quantum Wormholes in the Viewport. These were drawn NOWHERE in the
     // space view - the only hint a rift existed was the LAND control flipping to
     // ENTER WORMHOLE [W] once inside 4 LY, so players flew straight past them.
-    if (GameData.wormholes) {
+    {
       const pulse = 0.5 + Math.abs(Math.sin(Date.now() / 320)) * 0.5;
-      GameData.wormholes.forEach(wh => {
+      RegionManager.content('wormholes').forEach(wh => {
         const px = centerX + (wh.x - this.shipX) * scale;
         const py = centerY + (wh.y - this.shipY) * scale;
         if (px < -60 || px > viewWidth + 60 || py < -60 || py > viewHeight + 60) return;
 
         const isNear = (this.nearbyWormhole && this.nearbyWormhole.id === wh.id);
         const r = (11 + pulse * 5) * (isNear ? 1.35 : 1);
+        // Amber for a throat known to be one-way. Unscanned throats stay cyan -
+        // the ship cannot tell them apart until the sensors have looked.
+        const known = (typeof WormholeNet !== "undefined") && WormholeNet.isCharted(wh);
+        const hue = (wh.oneWay && known) ? "#ffaa22" : "#00e5ff";
 
         // Swirling accretion rings
         this.ctx.save();
-        this.ctx.strokeStyle = "#00e5ff";
+        this.ctx.strokeStyle = hue;
         this.ctx.shadowBlur = 14;
-        this.ctx.shadowColor = "#00e5ff";
+        this.ctx.shadowColor = hue;
         for (let i = 0; i < 3; i++) {
           this.ctx.globalAlpha = (0.65 - i * 0.18) * (0.6 + pulse * 0.4);
           this.ctx.lineWidth = 2;
@@ -2684,8 +2769,8 @@ Action: Hails and scans passing vessels for contraband.`
         // Event core
         this.ctx.globalAlpha = 1;
         const grad = this.ctx.createRadialGradient(px, py, 0, px, py, r);
-        grad.addColorStop(0, "rgba(180, 245, 255, 0.95)");
-        grad.addColorStop(0.55, "rgba(0, 229, 255, 0.35)");
+        grad.addColorStop(0, (wh.oneWay && known) ? "rgba(255, 226, 170, 0.95)" : "rgba(180, 245, 255, 0.95)");
+        grad.addColorStop(0.55, (wh.oneWay && known) ? "rgba(255, 170, 34, 0.35)" : "rgba(0, 229, 255, 0.35)");
         grad.addColorStop(1, "rgba(0, 0, 0, 0)");
         this.ctx.fillStyle = grad;
         this.ctx.beginPath();
@@ -2694,15 +2779,21 @@ Action: Hails and scans passing vessels for contraband.`
         this.ctx.shadowBlur = 0;
 
         this.ctx.font = "bold 10px Share Tech Mono";
-        this.ctx.fillStyle = "#00e5ff";
+        this.ctx.fillStyle = hue;
         this.ctx.fillText(this.labelFor(wh), px + r + 6, py + 3);
         if (isNear) {
           this.ctx.fillStyle = "#ffcc00";
           this.ctx.font = "bold 11px Share Tech Mono";
           this.ctx.fillText("▶ ENTER WORMHOLE [W]", px + r + 6, py + 16);
           this.ctx.font = "9px Share Tech Mono";
-          this.ctx.fillStyle = "#88ccaa";
-          this.ctx.fillText(`EXIT: ${wh.destName.toUpperCase()}`, px + r + 6, py + 28);
+          if (!known) {
+            this.ctx.fillStyle = "#889999";
+            this.ctx.fillText("EXIT VECTOR UNRESOLVED - SCAN TO CHART", px + r + 6, py + 28);
+          } else {
+            this.ctx.fillStyle = wh.oneWay ? "#ffaa22" : "#88ccaa";
+            this.ctx.fillText(`EXIT: ${wh.destName.toUpperCase()}`, px + r + 6, py + 28);
+            if (wh.oneWay) this.ctx.fillText("WARNING: NO RETURN THROAT", px + r + 6, py + 40);
+          }
         }
         this.ctx.restore();
       });

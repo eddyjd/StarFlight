@@ -88,6 +88,9 @@ const Navigation = {
       if (e.key === "g" || e.key === "G") {
         UI.openCaptainsLogModal();
       }
+      if (e.key === "p" || e.key === "P") {
+        if (this.autopilot) this.cancelAutopilot("cancelled by helm");
+      }
       // NOTE: [K] is reserved for TOGGLE SHIELDS (routed via GameManager). The surface
       // icon legend opens from its LEGEND header button - do not bind it to a gameplay key.
       if (e.key === "w" || e.key === "W") {
@@ -156,6 +159,7 @@ const Navigation = {
 
       starmapCanvas.addEventListener("mousedown", (e) => {
         this.isDraggingMap = true;
+        this.mapDragMoved = false;
         this.dragStartX = e.clientX - this.mapOffsetX;
         this.dragStartY = e.clientY - this.mapOffsetY;
         this.hideStarMapTooltip();
@@ -163,8 +167,11 @@ const Navigation = {
 
       window.addEventListener("mousemove", (e) => {
         if (this.isDraggingMap) {
-          this.mapOffsetX = e.clientX - this.dragStartX;
-          this.mapOffsetY = e.clientY - this.dragStartY;
+          const nx = e.clientX - this.dragStartX;
+          const ny = e.clientY - this.dragStartY;
+          if (Math.abs(nx - this.mapOffsetX) > 2 || Math.abs(ny - this.mapOffsetY) > 2) this.mapDragMoved = true;
+          this.mapOffsetX = nx;
+          this.mapOffsetY = ny;
           this.drawStarMapCanvas();
         }
       });
@@ -180,8 +187,54 @@ const Navigation = {
       window.addEventListener("mouseup", () => {
         this.isDraggingMap = false;
       });
+
+      // Click a point on the chart to set course. Only on the chart of the region
+      // the ship is actually in - an archived chart is a record, not a helm.
+      starmapCanvas.addEventListener("click", (e) => {
+        if (this.mapDragMoved) return;                  // a pan is not a course order
+        if (RegionManager.viewedId() !== RegionManager.currentId()) {
+          UI.addLog("COURSE NOT SET: THIS IS AN ARCHIVED CHART OF A REGION THE SHIP HAS LEFT.");
+          return;
+        }
+        const gal = this.starMapToGalaxy(e);
+        if (!gal) return;
+        // Snap to a charted object if the click was near one - a captain clicking
+        // a star means that star, not a coordinate 3 LY off it.
+        const snap = this.findStarMapTargetAt(e);
+        const label = snap && snap.title ? snap.title.replace(/^[^A-Z0-9]*/, "") : null;
+        if (this.engageAutopilot(gal.x, gal.y, label)) this.closeStarMapModal();
+      });
+    }
+
+    // Click the hyperspace viewport to set course for that point
+    const gameCanvas = document.getElementById("gameCanvas");
+    if (gameCanvas) {
+      gameCanvas.addEventListener("click", (e) => {
+        const game = window.game;
+        if (!game || game.viewState !== "navigation" || game.spaceState !== "hyper") return;
+        const gal = this.canvasToGalaxy(e.clientX, e.clientY);
+        if (gal) this.engageAutopilot(gal.x, gal.y, null);
+      });
     }
   },
+
+  /** Invert the star map projection for a click event. */
+  starMapToGalaxy(e) {
+    const canvas = document.getElementById("starmapCanvas");
+    if (!canvas || !this.mapProjection) return null;
+    const p = this.mapProjection;
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const py = (e.clientY - rect.top) * (canvas.height / rect.height);
+    // Exact inverse of toCanvasX / toCanvasY in drawStarMapCanvas()
+    const baseX = (px - p.centerX) / p.zoom + p.centerX - p.offsetX;
+    const baseY = (py - p.centerY) / p.zoom + p.centerY - p.offsetY;
+    return {
+      x: ((baseX - p.originX) / p.mapW) * 500,
+      y: ((baseY - p.originY) / p.mapH) * 500
+    };
+  },
+
 
   // ---- In-system sites ---------------------------------------------------
   // System mode rendered planets and nothing else, so every star looked the same
@@ -470,6 +523,279 @@ const Navigation = {
    * Returns null for an ordinary displacement well that just throws you across
    * the same quadrant.
    */
+  // ---- Autopilot ---------------------------------------------------------
+  // Crossing the quadrant is deliberately slow, which is right for pacing and
+  // tedious for the fourth trip to the same coordinates. The autopilot flies the
+  // leg; it does not skip it. Fuel and time are spent exactly as if hand-flown.
+  //
+  // It disengages the moment anything happens that a captain would want to see:
+  // manual input, an alien in range, or a gravity well taking hold.
+
+  AUTOPILOT_ARRIVE: 1.5,   // LY from target that counts as arrived
+  AUTOPILOT_EASE: 12,      // LY out from target where it starts slowing
+
+  engageAutopilot(x, y, label) {
+    const game = window.game;
+    if (!game || game.viewState !== "navigation" || game.spaceState !== "hyper") {
+      UI.addLog("AUTOPILOT UNAVAILABLE: HYPERSPACE FLIGHT ONLY.");
+      return false;
+    }
+    if (game.ship.fuel <= 0) {
+      UI.addLog("AUTOPILOT REFUSED: NO REACTOR POWER. THE HELM HAS NOTHING TO WORK WITH.");
+      return false;
+    }
+    const tx = Math.max(5, Math.min(495, x));
+    const ty = Math.max(5, Math.min(495, y));
+    if (Math.hypot(tx - this.shipX, ty - this.shipY) < this.AUTOPILOT_ARRIVE) {
+      UI.addLog("AUTOPILOT: ALREADY THERE.");
+      return false;
+    }
+
+    this.autopilot = { x: tx, y: ty, label: label || null };
+    UI.addLog(`AUTOPILOT ENGAGED: HELM SET FOR (${tx.toFixed(0)}, ${ty.toFixed(0)})` +
+              (label ? ` - ${String(label).toUpperCase()}` : "") + ".");
+    UI.addLog("ANY MANUAL INPUT DISENGAGES. PRESS [P] TO CANCEL.");
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("click");
+    return true;
+  },
+
+  cancelAutopilot(reason) {
+    if (!this.autopilot) return;
+    this.autopilot = null;
+    if (reason) UI.addLog(`AUTOPILOT DISENGAGED: ${String(reason).toUpperCase()}.`);
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("click");
+  },
+
+  /**
+   * Fly the leg. Returns true when it took the helm this frame, so the manual
+   * thrust block knows to stand off.
+   */
+  updateAutopilot(dt) {
+    const ap = this.autopilot;
+    if (!ap) return false;
+    const game = window.game;
+    const ship = game.ship;
+
+    // Hand back for anything worth looking at
+    if (game.viewState !== "navigation" || game.spaceState !== "hyper") {
+      this.cancelAutopilot("flight state changed");
+      return false;
+    }
+    if (this.keys["w"] || this.keys["W"] || this.keys["KeyW"] ||
+        this.keys["a"] || this.keys["A"] || this.keys["KeyA"] ||
+        this.keys["d"] || this.keys["D"] || this.keys["KeyD"] ||
+        this.keys["ArrowUp"] || this.keys["ArrowLeft"] || this.keys["ArrowRight"]) {
+      this.cancelAutopilot("manual helm input");
+      return false;
+    }
+    if (ship.fuel <= 0) {
+      this.cancelAutopilot("reactor exhausted");
+      return false;
+    }
+    if (this.nearbyAlien) {
+      this.cancelAutopilot(`vessel in range - ${this.nearbyAlien.name}`);
+      return false;
+    }
+    if (this.gravityGrip && this.gravityGrip.inWell) {
+      this.cancelAutopilot(`gravity well - ${this.gravityGrip.bh.name}`);
+      return false;
+    }
+
+    const dx = ap.x - this.shipX, dy = ap.y - this.shipY;
+    const dist = Math.hypot(dx, dy);
+    if (dist < this.AUTOPILOT_ARRIVE) {
+      this.shipVx *= 0.5;
+      this.shipVy *= 0.5;
+      this.autopilot = null;
+      UI.addLog(`AUTOPILOT: ARRIVED AT (${ap.x.toFixed(0)}, ${ap.y.toFixed(0)})` +
+                (ap.label ? ` - ${String(ap.label).toUpperCase()}` : "") + ". HELM RETURNED.");
+      if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("success");
+      return true;
+    }
+
+    // Turn onto the bearing at the same rate a hand on the helm manages
+    const want = Math.atan2(dy, dx);
+    let diff = want - this.shipAngle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    const navSkill = (ship.crew && ship.crew.navigator) ? ship.crew.navigator.skill : 40;
+    const turn = (3.0 + navSkill / 50) * dt;
+    this.shipAngle += Math.max(-turn, Math.min(turn, diff));
+
+    // Burn only when roughly pointed the right way, and ease off on approach so
+    // it does not sail past the target and have to come back.
+    const aligned = Math.abs(diff) < 0.5;
+    if (!aligned) return true;
+
+    const engine = GameData.upgrades.engines[(ship.engineLevel || 1) - 1] || GameData.upgrades.engines[0];
+    const mass = 1.0 + (UI.calculateCargoMass(ship.cargo) / 100);
+    const ease = Math.min(1, dist / this.AUTOPILOT_EASE);
+    const grip = this.gravityGrip;
+    const authority = grip ? grip.authority : 1;
+    const thrust = ((2.5 + (ship.engineLevel * 2.0)) / mass) * 2.5 * ease * authority;
+
+    this.shipVx += Math.cos(this.shipAngle) * thrust * dt;
+    this.shipVy += Math.sin(this.shipAngle) * thrust * dt;
+
+    // The leg costs what it would cost hand-flown - the autopilot saves attention,
+    // not Endurium.
+    const engSkill = (ship.crew && ship.crew.engineer) ? ship.crew.engineer.skill : 40;
+    const wellCost = grip ? grip.fuelMult : 1;
+    ship.fuel = Math.max(0, ship.fuel - (engine.fuelMult * (1.2 - engSkill / 200)) * wellCost * dt);
+    if (Math.ceil(this.lastShownFuel) !== Math.ceil(ship.fuel)) {
+      this.lastShownFuel = ship.fuel;
+      if (UI.updateShip) UI.updateShip(ship);
+    }
+    if (typeof AudioController !== "undefined") AudioController.updateEnginePitch(0.8);
+    return true;
+  },
+
+  /** Turn a click on the hyperspace viewport into galaxy coordinates. */
+  canvasToGalaxy(clientX, clientY) {
+    if (!this.canvas) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    // The canvas backing store may not match its CSS size
+    const sx = (clientX - rect.left) * (this.canvas.width / rect.width);
+    const sy = (clientY - rect.top) * (this.canvas.height / rect.height);
+    const scale = 14;   // must match drawHyper()
+    return {
+      x: this.shipX + (sx - this.canvas.width / 2) / scale,
+      y: this.shipY + (sy - this.canvas.height / 2) / scale
+    };
+  },
+
+  // ---- Gravity wells -----------------------------------------------------
+  // A singularity used to be binary: outside gravityRadius nothing happened at
+  // all, inside it you were already being hauled in hard. There was no moment of
+  // "something is off with our heading" - just a wall.
+  //
+  // Three zones now:
+  //   DRIFT  out to gravityRadius * DRIFT_SPAN. A pull small enough to miss if
+  //          you are not watching your heading. This is the warning you get.
+  //   WELL   inside gravityRadius. The old hard ramp takes over.
+  //   CORE   inside coreRadius. Transit or displacement.
+  //
+  // Inside the well the engines lose authority the deeper you are, and burn more
+  // fuel doing it - so overdrive gets you out if you hit it AS SOON as the drift
+  // shows, and cannot if you wait to be sure.
+
+  DRIFT_SPAN: 2.4,        // outer drift reaches this multiple of gravityRadius
+  DRIFT_STRENGTH: 0.05,   // fraction of pullForce felt at the drift/well boundary
+  MIN_AUTHORITY: 0.18,    // engine effectiveness at the event horizon
+  MAX_FUEL_PENALTY: 5.0,  // extra fuel burn multiplier fighting a well
+
+  /**
+   * The strongest well acting on the ship right now, and what it does to the
+   * engines. Computed once per frame BEFORE thrust is applied, so the throttle
+   * and the pull agree with each other.
+   */
+  computeGravityGrip() {
+    let best = null;
+    RegionManager.content('blackHoles').forEach(bh => {
+      const dist = Math.hypot(this.shipX - bh.x, this.shipY - bh.y);
+      const outer = bh.gravityRadius * this.DRIFT_SPAN;
+      if (dist >= outer) return;
+      if (best && dist / outer >= best.ratio) return;
+      best = { bh: bh, dist: dist, outer: outer, ratio: dist / outer };
+    });
+
+    if (!best) {
+      this.gravityGrip = null;
+      if (this.driftWarned) { this.driftWarned = null; }
+      return null;
+    }
+
+    const bh = best.bh, dist = best.dist;
+    const gR = bh.gravityRadius, cR = bh.coreRadius || 3;
+    const inWell = dist < gR;
+
+    let pull, authority, fuelMult;
+    if (inWell) {
+      pull = (1 - (dist / gR)) * bh.pullForce;
+      // Authority falls off toward the horizon, so hesitation is what kills you
+      const t = Math.max(0, Math.min(1, (dist - cR) / Math.max(0.001, gR - cR)));
+      authority = this.MIN_AUTHORITY + (1 - this.MIN_AUTHORITY) * t;
+      fuelMult = 1 + (1 - t) * this.MAX_FUEL_PENALTY;
+    } else {
+      // Drift zone: strongest at the well boundary, fading to nothing outside
+      const t = (best.outer - dist) / Math.max(0.001, best.outer - gR);
+      pull = bh.pullForce * this.DRIFT_STRENGTH * t;
+      authority = 1;
+      fuelMult = 1;
+    }
+
+    this.gravityGrip = {
+      bh: bh, dist: dist, pull: pull, authority: authority,
+      fuelMult: fuelMult, inWell: inWell, zone: inWell ? "well" : "drift"
+    };
+    return this.gravityGrip;
+  },
+
+  /** Apply the pull worked out by computeGravityGrip, and handle the horizon. */
+  applyGravityGrip(dt) {
+    const grip = this.gravityGrip;
+    this.nearbyBlackHole = null;
+    if (!grip) return false;
+
+    const bh = grip.bh;
+    if (grip.inWell) this.nearbyBlackHole = bh;
+
+    const angle = Math.atan2(bh.y - this.shipY, bh.x - this.shipX);
+    this.shipVx += Math.cos(angle) * grip.pull * dt;
+    this.shipVy += Math.sin(angle) * grip.pull * dt;
+
+    // One line when the drift first becomes noticeable, and one when the well
+    // takes hold. Said once each, not every frame.
+    const stamp = bh.id + ":" + grip.zone;
+    if (this.driftWarned !== stamp) {
+      this.driftWarned = stamp;
+      if (grip.zone === "drift") {
+        UI.addLog(`NAVIGATION NOTE: HEADING IS DRIFTING. SOMETHING WITH MASS IS OUT THERE.`);
+      } else {
+        UI.addLog(`GRAVITY WARNING: ${bh.name.toUpperCase()} HAS THE SHIP. FULL OVERDRIVE NOW OR NOT AT ALL.`);
+        if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("error");
+      }
+    }
+
+    if (grip.dist < (bh.coreRadius || 3)) {
+      this.crossEventHorizon(bh);
+      return true;
+    }
+    return false;
+  },
+
+  /** Past the horizon: either a displacement, or transit out of this region. */
+  crossEventHorizon(bh) {
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
+    UI.addLog(`CRITICAL WARP DISPLACEMENT! PULLED INTO ${bh.name.toUpperCase()} EVENT HORIZON!`);
+    UI.addLog(`REEMERGED AT DISPLACED COORDINATES (${bh.destX}, ${bh.destY}).`);
+    this.shipX = bh.destX;
+    this.shipY = bh.destY;
+    this.shipVx = 0;
+    this.shipVy = 0;
+    this.driftWarned = null;
+    this.gravityGrip = null;
+    this.markLinkTraversed(bh.id);
+    this.markContact(bh.id, 2);
+
+    // A singularity that names a destination region is a gateway, not a
+    // displacement - it carries the ship out of this volume entirely.
+    const gateway = this.resolveGateway(bh);
+    if (gateway) {
+      if (gateway.oneWay) UI.addLog("THE FOLD SEALS BEHIND THE SHIP. THERE IS NO MOUTH ON THIS SIDE.");
+      RegionManager.travelTo(gateway.region, gateway.x, gateway.y);
+    }
+  },
+
+  /**
+   * Has this ship been through this singularity? Until it has, the chart may say
+   * a fold is there but not where it goes - the mystery is the point.
+   */
+  gateCharted(bh) {
+    const ship = window.game && window.game.ship;
+    return !!(bh && ship && ship.traversedLinks && ship.traversedLinks[bh.id]);
+  },
+
   resolveGateway(bh) {
     if (!bh) return null;
     const dest = bh.leadsTo || bh.returnsTo || this.regionEntryFor(bh.id);
@@ -871,7 +1197,7 @@ const Navigation = {
     }
 
     const r = this.getScanRanges();
-    this.longScanCooldown = 6.0;
+    this.longScanCooldown = 2.5;
     this.sonarActive = true;
     this.sonarRadius = 0;
     AudioController.playScan();
@@ -1283,7 +1609,7 @@ const Navigation = {
 
     // Sonar sweep update
     if (this.sonarActive) {
-      this.sonarRadius += 300 * dt;
+      this.sonarRadius += 900 * dt;   // sweep ring, not a loading bar
       if (this.sonarRadius > 500) {
         this.sonarActive = false;
       }
@@ -1317,10 +1643,19 @@ const Navigation = {
       this.shipAngle += (3.0 + (navSkill / 50)) * dt;
     }
 
+    // What has hold of the ship this frame, worked out BEFORE the throttle so the
+    // engines and the pull are reading the same numbers.
+    const grip = this.computeGravityGrip();
+    const authority = grip ? grip.authority : 1;
+
+    // The autopilot flies the leg itself when engaged, and stands down the moment
+    // the captain touches anything.
+    const autoFlying = this.updateAutopilot(dt);
+
     let isThrusting = false;
-    if (this.keys["ArrowUp"] || this.keys["KeyW"] || this.keys["w"] || this.keys["W"]) {
-      this.shipVx += Math.cos(this.shipAngle) * thrust * dt;
-      this.shipVy += Math.sin(this.shipAngle) * thrust * dt;
+    if (!autoFlying && (this.keys["ArrowUp"] || this.keys["KeyW"] || this.keys["w"] || this.keys["W"])) {
+      this.shipVx += Math.cos(this.shipAngle) * thrust * authority * dt;
+      this.shipVy += Math.sin(this.shipAngle) * thrust * authority * dt;
       isThrusting = true;
     }
 
@@ -1368,45 +1703,10 @@ const Navigation = {
     this.updateNebula();
     this.applyNebulaEffects(dt);
 
-    // 1. Singularity Black Hole Gravitational Pull Physics
-    this.nearbyBlackHole = null;
-    if (RegionManager.content('blackHoles').length) {
-      RegionManager.content('blackHoles').forEach(bh => {
-        const dist = Math.hypot(this.shipX - bh.x, this.shipY - bh.y);
-        if (dist < bh.gravityRadius) {
-          this.nearbyBlackHole = bh;
-          // Apply continuous gravitational pull toward singularity core
-          const angle = Math.atan2(bh.y - this.shipY, bh.x - this.shipX);
-          const pullIntensity = (1 - (dist / bh.gravityRadius)) * bh.pullForce;
-          this.shipVx += Math.cos(angle) * pullIntensity * dt;
-          this.shipVy += Math.sin(angle) * pullIntensity * dt;
-
-          // Check if pulled inside event horizon core
-          if (dist < bh.coreRadius) {
-            if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
-            UI.addLog(`CRITICAL WARP DISPLACEMENT! PULLED INTO ${bh.name.toUpperCase()} EVENT HORIZON!`);
-            UI.addLog(`REEMERGED AT DISPLACED COORDINATES (${bh.destX}, ${bh.destY}).`);
-            this.shipX = bh.destX;
-            this.shipY = bh.destY;
-            this.shipVx = 0;
-            this.shipVy = 0;
-            this.markLinkTraversed(bh.id);
-            this.markContact(bh.id, 2);
-
-            // A singularity that names a destination region is a gateway, not a
-            // displacement - it carries the ship out of this volume entirely.
-            const gateway = this.resolveGateway(bh);
-            if (gateway) {
-              if (gateway.oneWay) {
-                UI.addLog("THE FOLD SEALS BEHIND THE SHIP. THERE IS NO MOUTH ON THIS SIDE.");
-              }
-              RegionManager.travelTo(gateway.region, gateway.x, gateway.y);
-              return;
-            }
-          }
-        }
-      });
-    }
+    // 1. Singularity gravity - drift zone, well, and the horizon. See
+    //    computeGravityGrip(): the grip was already worked out above so the
+    //    throttle could be scaled by it.
+    if (this.applyGravityGrip(dt)) return;
 
     // 2. Derelict Station Proximity
     this.nearbyDerelict = null;
@@ -1531,7 +1831,9 @@ const Navigation = {
     // Fuel Consumption based on thrust and engine efficiency
     if (isThrusting && ship.fuel > 0) {
       const engSkill = ship.crew.engineer ? ship.crew.engineer.skill : 40;
-      const fuelCost = (engine.fuelMult * (1.2 - engSkill / 200)) * dt;
+      // Fighting a gravity well is expensive, and gets worse the deeper you are.
+      const wellCost = this.gravityGrip ? this.gravityGrip.fuelMult : 1;
+      const fuelCost = (engine.fuelMult * (1.2 - engSkill / 200)) * wellCost * dt;
       ship.fuel = Math.max(0, ship.fuel - fuelCost);
       AudioController.updateEnginePitch(0.8);
 
@@ -2141,6 +2443,15 @@ const Navigation = {
       return centerY + (basePy - centerY + this.mapOffsetY) * this.mapZoom;
     };
 
+    // Keep the projection parameters so a click can be inverted back to galaxy
+    // coordinates. Storing the numbers rather than duplicating the arithmetic
+    // means the forward and inverse transforms cannot drift apart.
+    this.mapProjection = {
+      originX: originX, originY: originY, mapW: mapW, mapH: mapH,
+      centerX: centerX, centerY: centerY,
+      offsetX: this.mapOffsetX, offsetY: this.mapOffsetY, zoom: this.mapZoom
+    };
+
     // Draw Background Grid Lines (every 25 LY in 500x500 Galaxy Map)
     ctx.strokeStyle = "rgba(0, 255, 102, 0.12)";
     ctx.lineWidth = 1;
@@ -2283,18 +2594,23 @@ const Navigation = {
 
         // Once identified, a gateway well should read as a route on the chart, not
         // just a hazard - that is the difference between a wall and a door.
+        // What the chart may say about a singularity depends on whether this ship
+        // has been through it. Naming the destination on sight gave away the whole
+        // topology from the first scan.
         const gate = this.resolveGateway(bh);
-        const gTarget = gate ? RegionManager.get(gate.region) : null;
-        const routeLine = gate
-          ? `\nRoute: ${gate.oneWay ? "ONE-WAY GATE" : "GATEWAY"} → ${String((gTarget && gTarget.name) || gate.region).toUpperCase()}` +
-            (gate.oneWay ? "\nWARNING: nothing on the far side leads back this way." : "")
-          : "";
+        const known = gate ? this.gateCharted(bh) : false;
+        const gTarget = (gate && known) ? RegionManager.get(gate.region) : null;
+        const routeLine = !gate ? ""
+          : known
+            ? `\nRoute: ${gate.oneWay ? "ONE-WAY GATE" : "GATEWAY"} → ${String((gTarget && gTarget.name) || gate.region).toUpperCase()}` +
+              (gate.oneWay ? "\nWARNING: nothing on the far side leads back this way." : "")
+            : "\nRoute: FOLD STRUCTURE PRESENT - DESTINATION UNCHARTED. Telemetry ends at the horizon.";
 
         this.mapTargets.push({
           type: "blackhole",
           known: true, // reached only at tier 2 - see getContactTier
           x: bhPx, y: bhPy, radius: gravRad,
-          title: `🕳 ${gate ? (gate.oneWay ? "ONE-WAY GATE" : "REGION GATEWAY") : "BLACK HOLE"}: ${bh.name.toUpperCase()}`,
+          title: `🕳 ${!gate ? "BLACK HOLE" : (known ? (gate.oneWay ? "ONE-WAY GATE" : "REGION GATEWAY") : "UNCHARTED FOLD")}: ${bh.name.toUpperCase()}`,
           details: `Location: (${bh.x}, ${bh.y})\nHazard: Extreme Gravitational Core${routeLine}\nProperties: ${bh.desc}`
         });
       });
@@ -2475,9 +2791,14 @@ const Navigation = {
     });
 
     // Draw Past Alien Encounter History Markers
+    // Encounters are logged with a region, so they belong to that region's chart
+    // only. Without this, every alien met in the core appeared on every chart.
+    // Records written before contacts were tagged are treated as core.
     if (ship.encounterHistory && this.isLayerOn("aliens")) {
       const encFontSize = Math.min(22, Math.max(11, Math.round(13 * zScale)));
+      const viewedRegionId = RegionManager.viewedId();
       ship.encounterHistory.forEach(enc => {
+        if ((enc.region || "core") !== viewedRegionId) return;
         const encPx = toCanvasX(enc.x);
         const encPy = toCanvasY(enc.y);
 
@@ -2561,7 +2882,9 @@ Action: Hails and scans passing vessels for contraband.`
     // range triggerSonar() uses, so the map shows exactly what the scanner can see.
     const alienReach = this.getScanRanges().short * 1.15;
     const selfPos = this.getShipGalaxyCoords();
-    if (this.isLayerOn("aliens") && RegionManager.isCore()) this.alienShips.forEach(alien => {
+    // Live traffic is only ever in the region the ship is in - this gated on
+    // isCore() (the CURRENT region), so viewing another chart drew core vessels on it.
+    if (this.isLayerOn("aliens") && !viewingElsewhere && RegionManager.isCore()) this.alienShips.forEach(alien => {
       if (Math.hypot(selfPos.x - alien.x, selfPos.y - alien.y) > alienReach) return;
       const alienPx = toCanvasX(alien.x);
       const alienPy = toCanvasY(alien.y);
@@ -2600,29 +2923,34 @@ Action: Hails and scans passing vessels for contraband.`
     });
 
     // Draw Vessel Position Flashing Marker ("YOU ARE HERE")
+    // Only on the chart of the region the ship is actually IN. This guard used to
+    // sit on the tooltip target alone, so an archived chart still drew the pulse
+    // and the label - the ship appeared to be in a region it had left.
     const galCoords = this.getShipGalaxyCoords();
     const shipPx = toCanvasX(galCoords.x);
     const shipPy = toCanvasY(galCoords.y);
 
-    const pulseRadius = (8 + Math.abs(Math.sin(Date.now() / 250)) * 6) * zScale;
-    ctx.strokeStyle = "#00ccff";
-    ctx.lineWidth = Math.max(1.5, 1.5 * zScale);
-    ctx.shadowBlur = 8 * zScale;
-    ctx.shadowColor = "#00ccff";
-    ctx.beginPath();
-    ctx.arc(shipPx, shipPy, pulseRadius, 0, Math.PI * 2);
-    ctx.stroke();
+    if (!viewingElsewhere) {
+      const pulseRadius = (8 + Math.abs(Math.sin(Date.now() / 250)) * 6) * zScale;
+      ctx.strokeStyle = "#00ccff";
+      ctx.lineWidth = Math.max(1.5, 1.5 * zScale);
+      ctx.shadowBlur = 8 * zScale;
+      ctx.shadowColor = "#00ccff";
+      ctx.beginPath();
+      ctx.arc(shipPx, shipPy, pulseRadius, 0, Math.PI * 2);
+      ctx.stroke();
 
-    ctx.fillStyle = "#00ccff";
-    ctx.beginPath();
-    ctx.arc(shipPx, shipPy, Math.max(3, 4 * zScale), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+      ctx.fillStyle = "#00ccff";
+      ctx.beginPath();
+      ctx.arc(shipPx, shipPy, Math.max(3, 4 * zScale), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
 
-    // Position "YOU ARE HERE" ABOVE the ship icon
-    ctx.font = `${fontSize}px Share Tech Mono`;
-    ctx.fillStyle = "#00ccff";
-    ctx.fillText("▲ YOU ARE HERE", shipPx - (32 * zScale), shipPy - (14 * zScale));
+      // Position "YOU ARE HERE" ABOVE the ship icon
+      ctx.font = `${fontSize}px Share Tech Mono`;
+      ctx.fillStyle = "#00ccff";
+      ctx.fillText("▲ YOU ARE HERE", shipPx - (32 * zScale), shipPy - (14 * zScale));
+    }
 
     if (!viewingElsewhere) this.mapTargets.push({
       type: "ship",
@@ -2911,6 +3239,38 @@ Action: Hails and scans passing vessels for contraband.`
       this.ctx.globalAlpha = 1;
     });
 
+    // Course line and readout while the autopilot has the helm, so it is obvious
+    // the ship is flying itself and obvious where to.
+    if (this.autopilot) {
+      const tx = centerX + (this.autopilot.x - this.shipX) * scale;
+      const ty = centerY + (this.autopilot.y - this.shipY) * scale;
+      this.ctx.save();
+      this.ctx.setLineDash([5, 7]);
+      this.ctx.strokeStyle = "rgba(0, 204, 255, 0.55)";
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.moveTo(centerX, centerY);
+      this.ctx.lineTo(tx, ty);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+      this.ctx.strokeStyle = "#00ccff";
+      this.ctx.beginPath();
+      this.ctx.arc(tx, ty, 9, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(tx - 13, ty); this.ctx.lineTo(tx + 13, ty);
+      this.ctx.moveTo(tx, ty - 13); this.ctx.lineTo(tx, ty + 13);
+      this.ctx.stroke();
+      this.ctx.restore();
+
+      const rem = Math.hypot(this.autopilot.x - this.shipX, this.autopilot.y - this.shipY);
+      this.ctx.font = "bold 12px Share Tech Mono";
+      this.ctx.fillStyle = "#00ccff";
+      this.ctx.fillText(
+        `⌖ AUTOPILOT → (${this.autopilot.x.toFixed(0)}, ${this.autopilot.y.toFixed(0)})  ${rem.toFixed(1)} LY  [P] CANCEL`,
+        14, 22);
+    }
+
     // Standing inside one is worth saying plainly, over the cloud itself.
     if (this.activeNebula) {
       const meta = this.NEBULA_EFFECTS[this.activeNebula.effect] || this.NEBULA_EFFECTS.safe;
@@ -2963,14 +3323,17 @@ Action: Hails and scans passing vessels for contraband.`
           // ship is already being pulled in by the time this is readable.
           const gate = this.resolveGateway(bh);
           if (gate) {
+            const known = this.gateCharted(bh);
             const target = RegionManager.get(gate.region);
             const caught = this.nearbyBlackHole && this.nearbyBlackHole.id === bh.id;
             this.ctx.font = "9px Share Tech Mono";
-            this.ctx.fillStyle = gate.oneWay ? "#ff6644" : "#88ccaa";
+            this.ctx.fillStyle = (gate.oneWay && known) ? "#ff6644" : "#88ccaa";
             this.ctx.fillText(
-              `${gate.oneWay ? "ONE-WAY GATE" : "GATEWAY"} → ${String((target && target.name) || gate.region).toUpperCase()}`,
+              known
+                ? `${gate.oneWay ? "ONE-WAY GATE" : "GATEWAY"} → ${String((target && target.name) || gate.region).toUpperCase()}`
+                : "FOLD STRUCTURE DETECTED - DESTINATION UNKNOWN",
               px + coreRadPx + 6, py + 15);
-            if (caught && gate.oneWay) {
+            if (caught && known && gate.oneWay) {
               this.ctx.font = "bold 11px Share Tech Mono";
               this.ctx.fillStyle = "#ff3322";
               this.ctx.fillText("NO RETURN FOLD ON THE FAR SIDE - BREAK AWAY NOW", px + coreRadPx + 6, py + 28);

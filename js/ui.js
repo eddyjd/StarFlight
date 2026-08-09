@@ -1541,12 +1541,28 @@ const UI = {
     document.getElementById("techpart-value").textContent = `SALVAGE VALUE: ${techPart.value || 2500} M.U.`;
     document.getElementById("techpart-desc").textContent = techPart.desc;
 
+    // Say up front when fitting this would be wasted, rather than after the module
+    // has been consumed. A capped module is worth real credits sold instead.
+    const redundant = this.techPartRedundantReason(techPart);
+    const value = document.getElementById("techpart-value");
+    if (redundant && value) {
+      const repeat = redundant.indexOf("REPEAT:") === 0;
+      value.innerHTML = `<span style="color:${repeat ? "#ffcc00" : "#ff5555"};">` +
+        `${repeat ? "ALREADY ABOARD" : "NO BENEFIT"}</span> - SALVAGE VALUE: ${techPart.value || 2500} M.U.`;
+    }
+
     // The offer itself changes for structural work, so the button must not keep
     // promising an immediate fit it is not going to perform.
     const docked = !!(window.game && window.game.ship && window.game.ship.isInSpacebase);
     const btn = document.getElementById("btnInstallTechPart");
     const proto = document.getElementById("techpart-protocol");
-    if (techPart.requiresDrydock && !docked) {
+    if (redundant) {
+      const repeat = redundant.indexOf("REPEAT:") === 0;
+      const body = repeat ? redundant.slice(7) : redundant;
+      if (btn) btn.textContent = repeat ? "⚡ INSTALL ANYWAY" : "⚠ INSTALL ANYWAY (NO EFFECT)";
+      if (proto) proto.textContent = body +
+        ` Stored in the hold it sells for ${(techPart.value || 2500).toLocaleString()} M.U. at Starbase Prime.`;
+    } else if (techPart.requiresDrydock && !docked) {
       if (btn) btn.textContent = "\u{1F527} STOW FOR DRYDOCK FITTING";
       if (proto) proto.textContent =
         "This is structural work. It cannot be fitted between stars - the mount has to be cut, " +
@@ -1573,6 +1589,36 @@ const UI = {
    * drydock can run exactly the same fitting later, rather than a second copy of
    * it that would drift out of sync.
    */
+  /**
+   * Would fitting this module actually change anything? A Sensor Amplifier on a
+   * Class 4 scanner, or a second Warp Conduit on a Class 5 engine, installs
+   * cleanly and does nothing - the capped branches already said so in the log,
+   * but only AFTER the module was consumed. This lets the modal say it first.
+   *
+   * Returns null when the fitting is worthwhile, or a reason string when it is not.
+   */
+  techPartRedundantReason(part) {
+    const ship = window.game.ship;
+    if (!part) return null;
+    const already = Array.isArray(ship.installedTechParts) && ship.installedTechParts.indexOf(part.id) >= 0;
+
+    if (part.effect === "engine_boost" && (ship.engineLevel || 1) >= 5) {
+      return "The engine is already Class 5. Fitting this would gain nothing.";
+    }
+    if (part.effect === "weapon_boost" && (ship.blasterLevel || 1) >= 5) {
+      return "Blasters are already Class 5. Fitting this would gain nothing.";
+    }
+    if (part.effect === "scanner_boost" && (ship.scannerLevel || 1) >= 4) {
+      return "The scanner array is already at maximum class. Fitting this would gain nothing.";
+    }
+    // Shield, hull and cargo modules stack without a cap, so a second one is
+    // still worth fitting - say it is a repeat, but do not call it a waste.
+    if (already) {
+      return "REPEAT:One of these is already fitted. Another will stack, but check you would not rather sell it.";
+    }
+    return null;
+  },
+
   applyTechPartEffect(part) {
     const ship = window.game.ship;
     if (!part) return;
@@ -1626,6 +1672,18 @@ const UI = {
     if (!this.currentTechPart) return;
     const part = this.currentTechPart;
     const ship = window.game.ship;
+
+    // Only block on a genuine dead end - a stacking repeat is a real choice and
+    // does not need a second prompt after the modal already flagged it.
+    const redundant = this.techPartRedundantReason(part);
+    if (redundant && redundant.indexOf("REPEAT:") !== 0) {
+      if (!confirm(`${part.name.toUpperCase()}\n\n${redundant}\n\n` +
+                   `Sold at Starbase Prime it is worth ${(part.value || 2500).toLocaleString()} M.U.\n\n` +
+                   `Install it anyway?`)) {
+        this.addLog(`${part.name.toUpperCase()} LEFT UNFITTED - THE SYSTEM IT UPGRADES IS ALREADY AT MAXIMUM.`);
+        return;
+      }
+    }
 
     if (part.requiresDrydock && !ship.isInSpacebase) {
       if (!Array.isArray(ship.pendingModules)) ship.pendingModules = [];

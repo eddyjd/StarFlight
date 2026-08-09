@@ -72,6 +72,10 @@ const Encounter = {
         y: shipY,
         raceKey: raceKey,
         raceName: this.alien.name || raceKey.toUpperCase(),
+        // Which volume of space this happened in. Without it the star map has no
+        // way to tell a Spemin met in the core from one met in the Marrow, and
+        // drew every contact ever made on every region's chart.
+        region: ship.region || "core",
         timestamp: Date.now()
       });
     }

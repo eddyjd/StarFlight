@@ -1419,6 +1419,60 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
 
+  // ---- Ship's locker -----------------------------------------------------
+  // One-use equipment lives here rather than in the cargo hold, because it is not
+  // cargo: it does not take hold space, cannot be sold to an alien port by
+  // accident, and Customs has no opinion about it.
+
+  openLockerModal() {
+    const modal = document.getElementById("locker-modal");
+    if (!modal) return;
+    this.renderLocker();
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  closeLockerModal() {
+    const modal = document.getElementById("locker-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  renderLocker() {
+    const box = document.getElementById("locker-body");
+    if (!box || typeof Consumables === "undefined") return;
+    const inv = Consumables.inventory();
+
+    if (!inv.length) {
+      box.innerHTML = `<span style="color:#88ccaa;">The locker is empty. One-use equipment is sold at the ` +
+                      `Starbase Prime chandlery, and found more often than it is bought.</span>`;
+      return;
+    }
+
+    box.innerHTML = inv.map(row => {
+      const blocked = Consumables.blockedReason(row.item);
+      return `<div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid rgba(0,255,102,0.12);">
+        <span style="font-size:20px;">${row.item.icon}</span>
+        <div style="flex:1;">
+          <div style="color:#00ccff;">${row.item.name.toUpperCase()} <span style="color:#88ccaa;">x${row.count}</span></div>
+          <div style="font-size:11px; color:#aaccbb;">${row.item.desc}</div>
+          ${blocked ? `<div style="font-size:11px; color:#ff8866;">${blocked}</div>` : ""}
+        </div>
+        <button class="glow-btn ${blocked ? "" : "green-glow"}" ${blocked ? "disabled" : ""}
+          onclick="try{UI.useFromLocker('${row.item.id}')}catch(e){alert(e.message)}">USE</button>
+      </div>`;
+    }).join("");
+  },
+
+  useFromLocker(id) {
+    if (typeof Consumables === "undefined") return;
+    const before = Consumables.count(id);
+    const used = Consumables.use(id);
+    // A fold charge opens the chart and is spent later, so close the locker to get
+    // out of the way whether or not it reported success.
+    if (used || Consumables.count(id) !== before || Navigation.foldPicking) this.closeLockerModal();
+    else this.renderLocker();
+  },
+
   openDistressModal(signal) {
     this.currentDistress = signal;
     const modal = document.getElementById("distress-modal");
@@ -1510,6 +1564,11 @@ const UI = {
     }
     if (choiceKey !== "ignore" && sig && typeof QuestEngine !== "undefined") {
       QuestEngine.notify("beacon", { signalId: sig.id, event2: sig.event });
+    }
+    // A call that came in over the band stops being tracked once it is answered,
+    // and any cutter sent to it stands down.
+    if (choiceKey !== "ignore" && sig && sig.dynamic && typeof DistressNet !== "undefined") {
+      DistressNet.resolve(sig.id);
     }
 
     this.closeDistressModal();

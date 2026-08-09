@@ -128,6 +128,18 @@ const GameManager = {
     // Where a Precursor gate must put the rover back. Null unless mid-transit.
     portalReturn: null,
 
+    // One-use equipment, as { itemId: count }. Not cargo - see js/consumables.js.
+    consumables: {},
+
+    // Distress calls that have come in over the band and not yet lapsed
+    dynamicSignals: [],
+    nextSignalAt: null,
+    signalSerial: 0,
+
+    // Seconds of actual play. Used for anything that should age with play time
+    // rather than wall clock, so a save stays portable across sessions.
+    playClock: 0,
+
     isInSpacebase: true,
     currentSystem: null,
     currentPlanet: null
@@ -403,6 +415,7 @@ const GameManager = {
       const puzzleModal = document.getElementById("puzzle-modal");
       const rescueModal = document.getElementById("rescue-modal");
       const portModal = document.getElementById("port-modal");
+      const lockerModal = document.getElementById("locker-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
@@ -412,7 +425,8 @@ const GameManager = {
                           (archiveModal && !archiveModal.classList.contains("hidden")) ||
                           (puzzleModal && !puzzleModal.classList.contains("hidden")) ||
                           (rescueModal && !rescueModal.classList.contains("hidden")) ||
-                          (portModal && !portModal.classList.contains("hidden"));
+                          (portModal && !portModal.classList.contains("hidden")) ||
+                          (lockerModal && !lockerModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         if (cargoModal) cargoModal.classList.add("hidden");
@@ -422,6 +436,7 @@ const GameManager = {
         if (puzzleModal) puzzleModal.classList.add("hidden");
         if (rescueModal) rescueModal.classList.add("hidden");
         if (portModal) { portModal.classList.add("hidden"); UI.currentPort = null; }
+        if (lockerModal) lockerModal.classList.add("hidden");
         // Only dismissable once the inspection has actually resolved
         if (patrolModal && !document.getElementById("patrol-close-btn").classList.contains("hidden")) {
           UI.closePatrolModal();
@@ -445,6 +460,7 @@ const GameManager = {
         // button or automatically at launch via ship.launchConfig.autoWeapons.
         else if (e.key === "m" || e.key === "M") Navigation.openStarMapModal();
         else if (e.key === "i" || e.key === "I") UI.openCargoModal();
+        else if (e.key === "o" || e.key === "O") UI.openLockerModal();
       }
       else if (this.viewState === "landing" && PlanetExploration.active) {
         if (e.key === "i" || e.key === "I") PlanetExploration.openRoverCargoModal();
@@ -582,6 +598,11 @@ const GameManager = {
 
       // Applies in flight, on a surface and mid-encounter alike
       this.updateShieldRegen(dt);
+
+      // Seconds of actual play. Anything that should age with play rather than
+      // wall clock reads this, so a save stays portable across sessions.
+      this.ship.playClock = (this.ship.playClock || 0) + dt;
+      if (typeof DistressNet !== "undefined") DistressNet.update(dt);
     } catch (err) {
       console.error("Game loop tick error caught safely:", err);
     }
@@ -859,6 +880,9 @@ const GameManager = {
         if (!this.ship.traversedLinks) this.ship.traversedLinks = {};
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!Array.isArray(this.ship.pendingModules)) this.ship.pendingModules = [];
+        if (!this.ship.consumables) this.ship.consumables = {};
+        if (!Array.isArray(this.ship.dynamicSignals)) this.ship.dynamicSignals = [];
+        if (typeof this.ship.playClock !== "number") this.ship.playClock = 0;
         if (!this.ship.mapLayers) {
           this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true };
         }
@@ -940,6 +964,11 @@ const GameManager = {
         wormholeNet: null,
         pendingModules: [],
         portalReturn: null,
+        consumables: {},
+        playClock: 0,
+        dynamicSignals: [],
+        nextSignalAt: null,
+        signalSerial: 0,
         isInSpacebase: true,
         currentSystem: null,
         currentPlanet: null

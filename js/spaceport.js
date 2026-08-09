@@ -252,6 +252,9 @@ const Spaceport = {
     // Structural modules recovered in the field wait here for the gravity dock.
     html += this.createDrydockSection(ship);
 
+    // One-use equipment. Deliberately dear - these are meant to be found.
+    html += this.createConsumablesSection(ship);
+
     // Engine upgrading
     html += this.createUpgradeRow("engines", "ENGINES", ship.engineLevel, GameData.upgrades.engines);
     // Shield upgrading
@@ -296,6 +299,7 @@ const Spaceport = {
 
     // Depot event handlers
     this.wireDrydockButtons();
+    this.wireConsumableButtons();
     document.getElementById("btn-depot-fuel").addEventListener("click", () => this.buyFuel());
     document.getElementById("btn-depot-ammo").addEventListener("click", () => this.buyAmmo());
 
@@ -538,6 +542,57 @@ const Spaceport = {
         UI.addLog(`DRYDOCK BERTH ASSIGNED. FITTING ${part.name.toUpperCase()} - ${fee.toLocaleString()} M.U. YARD FEE.`);
         UI.applyTechPartEffect(part);
 
+        this.renderDepot();
+        UI.updateShip(ship);
+        window.game.saveGame();
+      });
+    });
+  },
+
+  createConsumablesSection(ship) {
+    if (typeof Consumables === "undefined") return "";
+    const stocked = Object.keys(Consumables.all()).map(k => Consumables.get(k)).filter(i => i.stocked);
+    if (!stocked.length) return "";
+
+    let html = `
+      <h4 style="margin: 4px 0 6px 0; color:#00ccff; font-size:11px;">SHIP'S CHANDLERY - ONE-USE EQUIPMENT</h4>
+      <div style="margin-bottom:15px; border-bottom:1px dashed rgba(0,204,255,0.35); padding-bottom:10px;">
+    `;
+
+    stocked.forEach(item => {
+      const have = Consumables.count(item.id);
+      const can = (ship.credits || 0) >= item.price;
+      html += `
+        <div class="depot-item" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="depot-info">
+            <span class="depot-name">${item.icon} ${item.name.toUpperCase()}${have ? ` <span style="color:#00ccff;">(${have} ABOARD)</span>` : ""}</span>
+            <span class="depot-desc">${item.desc}</span>
+          </div>
+          <button class="glow-btn buy-consumable ${can ? "green-glow" : ""}" data-id="${item.id}" ${can ? "" : "disabled"}>
+            BUY - ${item.price.toLocaleString()} M.U.
+          </button>
+        </div>
+      `;
+    });
+
+    return html + `</div>`;
+  },
+
+  wireConsumableButtons() {
+    const ship = window.game.ship;
+    document.querySelectorAll(".buy-consumable").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = Consumables.get(btn.getAttribute("data-id"));
+        if (!item) return;
+        if ((ship.credits || 0) < item.price) {
+          AudioController.playBeep("error");
+          UI.addLog("PURCHASE DECLINED: INSUFFICIENT CREDITS.");
+          return;
+        }
+        ship.credits -= item.price;
+        Consumables.grant(item.id, 1);
+        AudioController.playBeep("success");
+        UI.addLog(`CHANDLERY: ${item.name.toUpperCase()} STOWED. ${item.price.toLocaleString()} M.U.`);
         this.renderDepot();
         UI.updateShip(ship);
         window.game.saveGame();

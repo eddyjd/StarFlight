@@ -193,11 +193,21 @@ const Navigation = {
       starmapCanvas.addEventListener("click", (e) => {
         if (this.mapDragMoved) return;                  // a pan is not a course order
         if (RegionManager.viewedId() !== RegionManager.currentId()) {
-          UI.addLog("COURSE NOT SET: THIS IS AN ARCHIVED CHART OF A REGION THE SHIP HAS LEFT.");
+          UI.addLog(this.foldPicking
+            ? "FOLD NOT SET: A CHARGE CANNOT AIM AT A REGION THE SHIP IS NOT IN."
+            : "COURSE NOT SET: THIS IS AN ARCHIVED CHART OF A REGION THE SHIP HAS LEFT.");
           return;
         }
         const gal = this.starMapToGalaxy(e);
         if (!gal) return;
+
+        // An armed fold charge claims the click before the autopilot does
+        if (this.foldPicking) {
+          const hit = this.findStarMapTargetAt(e);
+          const name = hit && hit.title ? hit.title.replace(/^[^A-Z0-9]*/, "") : null;
+          this.fireFoldCharge(gal.x, gal.y, name);
+          return;
+        }
         // Snap to a charted object if the click was near one - a captain clicking
         // a star means that star, not a coordinate 3 LY off it.
         const snap = this.findStarMapTargetAt(e);
@@ -523,6 +533,70 @@ const Navigation = {
    * Returns null for an ordinary displacement well that just throws you across
    * the same quadrant.
    */
+  /**
+   * Every distress call the ship could answer here: the authored ones placed in
+   * the region, plus whatever has come in over the band. Anything that reads
+   * signals must go through this, or dynamic calls become invisible to it.
+   */
+  allDistressSignals() {
+    const authored = RegionManager.content('distressSignals') || [];
+    const dynamic = (typeof DistressNet !== "undefined") ? DistressNet.activeHere() : [];
+    return authored.concat(dynamic);
+  },
+
+  // ---- Fold charges ------------------------------------------------------
+  // A Precursor Fold Charge is the one thing in the game that ignores distance.
+  // It is priced accordingly, and it is spent only when it actually fires - a
+  // captain who opens the chart and thinks better of it keeps the charge.
+
+  executeFold(x, y, label) {
+    const ship = window.game.ship;
+    const fromX = this.shipX, fromY = this.shipY;
+
+    this.foldPicking = false;
+    this.autopilot = null;
+    this.shipX = Math.max(5, Math.min(495, x));
+    this.shipY = Math.max(5, Math.min(495, y));
+    this.shipVx = 0;
+    this.shipVy = 0;
+    ship.coordinates.x = this.shipX;
+    ship.coordinates.y = this.shipY;
+    this.driftWarned = null;
+    this.gravityGrip = null;
+
+    const jumped = Math.hypot(this.shipX - fromX, this.shipY - fromY);
+    UI.addLog("FOLD CHARGE FIRED. THE HULL GOES SOMEWHERE THE HULL IS NOT SUPPOSED TO GO.");
+    UI.addLog(`EMERGED AT (${this.shipX.toFixed(0)}, ${this.shipY.toFixed(0)})` +
+              (label ? ` - ${String(label).toUpperCase()}` : "") +
+              ` AFTER ${jumped.toFixed(0)} LY.`);
+    if (!label) UI.addLog("THE CHARGE CHOSE. IT USUALLY DOES NOT CHOOSE WELL.");
+
+    // Arriving somewhere charts where you arrived
+    this.revealSectorsWithin(25);
+    if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("powerup");
+    window.game.saveGame();
+  },
+
+  /** Called when the captain clicks a destination while a charge is armed. */
+  fireFoldCharge(x, y, label) {
+    if (!this.foldPicking) return false;
+    if (!Consumables.consume("fold_charge")) {
+      this.foldPicking = false;
+      UI.addLog("NO FOLD CHARGE ABOARD.");
+      return false;
+    }
+    this.closeStarMapModal();
+    this.executeFold(x, y, label);
+    UI.updateShip(window.game.ship);
+    return true;
+  },
+
+  cancelFoldPicking() {
+    if (!this.foldPicking) return;
+    this.foldPicking = false;
+    UI.addLog("FOLD CHARGE STOOD DOWN. STILL ABOARD, STILL UNSPENT.");
+  },
+
   // ---- Autopilot ---------------------------------------------------------
   // Crossing the quadrant is deliberately slow, which is right for pacing and
   // tedious for the fourth trip to the same coordinates. The autopilot flies the
@@ -818,7 +892,15 @@ const Navigation = {
   getPatrols() {
     if (!this.activePatrols) {
       const src = (GameData.patrols || []);
-      this.activePatrols = src.map(p => Object.assign({}, p));
+      // baseSpeed is captured ONCE from the authored velocity. Deriving it from
+      // the current velocity each frame made the response burn multiply its own
+      // speed by 1.8 every frame - cutters accelerated to 1e306 and then to NaN,
+      // which permanently broke patrols in any save where a call was answered.
+      this.activePatrols = src.map(p => {
+        const copy = Object.assign({}, p);
+        copy.baseSpeed = Math.hypot(p.vx || 0, p.vy || 0) || 4;
+        return copy;
+      });
     }
     return this.activePatrols;
   },
@@ -837,39 +919,118 @@ const Navigation = {
     return (ship && ship.cargoLevel || 1) >= 3;
   },
 
+  /**
+   * Send the nearest available cutter to a distress call. Customs answers calls
+   * inside its own jurisdiction and nowhere else - a beacon out past the zone is
+   * exactly as alone as the Reach beacons say it is.
+   */
+  dispatchPatrolTo(sig) {
+    if (!sig || (sig.region || "core") !== "core") return null;
+    const zone = GameData.patrolZone || { x: 250, y: 250, radius: 130 };
+    if (Math.hypot(sig.x - zone.x, sig.y - zone.y) > zone.radius) return null;
+
+    const free = this.getPatrols().filter(p => !p.respondingTo);
+    if (!free.length) return null;
+
+    free.sort((a, b) => Math.hypot(a.x - sig.x, a.y - sig.y) - Math.hypot(b.x - sig.x, b.y - sig.y));
+    const cutter = free[0];
+    cutter.respondingTo = sig.id;
+    cutter.targetX = sig.x;
+    cutter.targetY = sig.y;
+    UI.addLog(`SFC TRAFFIC: ${cutter.name.toUpperCase()} IS ANSWERING THE CALL AT (${sig.x}, ${sig.y}).`);
+    return cutter;
+  },
+
+  /** Stand a cutter down once the call it was answering is over. */
+  recallPatrolFrom(sig) {
+    if (!sig) return;
+    this.getPatrols().forEach(p => {
+      if (p.respondingTo === sig.id) {
+        p.respondingTo = null;
+        p.targetX = null;
+        p.targetY = null;
+        UI.addLog(`SFC TRAFFIC: ${p.name.toUpperCase()} IS RETURNING TO STATION.`);
+      }
+    });
+  },
+
+  /**
+   * Customs cutters hold station near Starbase Prime. They used to wander the
+   * whole 130 LY jurisdiction, which meant being stopped and searched hundreds of
+   * light years from anywhere the Corps actually polices - and made the core feel
+   * no safer than the rim.
+   *
+   * A cutter leaves station for exactly one reason: a distress call inside the
+   * zone. Then it goes back.
+   */
   updatePatrols(dt) {
     const game = window.game;
     const ship = game.ship;
     if (typeof RegionManager !== "undefined" && !RegionManager.isCore()) { this.nearbyPatrol = null; return; }
     const zone = GameData.patrolZone || { x: 250, y: 250, radius: 130 };
     const cfg = GameData.customs || {};
+    const station = cfg.stationRadius || 40;
 
     if (this.patrolCooldown > 0) this.patrolCooldown = Math.max(0, this.patrolCooldown - dt);
 
     this.nearbyPatrol = null;
     this.getPatrols().forEach(p => {
+      const speed = p.baseSpeed || (p.baseSpeed = Math.hypot(p.vx, p.vy) || 4);
+
+      if (p.respondingTo && typeof p.targetX === "number") {
+        // Running a call: straight there, faster than a station patrol bothers to move
+        const dx = p.targetX - p.x, dy = p.targetY - p.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 3) {
+          const run = speed * 1.8;
+          p.vx = (dx / d) * run;
+          p.vy = (dy / d) * run;
+        } else {
+          // On scene. Hold here until the call resolves or lapses.
+          p.vx *= 0.3;
+          p.vy *= 0.3;
+        }
+      } else {
+        // On station: loiter around the base, turning back at the station edge
+        const dFromBase = Math.hypot(p.x - zone.x, p.y - zone.y);
+        if (dFromBase > station) {
+          const inward = Math.atan2(zone.y - p.y, zone.x - p.x);
+          // Curve back rather than snapping round, so the patrol reads as a patrol
+          const blend = Math.min(1, (dFromBase - station) / 12);
+          p.vx = p.vx * (1 - blend) + Math.cos(inward) * speed * blend;
+          p.vy = p.vy * (1 - blend) + Math.sin(inward) * speed * blend;
+          const norm = Math.hypot(p.vx, p.vy) || 1;
+          p.vx = (p.vx / norm) * speed;
+          p.vy = (p.vy / norm) * speed;
+        }
+      }
+
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-
-      // Turn back at the edge of jurisdiction rather than the galaxy border
-      const dFromCentre = Math.hypot(p.x - zone.x, p.y - zone.y);
-      if (dFromCentre > zone.radius) {
-        const inward = Math.atan2(zone.y - p.y, zone.x - p.x);
-        const speed = Math.hypot(p.vx, p.vy) || 4;
-        p.vx = Math.cos(inward) * speed;
-        p.vy = Math.sin(inward) * speed;
-      }
       p.angle = Math.atan2(p.vy, p.vx);
 
       const dist = Math.hypot(this.shipX - p.x, this.shipY - p.y);
       if (dist < (cfg.hailRange || 7.0)) {
         this.nearbyPatrol = p;
-        if (this.patrolCooldown <= 0 && game.viewState === "navigation" && game.spaceState === "hyper") {
+        // A cutter running a call has somewhere to be, and the Ghost Baffle means
+        // nothing is looking at this hull at all.
+        const busy = !!p.respondingTo;
+        const ghosted = this.isGhosted();
+        if (!busy && !ghosted && this.patrolCooldown <= 0 &&
+            game.viewState === "navigation" && game.spaceState === "hyper") {
           this.patrolCooldown = cfg.cooldownSeconds || 45;
           UI.openPatrolModal(p);
         }
       }
     });
+  },
+
+  /** True while a Precursor Ghost Baffle is running. */
+  isGhosted() {
+    const ship = window.game && window.game.ship;
+    if (!ship || this.ghostUntil == null) return false;
+    if ((ship.playClock || 0) >= this.ghostUntil) { this.ghostUntil = null; return false; }
+    return true;
   },
 
   // Records a wormhole or singularity the ship has actually passed through.
@@ -1101,7 +1262,7 @@ const Navigation = {
     const pick = (kind, fallback) => R ? R.content(kind) : (fallback || []);
     add(pick("derelicts", D.derelicts), "DERELICT STATION");
     add(pick("spaceWrecks", D.spaceWrecks), "ALIEN WRECK");
-    add(pick("distressSignals", D.distressSignals), "DISTRESS BEACON");
+    add(this.allDistressSignals(), "DISTRESS BEACON");
     // A short-range identify is what tells you whether a throat comes back. That
     // is the payoff for spending the scan instead of just flying at it.
     pick("wormholes", D.wormholes).forEach(o => out.push({
@@ -1722,7 +1883,7 @@ const Navigation = {
     // 3. Subspace Distress Signal Proximity
     this.nearbyDistressSignal = null;
     if (this.isLayerOn("salvage")) {
-      RegionManager.content('distressSignals').forEach(sig => {
+      this.allDistressSignals().forEach(sig => {
         if (sig.active) {
           const dist = Math.hypot(this.shipX - sig.x, this.shipY - sig.y);
           if (dist < 4.0) {
@@ -1918,7 +2079,7 @@ const Navigation = {
       const dist = Math.hypot(this.shipX - alien.x, this.shipY - alien.y);
       // A dampening field is worth flying into: inside one, nothing can find you.
       // This is what the Aquila Dark Veil has always claimed to do.
-      const hidden = this.nebulaHidesShip();
+      const hidden = this.nebulaHidesShip() || this.isGhosted();
       if (dist < 6.5 && !hidden) {
         this.nearbyAlien = alien;
       }
@@ -2381,6 +2542,7 @@ const Navigation = {
   },
 
   closeStarMapModal() {
+    this.cancelFoldPicking();
     AudioController.playBeep('click');
     const modal = document.getElementById("starmap-modal");
     if (modal) modal.classList.add("hidden");
@@ -2663,8 +2825,10 @@ const Navigation = {
     }
 
     // Draw Subspace Distress Beacons on Star Map
-    if (RegionManager.viewedContent('distressSignals').length) {
-      RegionManager.viewedContent('distressSignals').forEach(sig => {
+    {
+      (RegionManager.viewedId() === RegionManager.currentId()
+        ? this.allDistressSignals()
+        : RegionManager.viewedContent('distressSignals')).forEach(sig => {
         if (!sig.active) return;
         const sigPx = toCanvasX(sig.x);
         const sigPy = toCanvasY(sig.y);
@@ -3546,8 +3710,8 @@ Action: Hails and scans passing vessels for contraband.`
     }
 
     // Render Subspace Distress Beacons in Viewport
-    if (RegionManager.content('distressSignals').length) {
-      RegionManager.content('distressSignals').forEach(sig => {
+    {
+      this.allDistressSignals().forEach(sig => {
         if (!sig.active) return;
         const dx = (sig.x - this.shipX) * scale;
         const dy = (sig.y - this.shipY) * scale;

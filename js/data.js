@@ -262,6 +262,10 @@ const GameData = {
 
   // Contraband enforcement tuning
   customs: {
+    // Cutters hold station within this radius of Starbase Prime and only leave it
+    // to answer a distress call. They used to wander the whole 130 LY jurisdiction,
+    // which made the core no safer to fly than the rim.
+    stationRadius: 40,
     hailRange: 7.0,        // LY at which a cutter hails you
     finePerUnit: 500,      // M.U. per unit of contraband seized
     evadeBaseChance: 0.35, // before engine bonus

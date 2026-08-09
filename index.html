@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.14.0</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.14.0</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.14.1</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.14.1</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -443,13 +443,14 @@
             <strong>SHIFT</strong>: Engage Impulse Overdrive for high-speed evasion boost.<br>
             <strong>ENTER</strong>: Enter Star System or Planet Orbit when near orbital marker.<br>
             <strong>S</strong>: Short-range scan. Fully identifies and logs every contact within sensor range.<br>
-            <strong>SHIFT + S</strong>: Long-range sweep. Paints distant objects as <strong>? unidentified contacts</strong> on the Star Map - you must close to short range and scan again to identify them. Recharges for 6 seconds.<br>
+            <strong>SHIFT + S</strong>: Long-range sweep. Paints distant objects as <strong>? unidentified contacts</strong> on the Star Map - you must close to short range and scan again to identify them. Recharges for 2.5 seconds.<br>
+            <strong>SHIFT + CLICK</strong>: Set course. Works on the viewport or the Star Map; the helm confirms the distance and fuel before it takes over. Any manual input, a vessel coming into range, or a gravity well hands the helm straight back. <strong>[P]</strong> cancels.<br>
             <span style="color:#ffcc00;">SENSOR RANGE</span> scales with your <strong>Navigator's skill</strong> and the <strong>Scanner module</strong> fitted at the Depot. A rookie navigator with a Standard Scanner reaches ~41 LY short / ~116 LY long; an expert with a Mineral Resonance Scan reaches ~97 LY / ~273 LY.<br>
-            <strong>B</strong>: Board a derelict station or salvage an alien wreck when in range.<br>
+            <span style="color:#ffcc00;">GRAVITY WELLS</span>: A singularity reaches far further than it looks. The outer <strong>drift</strong> nudges your heading long before anything alarming happens - that is your warning. Inside the well proper the engines lose authority and burn far more fuel the deeper you are, so <strong>SHIFT</strong> overdrive gets you out only if you use it the moment you notice. Hesitate and it will not.<br>            <strong>B</strong>: Board a derelict station or salvage an alien wreck when in range.<br>
             <strong>E</strong>: Investigate a subspace distress beacon.<br>
             <strong>W</strong>: Enter a quantum wormhole. The <strong>LAND</strong> control also performs whichever of these is in range.<br>
             <span style="color:#ffcc00;">ARCHIVES</span>: Starbase Prime keeps a Central Archive, and three alien starports run their own - the <strong>Thrynn Trade Reliquary</strong>, the <strong>Veloxi Imperial Codex</strong> and the <strong>Spemin Collected Wisdoms</strong>. Dock with <strong>[B]</strong> and read. Some volumes are sealed until you have recovered enough artifacts or read the prerequisite text. Anything actionable is filed automatically under <strong>CLUES</strong> in the Captain's Log <strong>[G]</strong>.<br>
-            <span style="color:#ffcc00;">CUSTOMS PATROLS</span>: Starbase Prime cutters sweep the core sectors within 130 LY of the base and hail passing ships for a cargo scan. Carrying <strong>Spemin Spice</strong> in an unshielded hold means seizure plus a 500 M.U. per-unit fine. <strong>Shielded Cargo Bays</strong> (cargo class 3) defeat the scan outright. You may also jettison the cargo before they sweep, or run - evasion odds improve with engine class. Outside their jurisdiction, nobody is checking.<br>
+            <span style="color:#ffcc00;">CUSTOMS PATROLS</span>: Starbase Prime cutters hold station within 40 LY of the base and hail passing ships for a cargo scan. They leave station only to answer a distress call inside the 130 LY jurisdiction, and a cutter running a call will not stop for you. Carrying <strong>Spemin Spice</strong> in an unshielded hold means seizure plus a 500 M.U. per-unit fine. <strong>Shielded Cargo Bays</strong> (cargo class 3) defeat the scan outright. You may also jettison the cargo before they sweep, or run - evasion odds improve with engine class. Outside their jurisdiction, nobody is checking.<br>
             <strong>L</strong>: Dock at Starbase Prime (at 100, 100) or launch Terrain Lander on planet surface.<br>
             <strong>M</strong>: Toggle Fullscreen Interactive Star Map with zoom & pan.<br>
             <strong>G</strong>: Open Captain's Exploration Log & Survey History Archive.<br>
@@ -841,28 +842,28 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.14.0"></script>
-  <script src="js/audio.js?v=1.14.0"></script>
-  <script src="js/ui.js?v=1.14.0"></script>
-  <script src="js/spaceport.js?v=1.14.0"></script>
-  <script src="js/navigation.js?v=1.14.0"></script>
-  <script src="js/planet.js?v=1.14.0"></script>
-  <script src="js/content/quests.js?v=1.14.0"></script>
-  <script src="js/content/archives.js?v=1.14.0"></script>
-  <script src="js/content/puzzles.js?v=1.14.0"></script>
-  <script src="js/content/resources.js?v=1.14.0"></script>
-  <script src="js/content/regions.js?v=1.14.0"></script>
-  <script src="js/clues.js?v=1.14.0"></script>
-  <script src="js/quest.js?v=1.14.0"></script>
-  <script src="js/archive.js?v=1.14.0"></script>
-  <script src="js/region.js?v=1.14.0"></script>
-  <script src="js/content/consumables.js?v=1.14.0"></script>
-  <script src="js/consumables.js?v=1.14.0"></script>
-  <script src="js/content/signals.js?v=1.14.0"></script>
-  <script src="js/distress.js?v=1.14.0"></script>
-  <script src="js/wormholes.js?v=1.14.0"></script>
-  <script src="js/puzzle.js?v=1.14.0"></script>
-  <script src="js/encounter.js?v=1.14.0"></script>
-  <script src="js/game.js?v=1.14.0"></script>
+  <script src="js/data.js?v=1.14.1"></script>
+  <script src="js/audio.js?v=1.14.1"></script>
+  <script src="js/ui.js?v=1.14.1"></script>
+  <script src="js/spaceport.js?v=1.14.1"></script>
+  <script src="js/navigation.js?v=1.14.1"></script>
+  <script src="js/planet.js?v=1.14.1"></script>
+  <script src="js/content/quests.js?v=1.14.1"></script>
+  <script src="js/content/archives.js?v=1.14.1"></script>
+  <script src="js/content/puzzles.js?v=1.14.1"></script>
+  <script src="js/content/resources.js?v=1.14.1"></script>
+  <script src="js/content/regions.js?v=1.14.1"></script>
+  <script src="js/clues.js?v=1.14.1"></script>
+  <script src="js/quest.js?v=1.14.1"></script>
+  <script src="js/archive.js?v=1.14.1"></script>
+  <script src="js/region.js?v=1.14.1"></script>
+  <script src="js/content/consumables.js?v=1.14.1"></script>
+  <script src="js/consumables.js?v=1.14.1"></script>
+  <script src="js/content/signals.js?v=1.14.1"></script>
+  <script src="js/distress.js?v=1.14.1"></script>
+  <script src="js/wormholes.js?v=1.14.1"></script>
+  <script src="js/puzzle.js?v=1.14.1"></script>
+  <script src="js/encounter.js?v=1.14.1"></script>
+  <script src="js/game.js?v=1.14.1"></script>
 </body>
 </html>

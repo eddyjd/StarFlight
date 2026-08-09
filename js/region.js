@@ -88,6 +88,54 @@ const RegionManager = {
   },
 
   /**
+   * Push an arrival point clear of every gravity well in the destination region.
+   *
+   * The Lattice's return point was authored at (128, 432), which is 11.3 LY from
+   * the Precursor Singularity - well inside its 30 LY grip. That was harmless
+   * while bh_3 was an ordinary displacement well, but v1.12.0 made it a gateway
+   * to the Lattice, so coming home through the Open Door dropped the ship
+   * stationary inside the mouth of the gate it had just come out of and pulled it
+   * straight back. An unbreakable loop between two regions.
+   *
+   * Fixing the one coordinate would have left the same trap waiting for the next
+   * region anyone authored, so this clears ANY arrival against ANY well.
+   */
+  safeArrival(regionId, x, y) {
+    const holes = (regionId === "core")
+      ? ((typeof GameData !== "undefined" && GameData.blackHoles) || [])
+      : (((this.get(regionId) || {}).blackHoles) || []);
+    if (!holes.length) return { x: x, y: y };
+
+    // Clear the DRIFT zone, not merely the well. Drift is meant to be a warning
+    // the captain flies through and notices - being dropped inside one with zero
+    // velocity means a ship that idles for a minute gets hauled in with no
+    // warning it could have acted on. Measured: 67 seconds from arrival to
+    // recapture when clearance was only 1.35x the well.
+    const span = (typeof Navigation !== "undefined" && Navigation.DRIFT_SPAN) ? Navigation.DRIFT_SPAN : 2.4;
+
+    let px = x, py = y;
+    // A few passes, because pushing clear of one well can enter another
+    for (let pass = 0; pass < 12; pass++) {
+      let moved = false;
+      holes.forEach(bh => {
+        const safe = (bh.gravityRadius || 30) * span + 10;
+        let dx = px - bh.x, dy = py - bh.y;
+        let d = Math.hypot(dx, dy);
+        if (d >= safe) return;
+        if (d < 0.001) { dx = 1; dy = 0; d = 1; }      // dead centre: pick a direction
+        px = bh.x + (dx / d) * safe;
+        py = bh.y + (dy / d) * safe;
+        moved = true;
+      });
+      if (!moved) break;
+    }
+
+    px = Math.max(15, Math.min(485, px));
+    py = Math.max(15, Math.min(485, py));
+    return { x: px, y: py };
+  },
+
+  /**
    * Move the ship to another region. Called when a singularity is entered, which
    * is the only way across.
    */
@@ -108,12 +156,21 @@ const RegionManager = {
     this.mapView = regionId;         // follow the ship by default
     this.restore(ship, regionId);
 
-    const ax = (typeof arrivalX === "number") ? arrivalX : ((target.arrival && target.arrival.x) || 250);
-    const ay = (typeof arrivalY === "number") ? arrivalY : ((target.arrival && target.arrival.y) || 250);
+    const wantX = (typeof arrivalX === "number") ? arrivalX : ((target.arrival && target.arrival.x) || 250);
+    const wantY = (typeof arrivalY === "number") ? arrivalY : ((target.arrival && target.arrival.y) || 250);
+    const safe = this.safeArrival(regionId, wantX, wantY);
+    const ax = safe.x, ay = safe.y;
 
     Navigation.resetPhysics(ax, ay);
     ship.coordinates.x = ax;
     ship.coordinates.y = ay;
+
+    // The ship arrives stationary. Give it a breath before any well starts
+    // pulling, so a fold cannot capture a hull that has not had a chance to
+    // build steerage way. This is the fold spitting you clear, not an escape.
+    Navigation.gravityGrace = 3.0;
+    Navigation.driftWarned = null;
+    Navigation.gravityGrip = null;
     ship.currentSystem = null;
     ship.currentPlanet = null;
     game.spaceState = "hyper";

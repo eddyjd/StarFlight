@@ -283,7 +283,13 @@ window.GameData.regions = {
     blurb: "Precursor engineering on the scale of a quadrant. The stars here are arranged, and they are arranged " +
            "around something. This is the deepest charted space and the only place the Corps has never named.",
     arrival: { x: 250, y: 250 },
-    returnTo: { region: "core", x: 128, y: 432 },
+    // Clear of every well in the core quadrant. The old value, (128, 432), sat
+    // 11 LY inside the Precursor Singularity's 30 LY grip - harmless while that
+    // was a plain displacement well, but v1.12.0 made it the gateway TO here, so
+    // coming home dropped the ship inside the mouth it had just left and pulled
+    // it straight back. RegionManager.safeArrival() would correct it now; the
+    // authored value should not need correcting.
+    returnTo: { region: "core", x: 225, y: 400 },
     danger: "Precursor automation, still running. It has had twenty thousand cycles to decide what you are.",
     wormholeCfg: { pairs: 2, solos: 1 },
     // Veloxi survey pickets watching something that has not moved in six centuries.

@@ -204,29 +204,38 @@ const Navigation = {
         const gal = this.starMapToGalaxy(e);
         if (!gal) return;
 
-        // An armed fold charge claims the click before the autopilot does
+        // An armed fold charge claims the click before the autopilot does. That one
+        // stays a plain click: arming the charge was already the deliberate act.
         if (this.foldPicking) {
           const hit = this.findStarMapTargetAt(e);
           const name = hit && hit.title ? hit.title.replace(/^[^A-Z0-9]*/, "") : null;
           this.fireFoldCharge(gal.x, gal.y, name);
           return;
         }
+
+        // Otherwise SHIFT is required, so panning and inspecting the chart cannot
+        // set a course by accident.
+        if (!e.shiftKey) return;
         // Snap to a charted object if the click was near one - a captain clicking
         // a star means that star, not a coordinate 3 LY off it.
         const snap = this.findStarMapTargetAt(e);
         const label = snap && snap.title ? snap.title.replace(/^[^A-Z0-9]*/, "") : null;
-        if (this.engageAutopilot(gal.x, gal.y, label)) this.closeStarMapModal();
+        if (this.engageAutopilot(gal.x, gal.y, label, { confirm: true })) this.closeStarMapModal();
       });
     }
 
     // Click the hyperspace viewport to set course for that point
     const gameCanvas = document.getElementById("gameCanvas");
     if (gameCanvas) {
+      // SHIFT + click sets course. A plain click does nothing: the viewport is
+      // where the captain is flying, and an ordinary misclick should never take
+      // the helm and start burning Endurium.
       gameCanvas.addEventListener("click", (e) => {
         const game = window.game;
         if (!game || game.viewState !== "navigation" || game.spaceState !== "hyper") return;
+        if (!e.shiftKey) return;
         const gal = this.canvasToGalaxy(e.clientX, e.clientY);
-        if (gal) this.engageAutopilot(gal.x, gal.y, null);
+        if (gal) this.engageAutopilot(gal.x, gal.y, null, { confirm: true });
       });
     }
   },
@@ -679,8 +688,13 @@ const Navigation = {
 
     this.foldPicking = false;
     this.autopilot = null;
-    this.shipX = Math.max(5, Math.min(495, x));
-    this.shipY = Math.max(5, Math.min(495, y));
+    // Same clearance a region transit gets: a fold charge that dropped the hull
+    // inside a singularity would be an expensive way to lose the ship.
+    const safe = (typeof RegionManager !== "undefined")
+      ? RegionManager.safeArrival(RegionManager.currentId(), x, y) : { x: x, y: y };
+    this.shipX = Math.max(5, Math.min(495, safe.x));
+    this.shipY = Math.max(5, Math.min(495, safe.y));
+    this.gravityGrace = 3.0;
     this.shipVx = 0;
     this.shipVy = 0;
     ship.coordinates.x = this.shipX;
@@ -732,8 +746,32 @@ const Navigation = {
   AUTOPILOT_ARRIVE: 1.5,   // LY from target that counts as arrived
   AUTOPILOT_EASE: 12,      // LY out from target where it starts slowing
 
-  engageAutopilot(x, y, label) {
+  /**
+   * Estimated cost of a leg, so the confirmation can state it rather than the
+   * captain finding out on arrival. Approximate on purpose - it assumes a clean
+   * run at cruise, which a real leg rarely is.
+   */
+  autopilotEstimate(x, y) {
+    const ship = window.game.ship;
+    const dist = Math.hypot(x - this.shipX, y - this.shipY);
+    const engine = GameData.upgrades.engines[(ship.engineLevel || 1) - 1] || GameData.upgrades.engines[0];
+    const mass = 1.0 + (UI.calculateCargoMass(ship.cargo) / 100);
+    // Terminal speed under the same drag the flight model uses
+    const thrust = ((2.5 + (ship.engineLevel * 2.0)) / mass) * 2.5;
+    const cruise = Math.max(0.5, thrust / (1 - Math.pow(0.96, 60)) * 0.0166);
+    const secs = dist / cruise;
+    const engSkill = (ship.crew && ship.crew.engineer) ? ship.crew.engineer.skill : 40;
+    const fuel = (engine.fuelMult * (1.2 - engSkill / 200)) * secs;
+    return { dist: dist, secs: secs, fuel: fuel };
+  },
+
+  /**
+   * `confirm: true` asks before committing. Course-setting is a click, and a
+   * misplaced click should not silently take the helm and start burning fuel.
+   */
+  engageAutopilot(x, y, label, opts) {
     const game = window.game;
+    const cfg = opts || {};
     if (!game || game.viewState !== "navigation" || game.spaceState !== "hyper") {
       UI.addLog("AUTOPILOT UNAVAILABLE: HYPERSPACE FLIGHT ONLY.");
       return false;
@@ -747,6 +785,26 @@ const Navigation = {
     if (Math.hypot(tx - this.shipX, ty - this.shipY) < this.AUTOPILOT_ARRIVE) {
       UI.addLog("AUTOPILOT: ALREADY THERE.");
       return false;
+    }
+
+    if (cfg.confirm) {
+      const est = this.autopilotEstimate(tx, ty);
+      const short = est.fuel > game.ship.fuel;
+      const lines = [
+        "SET COURSE" + (label ? ": " + String(label).toUpperCase() : ""),
+        "",
+        `Destination: (${tx.toFixed(0)}, ${ty.toFixed(0)})`,
+        `Distance:    ${est.dist.toFixed(0)} LY`,
+        `Estimated:   ${Math.round(est.secs)}s and about ${Math.ceil(est.fuel)} Endurium`,
+        `In the tank: ${Math.floor(game.ship.fuel)}`,
+        "",
+        short ? "WARNING: this leg is likely to run the reactor dry before you arrive." : "",
+        "Engage autopilot?"
+      ].filter(l => l !== "");
+      if (!confirm(lines.join("\n"))) {
+        UI.addLog("COURSE NOT SET. HELM REMAINS MANUAL.");
+        return false;
+      }
     }
 
     this.autopilot = { x: tx, y: ty, label: label || null };
@@ -887,7 +945,24 @@ const Navigation = {
    * engines. Computed once per frame BEFORE thrust is applied, so the throttle
    * and the pull agree with each other.
    */
-  computeGravityGrip() {
+  /**
+   * True while a fresh transit is still spitting the ship clear of the wells.
+   *
+   * Counted down in seconds of frame time rather than against ship.playClock:
+   * playClock only advances inside GameManager.tick(), so anything that drives
+   * the flight model directly left the grace permanently un-expired and gravity
+   * switched off for good. A transit effect should not depend on which loop is
+   * turning the crank.
+   */
+  inGravityGrace(dt) {
+    if (!this.gravityGrace || this.gravityGrace <= 0) return false;
+    this.gravityGrace -= (typeof dt === "number" ? dt : 0);
+    if (this.gravityGrace <= 0) { this.gravityGrace = 0; return false; }
+    return true;
+  },
+
+  computeGravityGrip(dt) {
+    if (this.inGravityGrace(dt)) { this.gravityGrip = null; return null; }
     let best = null;
     RegionManager.content('blackHoles').forEach(bh => {
       const dist = Math.hypot(this.shipX - bh.x, this.shipY - bh.y);
@@ -1947,7 +2022,7 @@ Chart: ${String((viewed && viewed.name) || "CORPS QUADRANT").toUpperCase()}` +
 
     // What has hold of the ship this frame, worked out BEFORE the throttle so the
     // engines and the pull are reading the same numbers.
-    const grip = this.computeGravityGrip();
+    const grip = this.computeGravityGrip(dt);
     const authority = grip ? grip.authority : 1;
 
     // The autopilot flies the leg itself when engaged, and stands down the moment

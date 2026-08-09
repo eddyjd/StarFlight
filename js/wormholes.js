@@ -209,6 +209,20 @@ const WormholeNet = {
     if (ship.traversedLinks && ship.traversedLinks[wh.id]) return true;
     const tier = (ship.contactLog && ship.contactLog[wh.id]) || 0;
     return tier >= 2;
+  },
+
+  /**
+   * Where a throat comes out is learned by flying it, not by looking at it.
+   *
+   * Scanning reveals the STRUCTURE - whether there is a matching throat on the
+   * far side - which is what makes a one-way commitment knowable before you
+   * commit. It does not hand over the exit coordinates. Black holes have worked
+   * this way since v1.14.0; wormholes were still giving their destination away on
+   * a scan, so the chart named routes the ship had never taken.
+   */
+  isDestinationKnown(wh) {
+    const ship = window.game && window.game.ship;
+    return !!(ship && wh && ship.traversedLinks && ship.traversedLinks[wh.id]);
   }
 };
 

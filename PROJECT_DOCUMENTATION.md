@@ -455,6 +455,14 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Deliberately still un-escapable: `techpart` (Escape would silently bin a salvaged module - INSTALL and STORE both keep it), `derelict`, `distress`, `transfer` and `patrol`, each of which is an unresolved choice that Escape would quietly forfeit.
     * Sweep grew to **310 checks**, including one that asserts the guarded modals still refuse to be dismissed.
 
+83. **The World Kept Running Behind Every Dialog (v1.14.3)**:
+    * **Reported as "examined a distress signal in the Corps Quadrant and somehow ended up in the Shattered Reach".** Confirmed: the main loop never stopped for a modal. Measured **4 LY of unattended movement in 12 seconds** with a distress beacon open. Park in the drift of a gateway singularity, open the beacon, read it - and the hull is pulled in and transited to another region while the captain is reading. `GameManager.tick()` now skips the flight model, hazard checks, crew healing, `playClock` and the distress band whenever a `.modal` is open. Rendering continues so the viewport does not freeze into a dead image.
+    * **The Star Map Is Deliberately Exempt**: it is a chart the captain reads *while* flying, and freezing the galaxy behind it would make the vessel marker lie.
+    * **The Chart Named Routes Never Taken**: scanning a throat to tier 2 revealed its destination. Black holes were gated on actual traversal in v1.14.0; wormholes were not, so the map cheerfully named exits the ship had never flown. Split into two levels of knowledge - a **scan** sounds the structure (paired vs one-way, which is what makes a one-way commitment knowable before committing) and only **transit** names the far end.
+    * **CARGO LOG Given An Inline Fallback**: reported as not working. It could not be made to fail in any state, hold, save shape, viewport or click method, real CDP clicks included, with a clean console - so rather than guess, the control now follows this codebase's own documented remedy for listener-attachment failures (PROJECT_DOCUMENTATION 6.5, v1.9.8): an inline `onclick` alongside the listener, both routed through `UI.dispatchCargo()`. Both paths are idempotent, so firing together is harmless, and the inline attribute fires even if a listener never attaches.
+    * **Harness**: `chk()` now clears any leaked dialog before each check. With the world paused behind modals, one check leaking a modal open silently froze the flight model for every check after it - six unrelated failures the first time the pause landed. Two frame-timed checks were also made deterministic, since `frame(25)` twice is two different amounts of simulated time.
+    * Sweep grew to **318 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

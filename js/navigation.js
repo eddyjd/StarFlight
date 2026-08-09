@@ -2957,7 +2957,13 @@ Chart: ${String((viewed && viewed.name) || "CORPS QUADRANT").toUpperCase()}` +
           known: true, // reached only at tier 2 - see getContactTier
           x: whPx, y: whPy, radius: 14 * zScale,
           title: `🌀 ${wh.oneWay ? "COLLAPSING THROAT" : "QUANTUM WORMHOLE"}: ${wh.name.toUpperCase()}`,
-          details: `Coordinates: (${wh.x}, ${wh.y})\nTarget Jump Destination: ${wh.destName}\n` +
+          // The exit is learned by flying it. A scan sounds the throat and tells
+          // you whether anything answers from the far side; it does not hand over
+          // the coordinates, so the chart stops naming routes never taken.
+          details: `Coordinates: (${wh.x}, ${wh.y})\n` +
+                   (WormholeNet.isDestinationKnown(wh)
+                     ? `Target Jump Destination: ${wh.destName}\n`
+                     : "Target Jump Destination: UNCHARTED - sensors read the throat, not the far end.\n") +
                    (wh.oneWay
                      ? "Status: ONE-WAY FOLD - no paired throat at the far end. Transit is irreversible."
                      : "Status: Stable paired fold. A matching throat returns you here.")
@@ -3948,7 +3954,13 @@ Action: Hails and scans passing vessels for contraband.`
           this.ctx.font = "9px Share Tech Mono";
           if (!known) {
             this.ctx.fillStyle = "#889999";
-            this.ctx.fillText("EXIT VECTOR UNRESOLVED - SCAN TO CHART", px + r + 6, py + 28);
+            this.ctx.fillText("STRUCTURE UNREAD - SCAN TO SOUND THE THROAT", px + r + 6, py + 28);
+          } else if (!WormholeNet.isDestinationKnown(wh)) {
+            // Sounded but never flown: you know whether it comes back, not where to.
+            this.ctx.fillStyle = wh.oneWay ? "#ffaa22" : "#88ccaa";
+            this.ctx.fillText(wh.oneWay ? "ONE-WAY THROAT - EXIT UNCHARTED"
+                                        : "PAIRED THROAT - EXIT UNCHARTED", px + r + 6, py + 28);
+            if (wh.oneWay) this.ctx.fillText("WARNING: NO RETURN THROAT", px + r + 6, py + 40);
           } else {
             this.ctx.fillStyle = wh.oneWay ? "#ffaa22" : "#88ccaa";
             this.ctx.fillText(`EXIT: ${wh.destName.toUpperCase()}`, px + r + 6, py + 28);

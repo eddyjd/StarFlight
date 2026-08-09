@@ -587,6 +587,21 @@ const GameManager = {
     this.saveGame();
   },
 
+  /**
+   * Is a blocking dialog on screen? Every `.modal` is a full-screen overlay, so
+   * if one is open the captain cannot see or reach the ship anyway.
+   *
+   * Deliberately excludes the star map: it is a chart the captain reads WHILE
+   * flying, and freezing the galaxy behind it would make the vessel marker lie.
+   */
+  isDialogOpen() {
+    const open = document.querySelectorAll(".modal:not(.hidden)");
+    for (let i = 0; i < open.length; i++) {
+      if (open[i].id !== "starmap-modal") return true;
+    }
+    return false;
+  },
+
   // Main Loop ticking - hardened against frame crashes
   tick(timestamp) {
     // Schedule next frame tick FIRST so exceptions never kill the animation loop
@@ -598,20 +613,35 @@ const GameManager = {
     this.lastTime = timestamp;
 
     try {
+      // A modal is a conversation, and the ship should not be flying itself
+      // during one. The world used to keep running behind every dialog: reading a
+      // distress beacon parked in the drift of a gateway singularity drifted the
+      // hull in and transited it to another region while the captain was reading.
+      // Measured at 4 LY of unattended movement in 12 seconds.
+      //
+      // Rendering continues so the viewport does not freeze into a dead image -
+      // only time stops.
+      const paused = this.isDialogOpen();
+
       if (this.viewState === "navigation") {
-        Navigation.update(dt);
+        if (!paused) {
+          Navigation.update(dt);
+          this.checkAlienSpawnProbability(dt);
+        }
         Navigation.draw();
-        this.checkAlienSpawnProbability(dt);
-        this.updateCrewHealing(dt);
-      } 
+        if (!paused) this.updateCrewHealing(dt);
+      }
       else if (this.viewState === "landing") {
         PlanetExploration.draw();
-        this.updateCrewHealing(dt);
-      } 
+        if (!paused) this.updateCrewHealing(dt);
+      }
       else if (this.viewState === "encounter") {
+        // The encounter view IS the dialog - it runs on its own terms.
         Encounter.update(dt);
         this.updateCrewHealing(dt);
       }
+
+      if (paused) return;
 
       // Applies in flight, on a surface and mid-encounter alike
       this.updateShieldRegen(dt);

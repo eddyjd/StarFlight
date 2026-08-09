@@ -108,16 +108,7 @@ const UI = {
     // planet surface [I] opens the Rover cargo bed, everywhere else it opens the
     // ship hold. The button used to always open the ship hold, so on the surface it
     // showed an empty manifest and read as broken.
-    this.elements.btnCargo.addEventListener("click", () => {
-      const game = window.game;
-      const onSurface = game && game.viewState === "landing" &&
-                        typeof PlanetExploration !== 'undefined' && PlanetExploration.active;
-      if (onSurface) {
-        PlanetExploration.openRoverCargoModal();
-      } else {
-        this.openCargoModal();
-      }
-    });
+    this.elements.btnCargo.addEventListener("click", () => this.dispatchCargo());
 
     // Starmap button listener
     if (this.elements.btnStarmap) {
@@ -1418,6 +1409,27 @@ const UI = {
     if (modal) modal.classList.add("hidden");
     this.currentPort = null;
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  /**
+   * Open whichever manifest belongs to where the captain is standing.
+   *
+   * Reachable from BOTH an addEventListener binding and an inline onclick in
+   * index.html. That duplication is deliberate and is the house pattern from
+   * v1.9.8 (see PROJECT_DOCUMENTATION 6.5): a listener that fails to attach for
+   * any reason leaves the control dead with nothing on screen to explain it, and
+   * the inline attribute always fires. Both paths are safe to run together -
+   * opening an already-open manifest just re-renders it.
+   */
+  dispatchCargo() {
+    const game = window.game;
+    const onSurface = game && game.viewState === "landing" &&
+                      typeof PlanetExploration !== 'undefined' && PlanetExploration.active;
+    if (onSurface) {
+      PlanetExploration.openRoverCargoModal();
+    } else {
+      this.openCargoModal();
+    }
   },
 
   // ---- Modal backdrop dismissal ------------------------------------------

@@ -122,6 +122,8 @@ const RegionManager = {
     if (typeof game.applySalvageState === "function") game.applySalvageState();
     Navigation.activePatrols = null;
     Navigation.lastSectorKey = null;
+    // Different volume, different traffic - and nobody follows you through a fold
+    if (typeof Navigation.generateTraffic === "function") Navigation.generateTraffic();
     Navigation.generateBackground();
 
     UI.addLog(`=== TRANSITED TO ${String(target.name).toUpperCase()} ===`);

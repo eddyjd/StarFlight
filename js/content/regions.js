@@ -55,6 +55,8 @@ window.GameData.regions = {
     returnTo: { region: "core", x: 210, y: 258 },
     danger: "Uhlek deep patrols. No Customs jurisdiction, no rescue, no resupply.",
     wormholeCfg: { pairs: 1, solos: 1 },
+    // Who flies here, and how many. Uhlek deep patrols, and little else alive.
+    traffic: { count: 7, races: ["uhlek", "uhlek", "uhlek", "veloxi"] },
 
     starSystems: [
       {
@@ -170,6 +172,9 @@ window.GameData.regions = {
     arrival: { x: 250, y: 120 },
     danger: "No route back to charted space. The only way out of the Marrow goes further down.",
     wormholeCfg: { pairs: 1, solos: 2 },
+    // Everyone here came through the Gate and could not get back out. They are
+    // not hostile so much as extremely tired.
+    traffic: { count: 6, races: ["spemin", "spemin", "thrynn", "veloxi"] },
 
     starSystems: [
       {
@@ -281,6 +286,8 @@ window.GameData.regions = {
     returnTo: { region: "core", x: 128, y: 432 },
     danger: "Precursor automation, still running. It has had twenty thousand cycles to decide what you are.",
     wormholeCfg: { pairs: 2, solos: 1 },
+    // Veloxi survey pickets watching something that has not moved in six centuries.
+    traffic: { count: 5, races: ["veloxi", "veloxi", "uhlek"] },
 
     starSystems: [
       {

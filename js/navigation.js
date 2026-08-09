@@ -55,6 +55,9 @@ const Navigation = {
     
     this.resizeCanvas();
     this.generateBackground();
+    // Populate the region the save is in. Without this the galaxy holds only the
+    // three hard-coded vessels the file was authored with.
+    try { this.generateTraffic(); } catch (e) { console.warn("generateTraffic failed", e); }
     this.setupListeners();
   },
 
@@ -542,6 +545,127 @@ const Navigation = {
     const authored = RegionManager.content('distressSignals') || [];
     const dynamic = (typeof DistressNet !== "undefined") ? DistressNet.activeHere() : [];
     return authored.concat(dynamic);
+  },
+
+  // ---- Alien traffic -----------------------------------------------------
+  // The galaxy shipped with exactly three alien vessels, hard-coded, all in the
+  // core - so a captain could fly for an hour across a 500x500 quadrant and meet
+  // nobody, and the deep regions were completely empty of anyone at all.
+  //
+  // Traffic is now generated per region from a `traffic` profile in the region
+  // data, and regenerated on transit.
+
+  RACE_LOOK: {
+    spemin: { name: "Spemin", color: "#00ff66", hulls: ["Scout", "Gleaner", "Bladder-Ship", "Drifter"] },
+    thrynn: { name: "Thrynn", color: "#ffcc00", hulls: ["Trader", "Ledger-Barge", "Factor", "Caravan"] },
+    veloxi: { name: "Veloxi", color: "#ff5533", hulls: ["Cruiser", "Picket", "Lance", "Enforcer"] },
+    uhlek:  { name: "Uhlek",  color: "#ff3333", hulls: ["Interceptor", "Hive-Fragment", "Swarm", "Render"] }
+  },
+
+  trafficProfile() {
+    const id = RegionManager.currentId();
+    if (id === "core") return GameData.traffic || { count: 6, races: ["spemin", "veloxi", "uhlek"] };
+    const region = RegionManager.get(id) || {};
+    return region.traffic || { count: 4, races: ["uhlek"] };
+  },
+
+  /**
+   * Populate this region with vessels. Called on boot and on every region transit,
+   * so the Marrow is full of stranded Spemin and the Lattice of Veloxi pickets
+   * without any of it being authored ship by ship.
+   */
+  generateTraffic() {
+    const profile = this.trafficProfile();
+    const races = profile.races || ["veloxi"];
+    const count = profile.count || 5;
+    const ships = [];
+
+    for (let i = 0; i < count; i++) {
+      const raceKey = races[Math.floor(Math.random() * races.length)];
+      const look = this.RACE_LOOK[raceKey] || this.RACE_LOOK.veloxi;
+      const hull = look.hulls[Math.floor(Math.random() * look.hulls.length)];
+      const speed = 0.5 + Math.random() * 1.1;
+      const heading = Math.random() * Math.PI * 2;
+
+      // Keep them out of Starbase Prime's lap - the Corps does police that much
+      let x, y, tries = 0;
+      do {
+        x = 25 + Math.random() * 450;
+        y = 25 + Math.random() * 450;
+        tries++;
+      } while (RegionManager.isCore() && Math.hypot(x - 250, y - 250) < 45 && tries < 40);
+
+      ships.push({
+        raceKey: raceKey,
+        name: `${look.name} ${hull}`,
+        x: x, y: y,
+        vx: Math.cos(heading) * speed,
+        vy: Math.sin(heading) * speed,
+        angle: heading,
+        color: look.color,
+        hp: 100,
+        stance: null,
+        provoked: false
+      });
+    }
+
+    this.alienShips = ships;
+    return ships;
+  },
+
+  // ---- Alien disposition -------------------------------------------------
+  // GameData.aliens has carried an `aggression` value per race from the start -
+  // 0.3 Spemin, 0.6 Veloxi, 1.0 Uhlek - and nothing ever read it. Every vessel of
+  // every race fired on sight at exactly the same rate, so the galaxy had one
+  // temperament and the numbers were decoration.
+  //
+  // A vessel now decides once, when it first notices you, and remembers. Firing on
+  // anything makes it hostile permanently: that is a choice you do not get back.
+
+  ALIEN_STANCE: {
+    hostile:  { label: "HOSTILE",  color: "#ff3333", hail: "WEAPONS HOT" },
+    wary:     { label: "WARY",     color: "#ffaa22", hail: "TRACKING YOU" },
+    peaceful: { label: "PEACEFUL", color: "#00ff66", hail: "NOT ENGAGING" }
+  },
+
+  /**
+   * Decide how this vessel feels about the ISS Odyssey, once, and cache it.
+   *
+   * Aggression is the chance it is simply hostile. Beyond that, a wary vessel
+   * turns hostile if the captain approaches with weapons armed - which makes
+   * running hot a real decision rather than a free upgrade.
+   */
+  alienStance(alien) {
+    if (!alien) return "peaceful";
+    if (alien.provoked) return "hostile";
+    if (alien.stance) {
+      // A wary vessel keeps re-reading the room: come in armed and it commits.
+      if (alien.stance === "wary" && window.game.ship.weaponsArmed) return "hostile";
+      return alien.stance;
+    }
+
+    const race = (GameData.aliens && GameData.aliens[alien.raceKey]) || {};
+    const aggression = (typeof race.aggression === "number") ? race.aggression : 0.5;
+
+    // Seeded off the vessel so a given ship behaves consistently within a session
+    const roll = Math.random();
+    alien.stance = (roll < aggression) ? "hostile"
+                 : (roll < aggression + 0.35) ? "wary"
+                 : "peaceful";
+    return this.alienStance(alien);
+  },
+
+  /** Mark a vessel as having been shot at. There is no going back from this. */
+  provokeAlien(alien) {
+    if (!alien || alien.provoked) return;
+    alien.provoked = true;
+    alien.stance = "hostile";
+    UI.addLog(`${String(alien.name).toUpperCase()} HAS BEEN FIRED ON AND IS RETURNING FIRE.`);
+  },
+
+  /** Reset dispositions - used when traffic is regenerated for a region. */
+  clearAlienStances() {
+    this.alienShips.forEach(a => { a.stance = null; a.provoked = false; });
   },
 
   // ---- Fold charges ------------------------------------------------------
@@ -1454,7 +1578,19 @@ const Navigation = {
     if (this.hoveredTargetKey === key) return;
     this.hoveredTargetKey = key;
 
-    tip.innerHTML = `<strong>${target.title || "UNKNOWN CONTACT"}</strong><span class="subtext">${(target.details || "").replace(/</g, "&lt;")}</span>`;
+    // Every readout names the chart it belongs to. A coordinate pair is ambiguous
+    // across four regions - (205, 375) is a Corps beacon in the Reach and empty
+    // sky in the Corps Quadrant - and the star map can be showing an archived
+    // chart of somewhere the ship is not. Done here rather than in each of the
+    // dozen `details` strings, so a new contact type gets it for free.
+    const viewed = RegionManager.get(RegionManager.viewedId());
+    const away = RegionManager.viewedId() !== RegionManager.currentId();
+    const chartLine = `
+Chart: ${String((viewed && viewed.name) || "CORPS QUADRANT").toUpperCase()}` +
+                      (away ? " [ARCHIVED - VESSEL ELSEWHERE]" : "");
+
+    tip.innerHTML = `<strong>${target.title || "UNKNOWN CONTACT"}</strong>` +
+                    `<span class="subtext">${((target.details || "") + chartLine).replace(/</g, "&lt;")}</span>`;
     tip.classList.remove("hidden");
 
     // Anchor beside the marker itself, converting canvas pixels back to CSS pixels
@@ -1711,10 +1847,15 @@ const Navigation = {
     this.bgStars = [];
     const count = 180;
     for (let i = 0; i < count; i++) {
+      // `depth` drives parallax. Small values are far-off stars that barely move;
+      // larger ones are near field and sweep past. Without this the field was
+      // screen-locked wallpaper and the ship read as motionless in open space.
+      const depth = Math.pow(Math.random(), 2) * 0.85 + 0.05;
       this.bgStars.push({
         u: Math.random(),
         v: Math.random(),
-        size: Math.random() * 1.8 + 0.5,
+        depth: depth,
+        size: (Math.random() * 1.4 + 0.4) * (0.6 + depth),
         twinkleSpeed: Math.random() * 2 + 1,
         color: ["#ffffff", "#00ff66", "#00ccff", "#ffaa33", "#ff77ff"][Math.floor(Math.random() * 5)]
       });
@@ -1819,6 +1960,8 @@ const Navigation = {
       this.shipVy += Math.sin(this.shipAngle) * thrust * authority * dt;
       isThrusting = true;
     }
+    // Read by drawShip(). The autopilot burns too, and should look like it.
+    this.isThrusting = isThrusting || (autoFlying && !!this.autopilot);
 
     // Apply drift friction, scaled to elapsed time.
     // This used to be a flat per-FRAME multiply while thrust was per-SECOND, so any
@@ -2030,6 +2173,9 @@ const Navigation = {
             p.lifetime = 0;
             if (typeof AudioController !== 'undefined') AudioController.playExplosion();
             UI.addLog(`DIRECT HIT ON ${alien.name.toUpperCase()}! (${p.damage} DAMAGE)`);
+            // Shooting at something that was not shooting at you is a decision you
+            // do not get back - it is hostile from here on, whatever it was before.
+            this.provokeAlien(alien);
             alien.hp = (alien.hp || 100) - p.damage;
             if (alien.hp <= 0) {
               UI.addLog(`TACTICAL VICTORY: ${alien.name.toUpperCase()} DESTROYED IN SPACE!`);
@@ -2082,10 +2228,22 @@ const Navigation = {
       const hidden = this.nebulaHidesShip() || this.isGhosted();
       if (dist < 6.5 && !hidden) {
         this.nearbyAlien = alien;
+        // Say what it is doing, once per approach, so "it did not shoot" reads as
+        // a decision rather than a bug.
+        if (alien.__announced !== alien.stance) {
+          alien.__announced = alien.stance;
+          const meta = this.ALIEN_STANCE[this.alienStance(alien)];
+          UI.addLog(`CONTACT: ${String(alien.name).toUpperCase()} - ${meta.label}, ${meta.hail}.`);
+        }
+      } else if (dist > 12) {
+        alien.__announced = null;
       }
 
-      // Alien Tactical Firing
-      if (dist < 18.0 && !hidden) {
+      // Alien Tactical Firing - only from something that means it. A peaceful or
+      // merely wary vessel holds fire, which is what the aggression values in
+      // GameData.aliens have always implied and never did.
+      const stance = this.alienStance(alien);
+      if (dist < 18.0 && !hidden && stance === "hostile") {
         alien.fireCooldown = (alien.fireCooldown || 2.0) - dt;
         if (alien.fireCooldown <= 0) {
           alien.fireCooldown = 3.5;
@@ -2233,6 +2391,7 @@ const Navigation = {
       this.shipVy += Math.sin(this.shipAngle) * thrust * dt;
       isThrusting = true;
     }
+    this.isThrusting = isThrusting;
 
     // Time-scaled drag, same reasoning as updateHyper()
     const drag = Math.pow(friction, dt * 60);
@@ -3048,7 +3207,10 @@ Action: Hails and scans passing vessels for contraband.`
     const selfPos = this.getShipGalaxyCoords();
     // Live traffic is only ever in the region the ship is in - this gated on
     // isCore() (the CURRENT region), so viewing another chart drew core vessels on it.
-    if (this.isLayerOn("aliens") && !viewingElsewhere && RegionManager.isCore()) this.alienShips.forEach(alien => {
+    // Live traffic exists in every region now, not just the core. Still gated to
+    // the chart of the region the ship is in - nobody follows you through a fold.
+    if (this.isLayerOn("aliens") && !viewingElsewhere) this.alienShips.forEach(alien => {
+      if (alien.x < 0) return;
       if (Math.hypot(selfPos.x - alien.x, selfPos.y - alien.y) > alienReach) return;
       const alienPx = toCanvasX(alien.x);
       const alienPy = toCanvasY(alien.y);
@@ -3081,8 +3243,10 @@ Action: Hails and scans passing vessels for contraband.`
         type: "alien",
         known: true,
         x: alienPx, y: alienPy, radius: 14 * zScale,
-        title: `🛸 ACTIVE ALIEN VESSEL: ${alien.name.toUpperCase()}`,
-        details: `Coordinates: (${alien.x.toFixed(1)}, ${alien.y.toFixed(1)})\nSpecies: ${alien.raceKey.toUpperCase()}\nStatus: Active Space Trajectory`
+        title: `🛸 ${this.ALIEN_STANCE[this.alienStance(alien)].label} VESSEL: ${alien.name.toUpperCase()}`,
+        details: `Coordinates: (${alien.x.toFixed(1)}, ${alien.y.toFixed(1)})\nSpecies: ${alien.raceKey.toUpperCase()}\n` +
+                 `Disposition: ${this.ALIEN_STANCE[this.alienStance(alien)].label} - ${this.ALIEN_STANCE[this.alienStance(alien)].hail}` +
+                 (alien.provoked ? "\nThis vessel has been fired on by this ship." : "")
       });
     });
 
@@ -3236,14 +3400,47 @@ Action: Hails and scans passing vessels for contraband.`
     this.starStep = 3.0 * stepDt;
 
 
-    // Twinkling stars drawing across full canvas resolution
+    // The starfield scrolls against the ship's own position, each star at its own
+    // depth. This is the only cue that the ship is moving at all when there is
+    // nothing else in the viewport - previously the field was pinned to the canvas
+    // and open space felt completely static.
+    //
+    // In hyperspace shipX/shipY are galaxy LY, so they convert at the same 14 px
+    // per LY the rest of drawHyper uses. In system mode they are already pixels.
+    const inHyper = (game.spaceState === "hyper");
+    const paraScale = inHyper ? 14 : 1;
+    const paraX = this.shipX * paraScale;
+    const paraY = this.shipY * paraScale;
+
+    // Speed smear: at cruise the near field stretches slightly along the heading.
+    const speed = Math.hypot(this.shipVx, this.shipVy) * (inHyper ? 1 : 0.1);
+    const smear = Math.min(6, speed * 0.35);
+    const heading = (speed > 0.01) ? Math.atan2(this.shipVy, this.shipVx) : 0;
+    const smearX = Math.cos(heading) * smear;
+    const smearY = Math.sin(heading) * smear;
+
+    const wrap = (v, span) => ((v % span) + span) % span;
+
     this.bgStars.forEach(s => {
       s.twinkle += this.starStep;
       const alpha = 0.3 + Math.abs(Math.sin(s.twinkle)) * 0.7;
-      const sx = (s.u !== undefined ? s.u * w : s.x);
-      const sy = (s.v !== undefined ? s.v * h : s.y);
+      const d = (s.depth !== undefined) ? s.depth : 0.5;   // saves from before parallax
+      const sx = wrap((s.u * w) - paraX * d, w);
+      const sy = wrap((s.v * h) - paraY * d, h);
+
       this.ctx.fillStyle = `rgba(0, 255, 102, ${alpha})`;
-      this.ctx.fillRect(sx, sy, s.size, s.size);
+      if (smear > 0.8) {
+        // Draw the trail as a short line rather than a dot, scaled by depth so the
+        // near field streaks and the far field stays still.
+        this.ctx.strokeStyle = `rgba(0, 255, 102, ${alpha * 0.8})`;
+        this.ctx.lineWidth = s.size;
+        this.ctx.beginPath();
+        this.ctx.moveTo(sx, sy);
+        this.ctx.lineTo(sx - smearX * d, sy - smearY * d);
+        this.ctx.stroke();
+      } else {
+        this.ctx.fillRect(sx, sy, s.size, s.size);
+      }
     });
 
     // Faint screen-locked haze. This is scenery only - the REAL nebulae from
@@ -3980,18 +4177,25 @@ Action: Hails and scans passing vessels for contraband.`
     this.ctx.translate(x, y);
     this.ctx.rotate(this.shipAngle);
 
-    // Engine thruster flame glow
+    // Engine thruster flame. This used to draw unconditionally - only its SIZE
+    // responded to the boost key - so a ship coasting on momentum, or sitting
+    // completely still, still showed a full burn.
     const isBoosting = this.keys["Shift"] || this.keys["ShiftLeft"] || this.keys["ShiftRight"];
-    this.ctx.beginPath();
-    this.ctx.moveTo(-4, 0);
-    this.ctx.lineTo(isBoosting ? -22 : -12, isBoosting ? -6 : -4);
-    this.ctx.lineTo(isBoosting ? -28 : -16, 0);
-    this.ctx.lineTo(isBoosting ? -22 : -12, isBoosting ? 6 : 4);
-    this.ctx.closePath();
-    this.ctx.fillStyle = isBoosting ? "#00ccff" : "#ffaa00";
-    this.ctx.shadowBlur = isBoosting ? 14 : 6;
-    this.ctx.shadowColor = isBoosting ? "#00ccff" : "#ffaa00";
-    this.ctx.fill();
+    if (this.isThrusting) {
+      const flicker = 0.85 + Math.abs(Math.sin(Date.now() / 40)) * 0.3;
+      const len = (isBoosting ? 28 : 16) * flicker;
+      const wide = (isBoosting ? 6 : 4) * flicker;
+      this.ctx.beginPath();
+      this.ctx.moveTo(-4, 0);
+      this.ctx.lineTo(-(len * 0.78), -wide);
+      this.ctx.lineTo(-len, 0);
+      this.ctx.lineTo(-(len * 0.78), wide);
+      this.ctx.closePath();
+      this.ctx.fillStyle = isBoosting ? "#00ccff" : "#ffaa00";
+      this.ctx.shadowBlur = isBoosting ? 14 : 6;
+      this.ctx.shadowColor = isBoosting ? "#00ccff" : "#ffaa00";
+      this.ctx.fill();
+    }
 
     // Draw bright vector ship body
     this.ctx.shadowBlur = 8;

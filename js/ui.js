@@ -1419,6 +1419,55 @@ const UI = {
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
   },
 
+  // ---- Region labelling --------------------------------------------------
+  // A coordinate pair means nothing on its own now that there are four separate
+  // volumes of space. (205, 375) is a Corps beacon in the Shattered Reach and
+  // empty sky in the Corps Quadrant. Anything that quotes coordinates has to say
+  // which chart they are on.
+
+  regionName(regionId) {
+    const r = (typeof RegionManager !== "undefined") ? RegionManager.get(regionId || "core") : null;
+    return (r && r.name) || String(regionId || "core").toUpperCase();
+  },
+
+  /** "(205, 375) - THE SHATTERED REACH", with the region marked if it is not here. */
+  coordLabel(x, y, regionId) {
+    const rid = regionId || "core";
+    const here = (typeof RegionManager !== "undefined") ? RegionManager.currentId() : "core";
+    const name = this.regionName(rid).toUpperCase();
+    return `(${x}, ${y}) - ${name}${rid === here ? "" : " [NOT THIS REGION]"}`;
+  },
+
+  /**
+   * Every system logged anywhere, not just in the region the ship happens to be
+   * standing in. discoveredSystems is region-scoped, so the Captain's Log used to
+   * silently drop every system charted in the other three quadrants.
+   */
+  allDiscoveredSystems() {
+    const ship = window.game && window.game.ship;
+    if (!ship || typeof RegionManager === "undefined") return [];
+    const here = RegionManager.currentId();
+    const out = [];
+
+    Object.keys(RegionManager.all()).forEach(rid => {
+      // Live working copy for the active region, stashed record for the others
+      const record = (rid === here) ? ship : ((ship.regions && ship.regions[rid]) || {});
+      const names = Object.keys(record.discoveredSystems || {});
+      if (!names.length) return;
+
+      const systems = (rid === "core")
+        ? (GameData.starSystems || [])
+        : ((RegionManager.get(rid) || {}).starSystems || []);
+
+      names.forEach(n => {
+        const sys = systems.find(sy => sy.name === n);
+        if (sys) out.push({ regionId: rid, regionName: this.regionName(rid), sys: sys, here: rid === here });
+      });
+    });
+
+    return out;
+  },
+
   // ---- Ship's locker -----------------------------------------------------
   // One-use equipment lives here rather than in the cargo hold, because it is not
   // cargo: it does not take hold space, cannot be sold to an alien port by
@@ -1958,18 +2007,32 @@ const UI = {
     if (tabName === 'systems') {
       const panel = document.getElementById('log-panel-systems');
       if (!panel) return;
-      const discovered = Object.keys(ship.discoveredSystems || {});
-      if (discovered.length === 0) {
+      const logged = this.allDiscoveredSystems();
+      if (logged.length === 0) {
         panel.innerHTML = `<div class="log-card"><div class="log-card-body">No star systems logged in chart computer yet.</div></div>`;
         return;
       }
+      // Group by region. The log used to read only the ACTIVE region's record, so
+      // everything charted in the other quadrants vanished from it the moment the
+      // ship went through a fold.
+      const byRegion = {};
+      logged.forEach(row => { (byRegion[row.regionId] = byRegion[row.regionId] || []).push(row); });
       // Systems expand to show their worlds, and each world shows progressively
       // more the further you took the investigation: orbit data, then scan
       // readings, then what the rover actually brought back.
       let html = '';
-      discovered.forEach(sysName => {
-        const sys = RegionManager.content('starSystems').find(s => s.name === sysName);
-        if (!sys) return;
+      Object.keys(byRegion).forEach(rid => {
+        const rows = byRegion[rid];
+        const isHere = rows[0].here;
+        html += `<div style="color:${isHere ? '#00ff66' : '#88ccaa'}; font-weight:bold; margin:12px 0 6px; ` +
+                `border-bottom:1px dashed rgba(0,255,102,0.25); padding-bottom:4px;">` +
+                `🗺 ${rows[0].regionName.toUpperCase()}` +
+                `${isHere ? ' <span style="color:#ffcc00;">- VESSEL HERE</span>' : ''}` +
+                ` <span style="color:#889999; font-weight:normal;">(${rows.length} logged)</span></div>`;
+
+      rows.forEach(row => {
+        const sys = row.sys;
+        const sysName = sys.name;
         const open = this.expandedSystems && this.expandedSystems[sysName];
         const planets = sys.planets || [];
         const surveyed = planets.filter(p => this.planetSurvey(p.name).scanned || this.planetSurvey(p.name).landed).length;
@@ -1978,7 +2041,7 @@ const UI = {
           <div class="log-card">
             <div class="log-card-header" style="cursor:pointer;" onclick="UI.toggleLogSystem('${sysName.replace(/'/g, "\\'")}')">
               <span>${open ? '▼' : '▶'} ⭐ ${sys.name.toUpperCase()} SYSTEM</span>
-              <span style="color:#ffcc00;">(${sys.x}, ${sys.y}) &nbsp; ${surveyed}/${planets.length} SURVEYED</span>
+              <span style="color:#ffcc00;">${this.coordLabel(sys.x, sys.y, row.regionId)} &nbsp; ${surveyed}/${planets.length} SURVEYED</span>
             </div>
             <div class="log-card-body">
               Primary Star: Class ${sys.starClass || 'M'} &nbsp;|&nbsp; ${planets.length} orbiting bodies<br>
@@ -1986,6 +2049,7 @@ const UI = {
               ${open ? this.renderSystemPlanets(planets) : `<br><span style="font-size:11px; color:#ffcc00;">Click to expand planetary records.</span>`}
             </div>
           </div>`;
+      });
       });
       panel.innerHTML = html;
     }
@@ -2104,11 +2168,11 @@ const UI = {
           <div class="log-card">
             <div class="log-card-header">
               <span>${src.icon} ${c.title || src.label}</span>
-              <span style="color:#88ccaa; font-size:10px;">${c.sourceName || src.label}</span>
+              <span style="color:#88ccaa; font-size:10px;">${c.sourceName || src.label} &nbsp;|&nbsp; ${this.regionName(c.region).toUpperCase()}</span>
             </div>
             <div class="log-card-body">
               ${c.text}
-              ${c.coords ? `<br><span style="color:#ffcc00; font-weight:bold;">REFERENCED COORDINATES: (${c.coords.x}, ${c.coords.y})</span>` : ''}
+              ${c.coords ? `<br><span style="color:#ffcc00; font-weight:bold;">REFERENCED COORDINATES: ${this.coordLabel(c.coords.x, c.coords.y, c.region)}</span>` : ''}
             </div>
           </div>`;
       };

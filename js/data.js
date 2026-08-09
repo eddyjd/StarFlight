@@ -200,6 +200,10 @@ const GameData = {
     { id: "wh_8", name: "Wormhole Delta-2", x: 450, y: 250, targetX: 50, targetY: 250, destName: "Wormhole Delta-1 (Western Rim)" }
   ],
 
+  // Who flies the Corps Quadrant. Three static vessels in a 500x500 galaxy meant
+  // a captain could play for an hour without meeting anyone at all.
+  traffic: { count: 9, races: ["spemin", "spemin", "thrynn", "thrynn", "veloxi", "uhlek"] },
+
   // Supermassive Black Holes & Gravitational Singularities
   blackHoles: [
     { id: "bh_1", name: "Cygnus Singularity", x: 210, y: 310, gravityRadius: 35, coreRadius: 4, pullForce: 45, destX: 450, destY: 120, desc: "Extreme gravitational distortion field. High risk of warp displacement!" },
@@ -668,7 +672,7 @@ const GameData = {
       health: 80,
       blaster: 25,
       shields: 50,
-      aggression: 0.3,
+      aggression: 0.3,   // cowardly; only fights if cornered or fired on
       cargo: [
         { type: "contraband", count: 2 },
         { type: "alien_art", count: 1 }
@@ -710,7 +714,7 @@ const GameData = {
       health: 150,
       blaster: 50,
       shields: 120,
-      aggression: 0.6,
+      aggression: 0.6,   // proud and territorial; fires if you come in armed
       cargo: [
         { type: "platinum", count: 3 },
         { type: "iron", count: 5 }
@@ -744,13 +748,58 @@ const GameData = {
         }
       }
     },
+    thrynn: {
+      name: "Thrynn Ninth House",
+      portrait: "thrynn",
+      health: 120,
+      blaster: 35,
+      shields: 90,
+      aggression: 0.15,  // merchants; they would far rather sell you something
+      cargo: [
+        { type: "gold", count: 3 },
+        { type: "alien_art", count: 2 }
+      ],
+      dialogue: {
+        friendly: {
+          greeting: "The Ninth House greets you, Corps captain. We are carrying, we are selling, and we are not looking for trouble. " +
+                    "Trouble has terrible margins.",
+          choices: [
+            { text: "Ask what the Houses are hearing.", response: "Hearing? That the stars in your quadrant are going wrong, and that the Corps is asking " +
+                     "questions it does not like the answers to. Also that something at (120, 440) has started answering hails. It did not used to.",
+              clue: { id: "thrynn_singularity_hail", title: "THRYNN TRADE GOSSIP", coords: { x: 120, y: 440 },
+                      text: "A Thrynn factor reports that the Precursor Singularity at (120, 440) in the Corps Quadrant has begun ANSWERING HAILS. " +
+                            "It did not used to. The Ninth House considers this a reason to trade elsewhere." } },
+            { text: "Open the ledger and trade.", action: "trade", response: "Good. This is the part we are actually here for." },
+            { text: "Wish them profitable passage.", action: "exit", response: "And you, captain. Come to the Reliquary if you ever have something worth weighing." }
+          ]
+        },
+        hostile: {
+          greeting: "You have your weapons hot and your hold sealed, and you are asking us to believe this is a social call. " +
+                    "The Ninth House does not care to be the subject of an experiment.",
+          choices: [
+            { text: "Stand down and apologise.", action: "exit", response: "Accepted. Disarm before you hail the next one - not everyone out here is as patient as a merchant." },
+            { text: "Demand tribute.", response: "We are a trading house. We have insurance, escorts and a very long memory. Choose again.", action: "fine" },
+            { text: "Open fire.", action: "combat", response: "Then it is a robbery, and we price robberies accordingly." }
+          ]
+        },
+        obsequious: {
+          greeting: "Courtesy! From a Corps hull! The House will note it - courtesy costs nothing and buys a great deal.",
+          choices: [
+            { text: "Ask about the other races.", response: "The Spemin will talk your ear off and mean none of it. The Veloxi mean all of it, which is worse. " +
+                     "The Uhlek do not talk. Do not go looking for the Uhlek." },
+            { text: "Ask about the deep folds.", response: "We do not trade past the singularities. Ships that go through stop filing manifests, and a house that cannot audit a route does not run it." },
+            { text: "Trade goods.", action: "trade", response: "At last. Show us the hold." }
+          ]
+        }
+      }
+    },
     uhlek: {
       name: "Uhlek Swarm",
       portrait: "uhlek",
       health: 300,
       blaster: 120,
       shields: 250,
-      aggression: 1.0, // High aggro, no talk, just combat
+      aggression: 1.0,   // hostile on sight, always, no talk
       cargo: [
         { type: "precursor_alloy", count: 2 },
         { type: "endurium_ore", count: 3 }

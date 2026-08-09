@@ -429,14 +429,31 @@ const GameManager = {
                           (lockerModal && !lockerModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
-        if (cargoModal) cargoModal.classList.add("hidden");
-        if (tvModal) tvModal.classList.add("hidden");
-        if (starmapModal) starmapModal.classList.add("hidden");
-        if (archiveModal) archiveModal.classList.add("hidden");
-        if (puzzleModal) puzzleModal.classList.add("hidden");
-        if (rescueModal) rescueModal.classList.add("hidden");
-        if (portModal) { portModal.classList.add("hidden"); UI.currentPort = null; }
-        if (lockerModal) lockerModal.classList.add("hidden");
+        // Every `.modal` is a full-screen overlay at z-index 100 that takes
+        // clicks, so ANY modal left open makes the entire control bar
+        // unreachable - every button on it reads as broken. Five modals had no
+        // keyboard exit at all, and two of them (the legend and the landing-site
+        // picker) had a button literally captioned "[ESC]" that did nothing.
+        //
+        // Excluded on purpose:
+        //   patrol   - must resolve before it can be dismissed (handled below)
+        //   techpart - Esc would silently bin a salvaged module; INSTALL/STORE
+        //              are the two ways out and both keep it
+        //   derelict / distress / transfer - each is a choice with its own
+        //              resolution buttons, and Esc would quietly forfeit it
+        const escapable = [
+          "cargo-modal", "tv-cargo-modal", "starmap-modal", "archive-modal",
+          "puzzle-modal", "rescue-modal", "port-modal", "locker-modal",
+          "captains-log-modal", "help-modal", "legend-modal",
+          "landing-site-modal", "victory-modal"
+        ];
+        escapable.forEach(id => {
+          const m = document.getElementById(id);
+          if (m) m.classList.add("hidden");
+        });
+        if (portModal) UI.currentPort = null;
+        if (typeof Navigation !== "undefined" && Navigation.cancelFoldPicking) Navigation.cancelFoldPicking();
+
         // Only dismissable once the inspection has actually resolved
         if (patrolModal && !document.getElementById("patrol-close-btn").classList.contains("hidden")) {
           UI.closePatrolModal();

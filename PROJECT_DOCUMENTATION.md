@@ -447,6 +447,14 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Help Text Brought Current**: the in-game help still described a 6-second scan recharge (now 2.5) and Customs sweeping the full 130 LY jurisdiction (they hold station within 40 LY since v1.13.1). Added entries for SHIFT+click course-setting and for how gravity wells actually behave.
     * Sweep grew from 296 to **305 checks**.
 
+82. **Modal Escape Routes (v1.14.2)**:
+    * Reported as "the cargo log button doesn't work". **The cargo button itself could not be made to fail** - tested in hyperspace, in system, in orbit, docked and on a planet surface; with an empty hold, a full hold, and a save carrying a commodity key that no longer exists in `GameData`; after every other modal had been opened and closed; and the console was clean. The manifest opened, rendered and closed every time.
+    * What the investigation *did* surface: every `.modal` is a full-screen overlay at `z-index: 100` with `pointer-events: auto`, so **any open modal makes the entire control bar unclickable** - verified with `elementFromPoint` for all thirteen. Every button on the bar reads as broken while something is open.
+    * **Nine of eighteen modals had no keyboard exit**, and two of them - the icon legend and the landing-site picker - carried a button captioned `CLOSE [ESC]` while nothing was listening for Escape. A player who opened the legend and pressed the key it advertised was left with a dead control bar and no obvious way out.
+    * Escape now releases all thirteen safely-dismissible modals, and clicking the dark backdrop does the same, which is what a player tries first. Clicks on the panel itself are ignored.
+    * Deliberately still un-escapable: `techpart` (Escape would silently bin a salvaged module - INSTALL and STORE both keep it), `derelict`, `distress`, `transfer` and `patrol`, each of which is an unresolved choice that Escape would quietly forfeit.
+    * Sweep grew to **310 checks**, including one that asserts the guarded modals still refuse to be dismissed.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

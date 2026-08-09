@@ -56,6 +56,7 @@ const UI = {
     };
 
     this.setupListeners();
+    this.setupModalBackdrops();
   },
 
   setupListeners() {
@@ -1417,6 +1418,36 @@ const UI = {
     if (modal) modal.classList.add("hidden");
     this.currentPort = null;
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  // ---- Modal backdrop dismissal ------------------------------------------
+  // A `.modal` covers the whole screen and takes clicks, so one left open makes
+  // every control button unclickable. Clicking the dark surround now closes the
+  // ones that are safe to abandon - the same set Esc handles - which is what a
+  // player instinctively tries first.
+  ESCAPABLE_MODALS: [
+    "cargo-modal", "tv-cargo-modal", "starmap-modal", "archive-modal",
+    "puzzle-modal", "rescue-modal", "port-modal", "locker-modal",
+    "captains-log-modal", "help-modal", "legend-modal",
+    "landing-site-modal", "victory-modal"
+  ],
+
+  setupModalBackdrops() {
+    this.ESCAPABLE_MODALS.forEach(id => {
+      const modal = document.getElementById(id);
+      if (!modal || modal.dataset.backdropWired) return;
+      modal.dataset.backdropWired = "1";
+      modal.addEventListener("click", (e) => {
+        // Only the backdrop itself - never a click that landed on the panel
+        if (e.target !== modal) return;
+        modal.classList.add("hidden");
+        if (id === "port-modal") this.currentPort = null;
+        if (id === "starmap-modal" && typeof Navigation !== "undefined" && Navigation.cancelFoldPicking) {
+          Navigation.cancelFoldPicking();
+        }
+        if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("click");
+      });
+    });
   },
 
   // ---- Region labelling --------------------------------------------------

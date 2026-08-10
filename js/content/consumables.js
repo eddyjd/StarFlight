@@ -23,7 +23,9 @@ window.GameData.consumables = {
     icon: "🌀",
     desc: "A single-use fold generator. Tears a throat in space and holds it open " +
           "just long enough for one hull to pass. Choose the far end from the chart, " +
-          "or let it find its own - it does not much care which.",
+          "or let it find its own - it does not much care which. It folds space WITHIN " +
+          "the region you are in; it cannot reach across a singularity, and no charge " +
+          "ever built could. Those crossings are what the gates are for.",
     price: 9000,
     salvage: 3200,
     effect: "fold",

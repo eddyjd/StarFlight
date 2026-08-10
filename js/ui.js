@@ -1599,8 +1599,9 @@ const UI = {
   // What pressing USE will actually do, said in the locker rather than left for
   // the captain to find out by spending the item.
   LOCKER_HOWTO: {
-    fold: "USE asks whether to aim. OK opens the chart - click a charted system and the fold fires there. " +
-          "Cancel fires it blind. The charge is only spent when it fires.",
+    fold: "USE asks whether to aim. OK opens the chart - click a charted system in THIS region and the " +
+          "fold fires there. Cancel fires it blind. It cannot cross a singularity into another region. " +
+          "The charge is only spent when it fires.",
     survey: "USE launches the drone immediately and charts everything within 160 LY.",
     refuel: "USE breaks the seal and pumps 40 Endurium into the tank.",
     repair: "USE patches 60 points of hull, in the field.",

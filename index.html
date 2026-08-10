@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.15.3</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.15.3</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.15.4</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.15.4</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -447,6 +447,7 @@
             <strong>SHIFT + S</strong>: Long-range sweep. Paints distant objects as <strong>? unidentified contacts</strong> on the Star Map - you must close to short range and scan again to identify them. Recharges for 2.5 seconds.<br>
             <strong>O</strong>: Open the <strong>Ship's Locker</strong> - one-use equipment, held separately from the cargo hold. It takes no hold space, Customs has no interest in it, and it cannot be sold to an alien port by accident. Buy it from the <span style="color:#ffcc00;">chandlery</span> at the Starbase Prime depot, or find it as salvage.<br>
             <span style="color:#ffcc00;">PRECURSOR FOLD CHARGE</span>: the one thing in the game that ignores distance. Open the locker with <strong>[O]</strong> in hyperspace and press <strong>USE</strong>. It asks whether to aim: choose <strong>OK</strong> and the Star Map opens - click any charted system and the fold fires there. Choose <strong>Cancel</strong> and it fires blind, somewhere at least 120 LY off. The charge is only spent when it actually fires, so opening the chart and closing it again costs you nothing.<br>
+            <span style="color:#88ccaa;">A fold charge works <strong>within one region only</strong>. It cannot reach across a singularity - aiming at an archived chart of somewhere the ship is not will be refused and the charge kept. Crossing between the Corps Quadrant, the Shattered Reach, the Marrow and the Lattice is what the gates are for, and the one-way ones are meant to stay one-way.</span><br>
             <strong>SHIFT + CLICK</strong>: Set course. Works on the viewport or the Star Map; the helm confirms the distance and fuel before it takes over. Any manual input, a vessel coming into range, or a gravity well hands the helm straight back. <strong>[P]</strong> cancels.<br>
             <span style="color:#ffcc00;">SENSOR RANGE</span> scales with your <strong>Navigator's skill</strong> and the <strong>Scanner module</strong> fitted at the Depot. A rookie navigator with a Standard Scanner reaches ~41 LY short / ~116 LY long; an expert with a Mineral Resonance Scan reaches ~97 LY / ~273 LY.<br>
             <span style="color:#ffcc00;">GRAVITY WELLS</span>: A singularity reaches far further than it looks. The outer <strong>drift</strong> nudges your heading long before anything alarming happens - that is your warning. Inside the well proper the engines lose authority and burn far more fuel the deeper you are, so <strong>SHIFT</strong> overdrive gets you out only if you use it the moment you notice. Hesitate and it will not.<br>            <strong>B</strong>: Board a derelict station or salvage an alien wreck when in range.<br>
@@ -845,28 +846,28 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.15.3"></script>
-  <script src="js/audio.js?v=1.15.3"></script>
-  <script src="js/ui.js?v=1.15.3"></script>
-  <script src="js/spaceport.js?v=1.15.3"></script>
-  <script src="js/navigation.js?v=1.15.3"></script>
-  <script src="js/planet.js?v=1.15.3"></script>
-  <script src="js/content/quests.js?v=1.15.3"></script>
-  <script src="js/content/archives.js?v=1.15.3"></script>
-  <script src="js/content/puzzles.js?v=1.15.3"></script>
-  <script src="js/content/resources.js?v=1.15.3"></script>
-  <script src="js/content/regions.js?v=1.15.3"></script>
-  <script src="js/clues.js?v=1.15.3"></script>
-  <script src="js/quest.js?v=1.15.3"></script>
-  <script src="js/archive.js?v=1.15.3"></script>
-  <script src="js/region.js?v=1.15.3"></script>
-  <script src="js/content/consumables.js?v=1.15.3"></script>
-  <script src="js/consumables.js?v=1.15.3"></script>
-  <script src="js/content/signals.js?v=1.15.3"></script>
-  <script src="js/distress.js?v=1.15.3"></script>
-  <script src="js/wormholes.js?v=1.15.3"></script>
-  <script src="js/puzzle.js?v=1.15.3"></script>
-  <script src="js/encounter.js?v=1.15.3"></script>
-  <script src="js/game.js?v=1.15.3"></script>
+  <script src="js/data.js?v=1.15.4"></script>
+  <script src="js/audio.js?v=1.15.4"></script>
+  <script src="js/ui.js?v=1.15.4"></script>
+  <script src="js/spaceport.js?v=1.15.4"></script>
+  <script src="js/navigation.js?v=1.15.4"></script>
+  <script src="js/planet.js?v=1.15.4"></script>
+  <script src="js/content/quests.js?v=1.15.4"></script>
+  <script src="js/content/archives.js?v=1.15.4"></script>
+  <script src="js/content/puzzles.js?v=1.15.4"></script>
+  <script src="js/content/resources.js?v=1.15.4"></script>
+  <script src="js/content/regions.js?v=1.15.4"></script>
+  <script src="js/clues.js?v=1.15.4"></script>
+  <script src="js/quest.js?v=1.15.4"></script>
+  <script src="js/archive.js?v=1.15.4"></script>
+  <script src="js/region.js?v=1.15.4"></script>
+  <script src="js/content/consumables.js?v=1.15.4"></script>
+  <script src="js/consumables.js?v=1.15.4"></script>
+  <script src="js/content/signals.js?v=1.15.4"></script>
+  <script src="js/distress.js?v=1.15.4"></script>
+  <script src="js/wormholes.js?v=1.15.4"></script>
+  <script src="js/puzzle.js?v=1.15.4"></script>
+  <script src="js/encounter.js?v=1.15.4"></script>
+  <script src="js/game.js?v=1.15.4"></script>
 </body>
 </html>

@@ -514,6 +514,13 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Help gained a full entry** for one-use equipment and the fold charge: where to buy it, that it takes no hold space and Customs has no interest in it, and how the aimed and blind modes differ.
     * Sweep grew to **346 checks**, including one that drives the whole flow from the control bar through to a fired blind fold.
 
+89. **Fold Charge Range Made Explicit (v1.15.4)**:
+    * Asked whether a fold charge can target another star map. It cannot, and that is deliberate - but **nothing in the game said so**. The item text read "choose the far end from the chart" with no hint of a boundary, so the only way to find out was to try it and be refused.
+    * Behaviour verified: aiming at an archived chart of another region is refused with `FOLD NOT SET: A CHARGE CANNOT AIM AT A REGION THE SHIP IS NOT IN`, **the charge is not spent**, and `executeFold()` never changes `ship.region` on either the aimed or the blind path.
+    * The limit is the point. The gate topology - one-way folds, and the Marrow being a commitment you leave by going *deeper* rather than back - collapses entirely if 9,000 M.U. buys a way out of it. A charge that crossed regions would make `bh_2` and `bh_marrow_fall` decorative.
+    * Now stated in all three places a captain would look: the item description, the locker's per-item how-to line, and the help entry.
+    * Sweep grew to **349 checks**, one of which asserts the limit is documented in all three.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

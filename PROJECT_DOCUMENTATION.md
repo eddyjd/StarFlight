@@ -498,6 +498,14 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Two `O Resources` checks asserted over *every* commodity on the assumption that a commodity is always a mined surface resource. Salvaged modules are carryable cargo with no rarity tier, so both were scoped to actual resources rather than having their assertions weakened.
     * Sweep grew to **335 checks**, verified over two consecutive clean runs.
 
+87. **Nine Derelicts Out Of Eleven Were Throwing Their Cargo Away (v1.15.2)**:
+    * Reported as "finding Endurium from a wreck says it added it but the fuel does not go up". Both halves of that were bugs, and the second was much larger than the first.
+    * **The report was hardcoded.** `scavengeCurrentDerelict()` printed `SALVAGED {amount} ENDURIUM` and `+{amount} Endurium fuel units refilled into tanks` for *every* site regardless of what the manifest actually held - so a crate of precursor alloy was announced as fuel.
+    * **`ship.cargo` was never touched.** Only `loot.type === "endurium"` did anything at all, and it went to the tank. The other **nine of eleven** derelicts carry precursor alloy, platinum, iridium or alien art, and every unit of it was **silently discarded** - up to 12 units of precursor alloy, roughly 3,000 M.U., per site. Four of those nine are in the deep regions, where a hold of alloy is the main reason to go.
+    * New `UI.deliverSalvage(type, amount)` puts a haul where it belongs and returns the wording, so no caller has to guess: `endurium` is reactor mass and goes to the tank (reporting anything spilled when the tank is already full); everything else is ore and goes to the hold, respecting the cargo cap. A hold that cannot take it says exactly how many units were left in the wreck, matching the tractor-scoop and debris-sweep behaviour.
+    * Verified across all eleven derelicts in all four regions: every haul now lands in the tank or the hold, and the log names the commodity it actually delivered.
+    * Sweep grew to **340 checks**, including a partial-hold case that takes what fits without breaching the cap.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

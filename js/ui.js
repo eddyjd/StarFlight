@@ -705,6 +705,58 @@ const UI = {
     if (modal) modal.classList.add("hidden");
   },
 
+  /**
+   * Put a salvaged haul where it belongs and report what actually happened.
+   *
+   * `endurium` is the one loot type that means reactor mass; it goes straight to
+   * the tank. Everything else is ore and belongs in the hold, subject to the
+   * cargo cap - a hold that cannot take it says so rather than quietly eating it.
+   *
+   * Returns { log, detail, name, taken, refused } so callers never have to guess
+   * at the wording, which is how "SALVAGED 6 ENDURIUM" ended up printed over a
+   * crate of precursor alloy.
+   */
+  deliverSalvage(type, amount) {
+    const ship = window.game.ship;
+    const qty = Math.max(0, Math.floor(amount || 0));
+    if (!qty) return { log: "NOTHING OF VALUE RECOVERED", detail: "Nothing recoverable in the hold.", name: "", taken: 0, refused: 0 };
+
+    // Reactor mass, not cargo
+    if (type === "endurium" || type === "fuel") {
+      const before = ship.fuel;
+      ship.fuel = Math.min(ship.maxFuel, ship.fuel + qty);
+      const taken = Math.round((ship.fuel - before) * 10) / 10;
+      const spare = qty - taken;
+      return {
+        log: `SALVAGED ${taken} ENDURIUM INTO THE TANK`,
+        detail: `+${taken} Endurium fuel units pumped into the tanks.` +
+                (spare > 0 ? ` <span style="color:#ffcc00;">Tank full - ${Math.round(spare)} units left behind.</span>` : ""),
+        name: "Endurium", taken: taken, refused: 0
+      };
+    }
+
+    const c = GameData.commodities[type] || { name: type, mass: 1 };
+    const used = this.calculateCargoMass(ship.cargo);
+    const perUnit = c.mass || 1;
+    const room = Math.max(0, Math.floor(((ship.cargoCap || 20) - used) / perUnit));
+    const taken = Math.min(qty, room);
+
+    if (taken > 0) {
+      if (!ship.cargo) ship.cargo = {};
+      ship.cargo[type] = (ship.cargo[type] || 0) + taken;
+    }
+
+    return {
+      log: taken > 0
+        ? `SALVAGED ${taken}x ${String(c.name).toUpperCase()} INTO THE HOLD`
+        : `RECOVERED NOTHING - THE HOLD IS FULL`,
+      detail: taken > 0
+        ? `+${taken} ${c.name} stowed in the cargo hold.`
+        : `<span style="color:#ffcc00;">Hold full - the ${c.name} stays where it is.</span>`,
+      name: c.name, taken: taken, refused: qty - taken
+    };
+  },
+
   scavengeCurrentDerelict() {
     if (!this.currentDerelict || this.currentDerelict.searched) return;
     const der = this.currentDerelict;
@@ -714,14 +766,23 @@ const UI = {
     if (window.game && window.game.markSalvaged) window.game.markSalvaged(der.id);
     const loot = der.loot;
 
-    // Award Endurium fuel & credits
-    if (loot.type === "endurium") {
-      ship.fuel = Math.min(ship.maxFuel, ship.fuel + loot.amount);
-    }
+    // Deliver the haul.
+    //
+    // Only `endurium` is reactor mass and goes to the tank. Every other loot type
+    // is ORE, and it was never delivered anywhere at all - `ship.cargo` was not
+    // touched by this function. Nine of the eleven derelicts in the game carry
+    // precursor alloy, platinum, iridium or alien art, so their entire haul was
+    // silently discarded: up to 12 units of precursor alloy, about 3,000 M.U., per
+    // site. And the log line was hardcoded to say ENDURIUM whatever the manifest
+    // actually held, so it announced fuel that never arrived.
+    const haul = this.deliverSalvage(loot.type, loot.amount);
     ship.credits += loot.credits;
 
     if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
-    this.addLog(`DERELICT SCAVENGED! SALVAGED ${loot.amount} ENDURIUM & ${loot.credits} M.U. CREDITS!`);
+    this.addLog(`DERELICT SCAVENGED! ${haul.log} & ${loot.credits.toLocaleString()} M.U. CREDITS!`);
+    if (haul.refused > 0) {
+      this.addLog(`HOLD FULL: ${haul.refused} UNITS OF ${haul.name.toUpperCase()} LEFT IN THE WRECK.`);
+    }
 
     // Derelict tech was flavour text: loot.tech printed a name and did nothing.
     // Every station now yields the real Precursor module its manifest describes,
@@ -730,8 +791,8 @@ const UI = {
 
     const lootDetails = document.getElementById("derelict-loot-details");
     lootDetails.innerHTML = `<span style="color: #00ff66;">✓ SALVAGE COMPLETE!</span><br>` +
-      `+${loot.credits} Credits added to ship vault.<br>` +
-      `+${loot.amount} Endurium fuel units refilled into tanks.<br>` +
+      `+${loot.credits.toLocaleString()} Credits added to ship vault.<br>` +
+      `${haul.detail}<br>` +
       (part
         ? `<span style="color:#ffcc00; font-weight:bold;">${part.icon} INTACT MODULE RECOVERED: ${part.name.toUpperCase()}</span>`
         : `<em>Tech Artifact Logged: ${loot.tech}</em>`);

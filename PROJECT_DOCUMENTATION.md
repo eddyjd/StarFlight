@@ -477,6 +477,16 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Harness**: three checks were timing- or traffic-dependent and have been made deterministic - two drove drain and recharge over `frame(N)` (three runs of which are three different amounts of simulated time), and one measured shield drain while randomly-rolled traffic occasionally put a 12-damage plasma bolt into the shields mid-measurement. Region transits now drive `updateHyper` directly instead of racing `requestAnimationFrame`. Verified with four consecutive clean runs.
     * Sweep grew to **323 checks**.
 
+85. **The Deep Ports Had Nothing Of Their Own To Say (v1.15.0)**:
+    * Prompted by a fair question - "The Spemin Who Stayed port, can you do anything there?" Mechanically, yes: it is approachable, scannable, dockable, sells fuel at 39 M.U./unit against Starbase Prime's 15, pays a premium for flora and biologicals, and opens an archive. All verified working.
+    * **But all three deep-region ports pointed at their own race's CORE archive.** Cross a one-way gate into a quadrant nobody returns from, find Spemin who have been stranded eleven generations, and they hand you the same pamphlet you could have read at home. The mechanics were there and the reason to go was not.
+    * Three new archives, authored as data in the voice of people who are actually out there:
+      * **The Moss Archive** (The Marrow) - eleven generations of Spemin notes. How the Gate does not open from this side, how you make reactor fuel out of hull moss, and the observation that ships falling into the Sounding keep transmitting afterwards, which is not what a ship being destroyed sounds like. Carries a clue pointing at the Sounding.
+      * **Ninth House Forward Ledger** (The Shattered Reach) - a Thrynn factor recording that the post is unprofitable, that the House does not run unprofitable posts, and that the reconciliation is not in the ledgers. Also that Reach alloy assays at twice charted-space value because it is not better ore, it is the same ore *worked*.
+      * **Deep Survey Standing Orders** (The Lattice) - six centuries of Veloxi observation of something that has not moved once, ending in an observer breaking standing orders to record a conclusion: the stars here are placed to four decimals, so the Lattice is not somewhere the Precursors built. It is the thing they built. Carries a clue.
+    * Gated volumes and clue payloads throughout, so reading is progressive rather than a wall of text.
+    * Sweep grew to **328 checks**, including one asserting no archive is ever stocked by ports in two different regions.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

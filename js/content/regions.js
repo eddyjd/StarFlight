@@ -145,7 +145,7 @@ window.GameData.regions = {
     // The only place to buy fuel outside charted space. It knows it, and prices
     // accordingly - but a captain who finds it is no longer stranded out here.
     alienPorts: [
-      { id: "port_reach_thrynn", name: "Ninth House Forward Post", raceKey: "thrynn", archive: "thrynn_reliquary",
+      { id: "port_reach_thrynn", name: "Ninth House Forward Post", raceKey: "thrynn", archive: "thrynn_forward",
         x: 195, y: 285, color: "#ffcc00", icon: "\u2302",
         fuelPrice: 48, wants: ["precursor_alloy", "iridium", "alien_art"], wantMult: 2.1, baseMult: 0.75,
         tradeLine: "You are a very long way from your Starbase, captain. We are a very long way from ours. " +
@@ -257,7 +257,7 @@ window.GameData.regions = {
 
     // Trapped here exactly like you are, and delighted about it.
     alienPorts: [
-      { id: "port_marrow_spemin", name: "The Spemin Who Stayed", raceKey: "spemin", archive: "spemin_hoard",
+      { id: "port_marrow_spemin", name: "The Spemin Who Stayed", raceKey: "spemin", archive: "spemin_stranded",
         x: 165, y: 230, color: "#00ff66", icon: "\u2302",
         fuelPrice: 39, wants: ["bio_flora", "bio_fauna", "contraband", "precursor_seed"], wantMult: 2.4, baseMult: 0.55,
         tradeLine: "WE MAKE FUEL! Out of the moss! It is GOOD fuel, mostly! We have been here " +
@@ -373,7 +373,7 @@ window.GameData.regions = {
     ],
 
     alienPorts: [
-      { id: "port_lattice_veloxi", name: "Veloxi Deep Survey Station", raceKey: "veloxi", archive: "veloxi_codex",
+      { id: "port_lattice_veloxi", name: "Veloxi Deep Survey Station", raceKey: "veloxi", archive: "veloxi_deep",
         x: 310, y: 285, color: "#ff5533", icon: "\u2302",
         fuelPrice: 62, wants: ["precursor_alloy", "iridium", "singularity_dust", "void_glass"], wantMult: 2.6, baseMult: 0.5,
         tradeLine: "Reactor mass is carried here from the Imperium at enormous cost. The price is the price. " +

@@ -41,6 +41,30 @@ window.GameData.archiveLocations = {
     name: "Spemin Collected Wisdoms",
     icon: "🫧",
     blurb: "Mostly nonsense. Occasionally, accidentally, the truth."
+  },
+
+  // ---- Beyond the folds --------------------------------------------------
+  // The deep-region ports originally pointed at their own race's CORE archive,
+  // so crossing a one-way gate into a quadrant nobody returns from got you the
+  // same pamphlet you could have read at home. People who have been stranded for
+  // eleven generations know different things.
+  spemin_stranded: {
+    id: "spemin_stranded",
+    name: "The Moss Archive",
+    icon: "🫧",
+    blurb: "Eleven generations of notes by Spemin who came through the Gate and could not go back."
+  },
+  thrynn_forward: {
+    id: "thrynn_forward",
+    name: "Ninth House Forward Ledger",
+    icon: "📜",
+    blurb: "The accounts of a trading post that should not be profitable, and somehow is."
+  },
+  veloxi_deep: {
+    id: "veloxi_deep",
+    name: "Deep Survey Standing Orders",
+    icon: "🏛️",
+    blurb: "Six hundred years of observations of something that has not moved once."
   }
 };
 
@@ -186,4 +210,120 @@ window.GameData.archives = [
           "from it changed and shinier. We did not go. We are not brave. But we watched, and " +
           "the ones who came back had metal we have never seen."
   }
-];
+,
+
+  // ---- The Marrow: Spemin who came through and stayed --------------------
+  {
+    id: "vol_moss_first",
+    location: "spemin_stranded",
+    title: "We Have Been Counting",
+    author: "The Spemin Who Stayed, Generation Eleven",
+    text: "IMPORTANT SPEMIN RECORD! Generation One came through the Abyssal Gate looking for a " +
+          "shortcut. Generation One found out there is no shortcut, there is only a Gate, and it " +
+          "opens ONE WAY. Generations Two through Six were very upset about this. Generation " +
+          "Seven invented the moss. Generations Eight through Eleven have been mostly fine!\\n\\n" +
+          "We are telling you this because you came through it too and nobody told YOU either. " +
+          "The Gate does not open from this side. We have checked. We have checked A LOT."
+  },
+  {
+    id: "vol_moss_fuel",
+    location: "spemin_stranded",
+    title: "On The Making Of Fuel From Moss",
+    author: "Bubble-Of-Reasonable-Confidence, Fuel Priest",
+    text: "The moss grows on the hulls of ships that stopped. There are many of those. You press " +
+          "the moss, you cook the moss, you do NOT eat the moss, and what comes out will run a " +
+          "reactor for a while.\\n\\nIt is not good fuel. It is fuel that EXISTS, which out here " +
+          "is the more important quality. Nobody has exploded in four generations. Generation " +
+          "Seven had a harder time of it and we do not talk about Generation Seven's kitchen."
+  },
+  {
+    id: "vol_moss_sounding",
+    location: "spemin_stranded",
+    title: "The Thing At The Bottom",
+    author: "The Spemin Who Stayed, Collectively, Nervously",
+    unlockedBy: { volume: "vol_moss_first" },
+    grantsClue: {
+      id: "clue_marrow_sounding_current",
+      title: "Everything Drifts Toward The Sounding",
+      source: "archive",
+      sourceName: "The Moss Archive",
+      coords: { x: 300, y: 420 },
+      text: "THE MOSS ARCHIVE, GENERATION ELEVEN: \"Everything in the Marrow is falling toward the " +
+            "hole in the south at (300, 420). Slowly. Us as well. Ships that go in do not come " +
+            "back, but they also do not stop transmitting immediately, which is not what a ship " +
+            "being destroyed sounds like. Whatever is down there, they ARRIVE somewhere. " +
+            "Generation Nine wanted to follow them. Generation Nine may have been right.\""
+    },
+    text: "There is a hole in the south of this quadrant and everything is falling into it. Us " +
+          "too, very slowly, which is a thing we try not to think about on the bad days.\\n\\n" +
+          "Ships that fall in keep transmitting for a while afterward. That is NOT what a ship " +
+          "being crushed sounds like. That is what a ship ARRIVING somewhere sounds like.\\n\\n" +
+          "Generation Nine wanted to fly into it on purpose. We said that was the worst idea we " +
+          "had ever heard. We have had eleven generations to think about it and we are no longer " +
+          "as sure as we were."
+  },
+
+  // ---- The Shattered Reach: a Thrynn post that should not exist ----------
+  {
+    id: "vol_forward_ledger",
+    location: "thrynn_forward",
+    title: "Why This Post Is Not Closed",
+    author: "Factor Ssareth, Ninth House, Forward Accounts",
+    text: "The House does not run unprofitable posts. This post is unprofitable. Both statements " +
+          "are true and the reconciliation is not in these ledgers, which should tell you " +
+          "something about who wants it kept open.\\n\\nWhat I will record: Corps hulls come " +
+          "through the Cygnus fold at a rate of roughly one a decade. None have ever gone back " +
+          "through it. They buy fuel, they ask about the deep folds, and then the ledger closes " +
+          "on them. I sell to them anyway. Their credits spend."
+  },
+  {
+    id: "vol_forward_wrecks",
+    location: "thrynn_forward",
+    title: "Salvage Valuations, Reach Sector",
+    author: "Factor Ssareth, Ninth House, Forward Accounts",
+    unlockedBy: { volume: "vol_forward_ledger" },
+    text: "Precursor alloy out of the Reach assays higher than anything out of charted space. Not " +
+          "a little higher. Twice.\\n\\nThe House assumed a better vein. I have handled enough of " +
+          "it to disagree. It is not better ore. It is the same ore, WORKED - and worked by " +
+          "something that understood it far better than the people mining it now. Every fragment " +
+          "out here is a piece of something that used to be a whole."
+  },
+
+  // ---- The Lattice: Veloxi watching something that does not move ---------
+  {
+    id: "vol_deep_orders",
+    location: "veloxi_deep",
+    title: "Standing Orders, Deep Survey Station",
+    author: "Imperial Survey Directorate",
+    text: "The station observes and does not intervene. The station has observed and not " +
+          "intervened for six hundred and eleven years.\\n\\nSubject of observation: the " +
+          "structures. Change in subject over the observation period: none measurable. Change in " +
+          "the Imperium over the observation period: three dynasties, two civil wars and a " +
+          "reform of the calendar.\\n\\nThe Directorate notes without comment that the thing " +
+          "being watched has outlasted every government that ordered it watched."
+  },
+  {
+    id: "vol_deep_arranged",
+    location: "veloxi_deep",
+    title: "On The Placement Of Stars",
+    author: "Observer-Prime, Deep Survey Station",
+    unlockedBy: { volume: "vol_deep_orders" },
+    grantsClue: {
+      id: "clue_lattice_arranged",
+      title: "The Stars Here Are Placed",
+      source: "archive",
+      sourceName: "Deep Survey Standing Orders",
+      text: "VELOXI DEEP SURVEY: \"The stellar distribution in this quadrant is not natural and is " +
+            "not random. The stars are arranged, at a spacing that does not occur by accretion, " +
+            "around a common focus. Whatever moved them was working at a scale the Imperium has " +
+            "no unit for. It is the considered position of this station that the Lattice is not " +
+            "a place the Precursors built IN. It is a thing they built.\""
+    },
+    text: "I am required to record observations, not conclusions. I have recorded observations " +
+          "for forty years and I am going to record one conclusion before I am rotated out.\\n\\n" +
+          "The stars in this quadrant are PLACED. The spacing does not occur by accretion. They " +
+          "sit around a common focus at intervals that are regular to four decimals. No natural " +
+          "process does this.\\n\\nThe Lattice is not somewhere the Precursors built. The Lattice " +
+          "is the thing they built. We have been calling it a region for six centuries because " +
+          "the alternative required a bigger word than the Directorate had approved."
+  }];

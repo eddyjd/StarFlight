@@ -506,6 +506,14 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Verified across all eleven derelicts in all four regions: every haul now lands in the tank or the hold, and the log names the commodity it actually delivered.
     * Sweep grew to **340 checks**, including a partial-hold case that takes what fits without breaching the cap.
 
+88. **The Ship's Locker Had No Way In (v1.15.3)**:
+    * Reported as: bought a Precursor Fold Charge, no idea how to use it. Entirely fair - the locker shipped in v1.15.1 with an `[O]` key binding, **no button on the control bar, and no mention anywhere in the help**. The only place `[O]` was written down was *inside the locker modal itself*, which you could not open without already knowing the key. A perfectly circular dead end, and my fault for building the system without a way in.
+    * **`SHIP'S LOCKER [O]` control added** to the bar, with the inline `onclick` fallback the house pattern calls for. It carries a count when something is aboard - `SHIP'S LOCKER (3) [O]` - and glows, so equipment is visible without opening anything.
+    * **The purchase now says where it went**: buying from the chandlery logs "IT IS IN THE SHIP'S LOCKER - PRESS [O] OR USE THE LOCKER CONTROL TO USE IT." Equipment that disappears into an unlabelled system the player has never been shown is the same as not selling it to them.
+    * **Every item now states what USE will do** before it is spent, on its own row - `UI.LOCKER_HOWTO` keyed by effect. The fold charge in particular explains the aim/blind choice and, importantly, that the charge is only consumed when it actually fires.
+    * **Help gained a full entry** for one-use equipment and the fold charge: where to buy it, that it takes no hold space and Customs has no interest in it, and how the aimed and blind modes differ.
+    * Sweep grew to **346 checks**, including one that drives the whole flow from the control bar through to a fired blind fold.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

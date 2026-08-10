@@ -500,6 +500,15 @@ const UI = {
     const game = window.game;
 
     // The cargo control follows the view: Rover bed on a surface, ship hold in space
+    // Carry count on the locker control, so equipment aboard is visible without
+    // opening anything - and so the control is worth pressing in the first place.
+    const lockerBtn = document.getElementById("ctrl-locker");
+    if (lockerBtn && typeof Consumables !== "undefined") {
+      const held = Consumables.inventory().reduce((n, r) => n + r.count, 0);
+      lockerBtn.textContent = held > 0 ? `SHIP'S LOCKER (${held}) [O]` : "SHIP'S LOCKER [O]";
+      lockerBtn.classList.toggle("green-glow", held > 0);
+    }
+
     if (this.elements.btnCargo) {
       const onSurface = game.viewState === "landing" &&
                         typeof PlanetExploration !== 'undefined' && PlanetExploration.active;
@@ -1587,6 +1596,18 @@ const UI = {
   // cargo: it does not take hold space, cannot be sold to an alien port by
   // accident, and Customs has no opinion about it.
 
+  // What pressing USE will actually do, said in the locker rather than left for
+  // the captain to find out by spending the item.
+  LOCKER_HOWTO: {
+    fold: "USE asks whether to aim. OK opens the chart - click a charted system and the fold fires there. " +
+          "Cancel fires it blind. The charge is only spent when it fires.",
+    survey: "USE launches the drone immediately and charts everything within 160 LY.",
+    refuel: "USE breaks the seal and pumps 40 Endurium into the tank.",
+    repair: "USE patches 60 points of hull, in the field.",
+    shields: "USE dumps the capacitor bank straight into the deflectors.",
+    cloak: "USE runs the baffle for two minutes. Nothing acquires, hails or scans you."
+  },
+
   openLockerModal() {
     const modal = document.getElementById("locker-modal");
     if (!modal) return;
@@ -1618,10 +1639,12 @@ const UI = {
         <div style="flex:1;">
           <div style="color:#00ccff;">${row.item.name.toUpperCase()} <span style="color:#88ccaa;">x${row.count}</span></div>
           <div style="font-size:11px; color:#aaccbb;">${row.item.desc}</div>
+          ${!blocked && this.LOCKER_HOWTO[row.item.effect]
+            ? `<div style="font-size:11px; color:#ffcc00;">${this.LOCKER_HOWTO[row.item.effect]}</div>` : ""}
           ${blocked ? `<div style="font-size:11px; color:#ff8866;">${blocked}</div>` : ""}
         </div>
         <button class="glow-btn ${blocked ? "" : "green-glow"}" ${blocked ? "disabled" : ""}
-          onclick="try{UI.useFromLocker('${row.item.id}')}catch(e){alert(e.message)}">USE</button>
+          onclick="try{UI.useFromLocker('${row.item.id}')}catch(e){alert('LOCKER FAILED: '+e.message)}">USE</button>
       </div>`;
     }).join("");
   },

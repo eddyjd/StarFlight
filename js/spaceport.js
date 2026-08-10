@@ -592,7 +592,11 @@ const Spaceport = {
         ship.credits -= item.price;
         Consumables.grant(item.id, 1);
         AudioController.playBeep("success");
+        // Say where it went and how to reach it. Bought equipment that vanishes
+        // into an unlabelled system the player has never been shown is the same
+        // as not selling it to them.
         UI.addLog(`CHANDLERY: ${item.name.toUpperCase()} STOWED. ${item.price.toLocaleString()} M.U.`);
+        UI.addLog("IT IS IN THE SHIP'S LOCKER - PRESS [O] OR USE THE LOCKER CONTROL TO USE IT.");
         this.renderDepot();
         UI.updateShip(ship);
         window.game.saveGame();

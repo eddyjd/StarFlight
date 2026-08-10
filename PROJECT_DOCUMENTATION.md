@@ -530,6 +530,14 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Verified over 25 freshly rolled galaxies: zero repeated labels, zero collisions with singularity names.
     * Sweep grew to **353 checks**.
 
+91. **Route Lines Followed The Ship, Not The Chart (v1.15.6)**:
+    * The actual complaint behind entry 90: *"I'm seeing the paths-taken lines from the quadrant I'm in - switching maps doesn't switch the paths."* Exactly right, and a different bug from the duplicate names.
+    * `drawTraversedLinks()` read **`RegionManager.content()`** and the **live `ship.traversedLinks`**. Both follow the vessel. Every other layer on the star map - systems, contacts, encounters, ports, nebulae, singularities, throats, the vessel marker - was region-scoped over v1.12 to v1.14, and this one function was missed. So switching the chart to another region kept drawing the *current* region's routes, at the *current* region's coordinates, on somebody else's map.
+    * Now reads `viewedContent()` and `RegionManager.viewedRecord().traversedLinks`, so the routes belong to the chart being looked at. Verified: the core chart draws from the core throat, the Marrow chart from the Marrow throat, and a region with nothing travelled draws nothing even when every route in the core has been flown.
+    * **Latent bug found while probing it: generated throat ids restarted at `wh_1` in every region**, so a single key named four different throats depending where the ship stood. Nothing had broken yet only because `traversedLinks`, `contactLog` and `salvagedIds` are all region-scoped and each happened to be read against its own throats - but a quest objective or clue keyed on an id would have matched the wrong object silently, and this bug is a demonstration of how easily the wrong region's record gets read.
+    * Ids are now region-tagged (`wh_core_1`, `wh_the_marrow_1`). `migrateIds()` re-keys old saves and carries `pairId` references, `traversedLinks` and `contactLog` across with them, leaving every coordinate untouched - nothing a captain has charted or flown is forgotten.
+    * Sweep grew to **357 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

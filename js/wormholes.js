@@ -87,7 +87,7 @@ const WormholeNet = {
    * Returns a flat array of wormhole records in the shape navigation.js expects.
    */
   generate(seed, opts) {
-    const cfg = Object.assign({ pairs: 3, solos: 2, prefix: "Wormhole", avoid: { x: 250, y: 250 } }, opts || {});
+    const cfg = Object.assign({ pairs: 3, solos: 2, prefix: "Wormhole", avoid: { x: 250, y: 250 }, idPrefix: "wh" }, opts || {});
     const rand = this.prng(seed);
     const taken = [];
     const out = [];
@@ -110,7 +110,7 @@ const WormholeNet = {
 
       const nameIdx = Math.floor(rand() * pairNames.length);
       const label = claim(pairNames.splice(nameIdx, 1)[0] || ("Link-" + seed % 997 + "-" + i));
-      const idA = "wh_" + (++n), idB = "wh_" + (++n);
+      const idA = cfg.idPrefix + "_" + (++n), idB = cfg.idPrefix + "_" + (++n);
 
       out.push({
         id: idA, name: `Wormhole ${label}-1`, x: a.x, y: a.y,
@@ -139,7 +139,7 @@ const WormholeNet = {
       const label = claim(soloNames.splice(nameIdx, 1)[0] || ("Throat-" + seed % 997 + "-" + i));
 
       out.push({
-        id: "wh_" + (++n), name: label, x: a.x, y: a.y,
+        id: cfg.idPrefix + "_" + (++n), name: label, x: a.x, y: a.y,
         targetX: b.x, targetY: b.y, oneWay: true, pairId: null,
         destName: `Uncharted space (${this.bearing(a, b)}) - NO RETURN THROAT`
       });
@@ -178,7 +178,7 @@ const WormholeNet = {
 
     if (!ship.wormholeNet || !ship.wormholeNet.core || !ship.wormholeNet.core.length) {
       const seed = (ship.wormholeSeed = ship.wormholeSeed || this.newSeed());
-      ship.wormholeNet = { core: this.generate(seed, { pairs: 3, solos: 2, reserved: reserved }) };
+      ship.wormholeNet = { core: this.generate(seed, { pairs: 3, solos: 2, reserved: reserved, idPrefix: "wh_core" }) };
     } else {
       // Already rolled - claim its names so later regions cannot repeat them
       (ship.wormholeNet.core || []).forEach(w => this.reserveFromRecord(reserved, w));
@@ -198,9 +198,13 @@ const WormholeNet = {
       const cfg = regions[id].wormholeCfg || { pairs: 1, solos: 1 };
       ship.wormholeNet[id] = this.generate(
         (seed ^ Math.imul(0x9E3779B9, offset)) >>> 0,
-        { pairs: cfg.pairs, solos: cfg.solos, avoid: null, reserved: reserved }
+        { pairs: cfg.pairs, solos: cfg.solos, avoid: null, reserved: reserved, idPrefix: "wh_" + id }
       );
     });
+
+    // Saves rolled before ids carried their region reuse wh_1..wh_n in all four,
+    // so the same key meant a different throat depending where you stood.
+    this.migrateIds(ship);
 
     // Saves rolled before names were reserved galaxy-wide carry duplicates.
     // Renaming is safe where re-rolling is not: a chart the captain has already
@@ -208,6 +212,65 @@ const WormholeNet = {
     this.dedupeNames(ship);
 
     this.apply(ship);
+  },
+
+  /**
+   * Give every throat an id that says which region it belongs to.
+   *
+   * Generated ids used to restart at wh_1 in each region, so `wh_1` named four
+   * different throats depending on where the ship was standing. Nothing broke
+   * *yet* - traversedLinks, contactLog and salvagedIds are all region-scoped, so
+   * each region's ledger happened to be read against its own throats - but any
+   * quest objective, clue or save-repair that keys on an id would silently match
+   * the wrong object, and the star map bug that prompted this showed how easy it
+   * is to read the wrong region's record by accident.
+   *
+   * The per-region ledgers are rewritten alongside the ids, so nothing a captain
+   * has already charted or flown is forgotten.
+   */
+  migrateIds(ship) {
+    if (!ship || !ship.wormholeNet) return 0;
+    let moved = 0;
+
+    Object.keys(ship.wormholeNet).forEach(rid => {
+      const list = ship.wormholeNet[rid] || [];
+      const want = "wh_" + rid + "_";
+      const remap = {};
+
+      list.forEach((w, i) => {
+        if (!w.id || w.id.indexOf(want) === 0) return;
+        const oldId = w.id;
+        const newId = want + (i + 1);
+        remap[oldId] = newId;
+        w.id = newId;
+        moved++;
+      });
+      if (!Object.keys(remap).length) return;
+
+      // pairId references have to follow
+      list.forEach(w => { if (w.pairId && remap[w.pairId]) w.pairId = remap[w.pairId]; });
+
+      // and so does everything the captain has learned about them
+      const record = (rid === (ship.region || "core"))
+        ? ship
+        : ((ship.regions && ship.regions[rid]) || null);
+      if (!record) return;
+      ["traversedLinks", "contactLog"].forEach(field => {
+        const src = record[field];
+        if (!src) return;
+        Object.keys(remap).forEach(oldId => {
+          if (Object.prototype.hasOwnProperty.call(src, oldId)) {
+            src[remap[oldId]] = src[oldId];
+            delete src[oldId];
+          }
+        });
+      });
+    });
+
+    if (moved > 0) {
+      console.warn(`WormholeNet: re-keyed ${moved} throat id(s) so each region has its own id space`);
+    }
+    return moved;
   },
 
   /** Reserve the distinctive words of an authored name, e.g. "The Undertow Well". */

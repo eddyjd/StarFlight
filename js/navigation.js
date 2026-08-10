@@ -1295,24 +1295,35 @@ const Navigation = {
   // beneath the markers so icons stay readable on top.
   drawTraversedLinks(ctx, toCanvasX, toCanvasY, zScale) {
     const ship = window.game && window.game.ship;
-    if (!ship || !ship.traversedLinks) return;
+    if (!ship) return;
     if (!this.isLayerOn("anomalies")) return;
 
+    // Routes belong to the chart being LOOKED AT, not the region the ship happens
+    // to be standing in.
+    //
+    // This read `RegionManager.content()` and the live `ship.traversedLinks`, both
+    // of which follow the vessel. Switching the chart to another region therefore
+    // kept drawing the CURRENT region's routes - at the current region's
+    // coordinates - on somebody else's map. Every other layer on this chart was
+    // region-scoped and this one was missed.
+    //
+    // traversedLinks is in RegionManager.SCOPED, so the viewed region's own ledger
+    // is the one to read.
+    const record = RegionManager.viewedRecord() || {};
+    const travelled = record.traversedLinks || {};
+    if (!Object.keys(travelled).length) return;
+
     const links = [];
-    {
-      RegionManager.content('wormholes').forEach(wh => {
-        if (ship.traversedLinks[wh.id]) {
-          links.push({ x: wh.x, y: wh.y, tx: wh.targetX, ty: wh.targetY, color: "#00e5ff", label: "RIFT EXIT" });
-        }
-      });
-    }
-    if (RegionManager.content('blackHoles').length) {
-      RegionManager.content('blackHoles').forEach(bh => {
-        if (ship.traversedLinks[bh.id]) {
-          links.push({ x: bh.x, y: bh.y, tx: bh.destX, ty: bh.destY, color: "#b46bff", label: "DISPLACEMENT" });
-        }
-      });
-    }
+    RegionManager.viewedContent('wormholes').forEach(wh => {
+      if (travelled[wh.id]) {
+        links.push({ x: wh.x, y: wh.y, tx: wh.targetX, ty: wh.targetY, color: "#00e5ff", label: "RIFT EXIT" });
+      }
+    });
+    RegionManager.viewedContent('blackHoles').forEach(bh => {
+      if (travelled[bh.id]) {
+        links.push({ x: bh.x, y: bh.y, tx: bh.destX, ty: bh.destY, color: "#b46bff", label: "DISPLACEMENT" });
+      }
+    });
     if (!links.length) return;
 
     ctx.save();

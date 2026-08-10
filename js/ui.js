@@ -467,7 +467,9 @@ const UI = {
     }
 
     // Precursor artifacts checking
-    shipState.artifactsCollected.forEach(art => {
+    // Defensive: a single unusable entry must not take the whole manifest down
+    // with it. This is what made CARGO LOG look like a dead button.
+    (shipState.artifactsCollected || []).filter(a => typeof a === "string" && a).forEach(art => {
       empty = false;
       html += `
         <div class="cargo-row" style="padding: 8px; border-bottom: 1px dashed rgba(0,204,255,0.3); background-color: rgba(0, 204, 255, 0.04);">

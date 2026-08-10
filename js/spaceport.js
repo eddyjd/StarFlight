@@ -827,7 +827,8 @@ const Spaceport = {
     let logsHtml = "";
 
     // Show logs based on artifacts collected to simulate progression
-    const artifactsCount = ship.artifactsCollected.length;
+    const artifactsCount = (ship.artifactsCollected || [])
+      .filter(a => typeof a === "string" && a).length;
     
     GameData.hqLogs.forEach((log, index) => {
       // Log 1 always visible, subsequent logs unlock as artifacts count increases

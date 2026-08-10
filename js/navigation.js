@@ -848,8 +848,15 @@ const Navigation = {
       this.cancelAutopilot("reactor exhausted");
       return false;
     }
-    if (this.nearbyAlien) {
-      this.cancelAutopilot(`vessel in range - ${this.nearbyAlien.name}`);
+    // Re-verify rather than trusting the cached flag. nearbyAlien is refreshed
+    // LATER in updateHyper than this runs, so on the first frame after engaging
+    // it still holds whatever the previous frame saw - and a contact that has
+    // since been destroyed or left cancelled the helm the instant it was handed
+    // over, citing a vessel that was no longer there.
+    const contact = this.nearbyAlien;
+    if (contact && contact.x >= 0 &&
+        Math.hypot(this.shipX - contact.x, this.shipY - contact.y) < 8) {
+      this.cancelAutopilot(`vessel in range - ${contact.name}`);
       return false;
     }
     if (this.gravityGrip && this.gravityGrip.inWell) {

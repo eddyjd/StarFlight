@@ -463,6 +463,20 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **Harness**: `chk()` now clears any leaked dialog before each check. With the world paused behind modals, one check leaking a modal open silently froze the flight model for every check after it - six unrelated failures the first time the pause landed. Two frame-timed checks were also made deterministic, since `frame(25)` twice is two different amounts of simulated time.
     * Sweep grew to **318 checks**.
 
+84. **The Null Artifact That Killed The Cargo Log (v1.14.4)**:
+    * **Found by the v1.14.3 inline fallback**, which surfaced the error the listener had been swallowing: `CARGO LOG FAILED: Cannot read properties of null (reading 'toUpperCase')`. Three rounds of headless testing had failed to reproduce this because the harness never carried the poisoned data a real save did.
+    * **Root cause, and it is mine.** Before v1.11.1, excavating one of the 20 ruin worlds that carry no artifact ran:
+      ```js
+      ship.artifactsCollected.push(artifactName);      // null pushed FIRST
+      UI.addLog(`... ${artifactName.toUpperCase()}`);  // then threw
+      ```
+      The push landed, the throw was swallowed by the frame handler, and `saveGame()` persisted the `null`. From that moment `openCargoModal()` threw on `art.toUpperCase()` for the rest of that save's life - so **CARGO LOG was a permanently dead button, with nothing on screen to say why**.
+    * **v1.11.1 fixed the cause and left the damage.** It stopped new nulls being written but never cleaned the ones already sitting in saves. `loadGame()` now repairs `artifactsCollected`, `installedTechParts`, `pendingModules` and `volumesRead`, dropping non-string entries and logging what it removed, and prunes malformed clue records.
+    * **Rendering hardened too**, so a single unusable entry can never take a whole panel down again: the artifact list filters before it renders, and the Depot's artifact count ignores empties.
+    * **A stale contact could cancel the autopilot instantly**: `updateAutopilot()` reads `nearbyAlien`, which is refreshed LATER in `updateHyper()`, so on the first frame after engaging it still held the previous frame's contact. Engage right after an encounter and the helm handed itself straight back, citing a vessel that was no longer there. It now re-verifies range rather than trusting the cached flag.
+    * **Harness**: three checks were timing- or traffic-dependent and have been made deterministic - two drove drain and recharge over `frame(N)` (three runs of which are three different amounts of simulated time), and one measured shield drain while randomly-rolled traffic occasionally put a 12-damage plasma bolt into the shields mid-measurement. Region transits now drive `updateHyper` directly instead of racing `requestAnimationFrame`. Verified with four consecutive clean runs.
+    * Sweep grew to **323 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

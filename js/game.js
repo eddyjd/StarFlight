@@ -928,6 +928,31 @@ const GameManager = {
         if (!Array.isArray(this.ship.installedTechParts)) this.ship.installedTechParts = [];
         if (!Array.isArray(this.ship.pendingModules)) this.ship.pendingModules = [];
         if (!this.ship.consumables) this.ship.consumables = {};
+
+        // Scrub null entries out of the name lists.
+        //
+        // Before v1.11.1, excavating one of the 20 ruin worlds that carry no
+        // artifact ran this:
+        //     ship.artifactsCollected.push(artifactName);      // null pushed
+        //     UI.addLog(`... ${artifactName.toUpperCase()}`);  // then threw
+        // The push landed, the throw was swallowed by the frame handler, and the
+        // null was saved. From then on EVERY attempt to open the cargo manifest
+        // threw on `art.toUpperCase()` - so the CARGO LOG control was dead for
+        // the rest of that save's life, with nothing on screen to say why.
+        //
+        // v1.11.1 stopped new nulls being created but never cleaned up the ones
+        // already sitting in people's saves. This does.
+        ["artifactsCollected", "installedTechParts", "pendingModules", "volumesRead"].forEach(f => {
+          if (!Array.isArray(this.ship[f])) { this.ship[f] = []; return; }
+          const before = this.ship[f].length;
+          this.ship[f] = this.ship[f].filter(v => typeof v === "string" && v.length > 0);
+          if (this.ship[f].length !== before) {
+            console.warn(`Save repair: removed ${before - this.ship[f].length} empty entr(y/ies) from ship.${f}`);
+          }
+        });
+        if (Array.isArray(this.ship.clues)) {
+          this.ship.clues = this.ship.clues.filter(c => c && c.id && c.text);
+        }
         if (!Array.isArray(this.ship.dynamicSignals)) this.ship.dynamicSignals = [];
         if (typeof this.ship.playClock !== "number") this.ship.playClock = 0;
         if (!this.ship.mapLayers) {

@@ -828,4 +828,30 @@ const GameData = {
   }
 };
 
+// Salvaged Precursor modules can be carried in the hold, so each one needs a
+// commodity record - name, mass and value - exactly like ore does.
+//
+// This used to be created on the fly by UI.storeCurrentTechPartInCargo(), which
+// meant it only existed for the rest of that session: GameData is rebuilt from
+// source on every load, so after a reload ship.cargo still held e.g.
+// `warp_conduit` and nothing in the commodity table matched it. Anything that
+// walked the hold then read `undefined` - the alien port's ledger threw outright
+// and the manifest counted the module as weightless.
+//
+// Registering them here makes the record deterministic and reload-proof.
+(function registerSalvagedModulesAsCargo() {
+  Object.keys(GameData.techParts).forEach(key => {
+    const part = GameData.techParts[key];
+    if (GameData.commodities[key]) return;
+    GameData.commodities[key] = {
+      name: part.name,
+      sellVal: Math.round((part.value || 2500) * 0.4),  // sold loose, not fitted
+      buyVal: part.value || 2500,
+      mass: 1.0,
+      icon: part.icon || "⚙",
+      isSalvagedModule: true
+    };
+  });
+})();
+
 window.GameData = GameData;

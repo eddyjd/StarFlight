@@ -383,10 +383,11 @@ const UI = {
   calculateCargoMass(cargo) {
     let mass = 0;
     for (let key in cargo) {
-      const item = GameData.commodities[key];
-      if (item) {
-        mass += (cargo[key] || 0) * (item.mass || 1.0);
-      }
+      // An unrecognised key still occupies the hold. Skipping it made anything
+      // the commodity table did not know about weightless, which quietly
+      // defeated the cargo cap.
+      const item = GameData.commodities[key] || { mass: 1.0 };
+      mass += (cargo[key] || 0) * (item.mass || 1.0);
     }
     return Math.max(0, mass);
   },
@@ -1251,11 +1252,18 @@ const UI = {
 
   /** What this port pays for a commodity, which is never what the Corps pays. */
   portPriceFor(port, key) {
-    const c = GameData.commodities[key];
-    if (!c) return 0;
+    // Always an object. This returned the bare number 0 for an unknown key, and
+    // every caller reads `.name` and `.price` off it - so one unrecognised item
+    // in the hold threw on `q.name.toUpperCase()` and took the entire port modal
+    // down with it. Docking logged its greeting and then simply did nothing.
+    const c = GameData.commodities[key] || { name: key, sellVal: 10 };
     const wanted = Array.isArray(port.wants) && port.wants.indexOf(key) >= 0;
     const mult = wanted ? (port.wantMult || 1.5) : (port.baseMult || 0.7);
-    return { price: Math.max(1, Math.round((c.sellVal || 50) * mult)), wanted: wanted, name: c.name };
+    return {
+      price: Math.max(1, Math.round((c.sellVal || 50) * mult)),
+      wanted: wanted,
+      name: c.name || String(key)
+    };
   },
 
   openPortModal(port) {
@@ -1863,13 +1871,17 @@ const UI = {
     const itemKey = part.id;
     ship.cargo[itemKey] = (ship.cargo[itemKey] || 0) + 1;
 
-    // Register commodity info if not present
+    // Modules are registered as commodities at boot (see the bottom of data.js),
+    // so this is only a safety net for a part added at runtime. Note the field is
+    // sellVal, not `price` - the old version wrote `price`, which nothing reads,
+    // so a stored module had no sale value anywhere in the game.
     if (!GameData.commodities[itemKey]) {
       GameData.commodities[itemKey] = {
         name: part.name,
-        price: part.value || 2500,
+        sellVal: Math.round((part.value || 2500) * 0.4),
+        buyVal: part.value || 2500,
         mass: 1.0,
-        type: "exotic"
+        isSalvagedModule: true
       };
     }
 

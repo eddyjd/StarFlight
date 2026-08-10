@@ -830,12 +830,16 @@ const Encounter = {
     let playerSum = 0;
     let alienSum = 0;
 
+    // Unguarded lookups here threw the moment a captain offered anything the
+    // commodity table did not recognise - a salvaged module, for instance.
     for (let key in this.playerOfferItems) {
-      playerSum += GameData.commodities[key].sellVal;
+      const c = GameData.commodities[key];
+      playerSum += (c && c.sellVal) || 10;
     }
 
     for (let key in this.alienOfferItems) {
-      alienSum += GameData.commodities[this.alienOfferItems[key].type].buyVal;
+      const c = GameData.commodities[this.alienOfferItems[key].type];
+      alienSum += (c && c.buyVal) || 10;
     }
 
     const tradeBalance = playerSum + this.haggleVal; // Total value offered by player

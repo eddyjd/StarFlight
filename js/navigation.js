@@ -1805,7 +1805,15 @@ Chart: ${String((viewed && viewed.name) || "CORPS QUADRANT").toUpperCase()}` +
     if (typeof QuestEngine !== "undefined") {
       QuestEngine.notify("dock", { station: port.name, raceKey: port.raceKey });
     }
-    UI.openPortModal(port);
+    // Surfaced, not swallowed. When this threw, the dock reported its greeting
+    // and then nothing happened at all, with no way to tell what had gone wrong.
+    try {
+      UI.openPortModal(port);
+    } catch (e) {
+      console.error("openPortModal failed", e);
+      UI.addLog(`PORT SYSTEMS FAULT: ${e.message.toUpperCase()}`);
+      UI.addLog("THE DOCK IS OPEN BUT THEIR TERMINAL IS NOT ANSWERING. TRY AGAIN AFTER A RELOAD.");
+    }
   },
 
   salvageSpaceWreck() {

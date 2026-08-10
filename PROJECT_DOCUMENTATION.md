@@ -487,6 +487,17 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Gated volumes and clue payloads throughout, so reading is progressive rather than a wall of text.
     * Sweep grew to **328 checks**, including one asserting no archive is ever stocked by ports in two different regions.
 
+86. **One Unknown Cargo Key Took Down Every Alien Port (v1.15.1)**:
+    * Reported as: docking The Spemin Who Stayed gave the greeting about moss and then nothing could be answered. Reproduced immediately - the dock logs its greeting, `UI.openPortModal()` throws, and the modal never opens. **Same silent-swallow shape as the cargo log bug**, one release later.
+    * **`UI.portPriceFor()` returned the bare number `0`** for a commodity it did not recognise, while every caller reads `.name` and `.price` off the result. One unrecognised item in the hold threw on `q.name.toUpperCase()` and took the whole panel down. It now always returns an object, falling back to the raw key as a name.
+    * **Root cause: modules were registered as commodities at RUNTIME.** `UI.storeCurrentTechPartInCargo()` created the record when you stowed one, but `GameData` is rebuilt from source on every load - so after a reload `ship.cargo` still held `warp_conduit` and nothing in the commodity table matched it. Every salvaged module is now registered at boot from `GameData.techParts` (bottom of `js/data.js`): deterministic, reload-proof, and worth 40% of fitted value sold loose.
+    * The old runtime record also wrote **`price` instead of `sellVal`**, which nothing in the game reads - so a stored module had no sale value anywhere even within the session that created it.
+    * **Unknown cargo was weightless.** `UI.calculateCargoMass()` skipped keys it did not recognise, so anything the table did not know about was a free ride and quietly defeated the cargo cap. It now assumes 1 T.
+    * **Bartering an unrecognised item threw**: `js/encounter.js` summed `GameData.commodities[key].sellVal` unguarded over the player's offer.
+    * **Failures are now reported.** `dockAtAlienPort()` wraps the panel open and writes `PORT SYSTEMS FAULT: ...` to the terminal rather than letting the exception vanish into the frame handler.
+    * Two `O Resources` checks asserted over *every* commodity on the assumption that a commodity is always a mined surface resource. Salvaged modules are carryable cargo with no rarity tier, so both were scoped to actual resources rather than having their assertions weakened.
+    * Sweep grew to **335 checks**, verified over two consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

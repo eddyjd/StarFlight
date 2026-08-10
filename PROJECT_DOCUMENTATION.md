@@ -521,6 +521,15 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Now stated in all three places a captain would look: the item description, the locker's per-item how-to line, and the help entry.
     * Sweep grew to **349 checks**, one of which asserts the limit is documented in all three.
 
+90. **Every Region Was Reusing The Same Throat Names (v1.15.5)**:
+    * Asked whether all the wormholes on every map are the same. **The coordinates and destinations were genuinely different - the names were not.** Each region called `generate()` independently and each drew from the full `PAIR_NAMES` / `SOLO_NAMES` pool from scratch, so the same labels turned up in several quadrants at once. A measured roll produced *The Undertow* in both the Corps Quadrant and the Marrow, *The Sink* in the Marrow and the Lattice, and *Beta* and *Sigma* each in two regions. Identical labels on different throats read exactly like one wormhole appearing on every chart.
+    * Worse, `The Undertow` also collided with **"The Undertow Well"**, an authored black hole in the Shattered Reach - two entirely different objects under one name.
+    * `ensure()` now threads a single galaxy-wide reservation set through every region's roll, pre-seeded with the names of every authored singularity. The pools were doubled (16 pair names, 16 solo names) so four regions can be filled without exhausting them.
+    * **Existing saves are repaired by renaming, never by re-rolling** - `dedupeNames()` fixes labels in place and leaves every coordinate untouched, because a chart the captain has already flown must not have its throats move. Both mouths of a renamed pair keep a matching family name and their `destName` is rewritten to match.
+    * The first version of that repair keyed its grouping on the family *name*, which cannot tell two distinct pairs apart when both are called Lambda - the precise case it exists to fix, and it left a duplicate behind. Rewritten to group by `pairId`.
+    * Verified over 25 freshly rolled galaxies: zero repeated labels, zero collisions with singularity names.
+    * Sweep grew to **353 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

@@ -26,8 +26,19 @@ const WormholeNet = {
   MIN_HOP: 140,      // a throat shorter than this is not worth flying to
   BASE_CLEAR: 70,    // keep clear of Starbase Prime - it has its own traffic
 
-  PAIR_NAMES: ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Theta", "Sigma"],
-  SOLO_NAMES: ["Vagrant Throat", "The Undertow", "Slipgate", "The Long Fall", "Ravel Mouth", "The Sink"],
+  // Four regions draw from these, and every name must be unique across the whole
+  // galaxy - see the `taken` set threaded through generate(). Two throats called
+  // "The Undertow" in different quadrants read as the same wormhole, which is
+  // exactly what a captain concluded.
+  PAIR_NAMES: [
+    "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Theta", "Sigma",
+    "Kappa", "Lambda", "Omicron", "Upsilon", "Tau", "Rho", "Phi", "Chi"
+  ],
+  SOLO_NAMES: [
+    "Vagrant Throat", "The Undertow", "Slipgate", "The Long Fall", "Ravel Mouth", "The Sink",
+    "The Gullet", "Blindmouth", "The Draw", "Nine Fathom", "The Swallow", "Hollow Pipe",
+    "The Reave", "Cold Throat", "The Spill", "Deadfall"
+  ],
 
   /**
    * Mulberry32. Small, fast, and identical across browsers - which matters
@@ -82,8 +93,14 @@ const WormholeNet = {
     const out = [];
     let n = 0;
 
+    // Names already spoken for elsewhere in the galaxy. Without this each region
+    // picked from the full pool independently and duplicates were common.
+    const reserved = cfg.reserved || null;
+    const free = (list) => reserved ? list.filter(x => !reserved.has(x)) : list;
+    const claim = (name) => { if (reserved) reserved.add(name); return name; };
+
     // --- two-way pairs -----------------------------------------------------
-    const pairNames = this.PAIR_NAMES.slice();
+    const pairNames = free(this.PAIR_NAMES).slice();
     for (let i = 0; i < cfg.pairs; i++) {
       const a = this.placePoint(rand, taken, cfg);
       if (!a) continue;
@@ -92,7 +109,7 @@ const WormholeNet = {
       taken.push(a, b);
 
       const nameIdx = Math.floor(rand() * pairNames.length);
-      const label = pairNames.splice(nameIdx, 1)[0] || ("Link-" + i);
+      const label = claim(pairNames.splice(nameIdx, 1)[0] || ("Link-" + seed % 997 + "-" + i));
       const idA = "wh_" + (++n), idB = "wh_" + (++n);
 
       out.push({
@@ -110,7 +127,7 @@ const WormholeNet = {
     // --- one-way throats ---------------------------------------------------
     // The exit is a bare coordinate. Nothing waits there to take you home, which
     // is the whole point: a one-way throat is a commitment, not a shortcut.
-    const soloNames = this.SOLO_NAMES.slice();
+    const soloNames = free(this.SOLO_NAMES).slice();
     for (let i = 0; i < cfg.solos; i++) {
       const a = this.placePoint(rand, taken, cfg);
       if (!a) continue;
@@ -119,7 +136,7 @@ const WormholeNet = {
       taken.push(a);          // only the MOUTH is a fixed feature, not the exit
 
       const nameIdx = Math.floor(rand() * soloNames.length);
-      const label = soloNames.splice(nameIdx, 1)[0] || ("Throat-" + i);
+      const label = claim(soloNames.splice(nameIdx, 1)[0] || ("Throat-" + seed % 997 + "-" + i));
 
       out.push({
         id: "wh_" + (++n), name: label, x: a.x, y: a.y,
@@ -151,9 +168,20 @@ const WormholeNet = {
     if (!ship) return;
     const regions = (typeof GameData !== "undefined" && GameData.regions) || {};
 
+    // One reservation set for the whole galaxy, seeded with the names already
+    // spoken for by authored singularities - "The Undertow Well" is a black hole
+    // in the Reach, so no throat anywhere should also be "The Undertow".
+    const reserved = new Set();
+    (GameData.blackHoles || []).forEach(b => this.reserveWords(reserved, b.name));
+    Object.keys(regions).forEach(id =>
+      ((regions[id] || {}).blackHoles || []).forEach(b => this.reserveWords(reserved, b.name)));
+
     if (!ship.wormholeNet || !ship.wormholeNet.core || !ship.wormholeNet.core.length) {
       const seed = (ship.wormholeSeed = ship.wormholeSeed || this.newSeed());
-      ship.wormholeNet = { core: this.generate(seed, { pairs: 3, solos: 2 }) };
+      ship.wormholeNet = { core: this.generate(seed, { pairs: 3, solos: 2, reserved: reserved }) };
+    } else {
+      // Already rolled - claim its names so later regions cannot repeat them
+      (ship.wormholeNet.core || []).forEach(w => this.reserveFromRecord(reserved, w));
     }
 
     // Regions roll from the same save seed, offset per region, so adding a region
@@ -163,15 +191,125 @@ const WormholeNet = {
     Object.keys(regions).forEach(id => {
       offset++;
       if (id === "core") return;
-      if (ship.wormholeNet[id] && ship.wormholeNet[id].length) return;
+      if (ship.wormholeNet[id] && ship.wormholeNet[id].length) {
+        ship.wormholeNet[id].forEach(w => this.reserveFromRecord(reserved, w));
+        return;
+      }
       const cfg = regions[id].wormholeCfg || { pairs: 1, solos: 1 };
       ship.wormholeNet[id] = this.generate(
         (seed ^ Math.imul(0x9E3779B9, offset)) >>> 0,
-        { pairs: cfg.pairs, solos: cfg.solos, avoid: null }
+        { pairs: cfg.pairs, solos: cfg.solos, avoid: null, reserved: reserved }
       );
     });
 
+    // Saves rolled before names were reserved galaxy-wide carry duplicates.
+    // Renaming is safe where re-rolling is not: a chart the captain has already
+    // flown must not have its throats move.
+    this.dedupeNames(ship);
+
     this.apply(ship);
+  },
+
+  /** Reserve the distinctive words of an authored name, e.g. "The Undertow Well". */
+  reserveWords(set, name) {
+    if (!name) return;
+    set.add(String(name));
+    // Also reserve the pool entry it would collide with, if any
+    this.SOLO_NAMES.forEach(s2 => { if (String(name).indexOf(s2) >= 0) set.add(s2); });
+  },
+
+  /** Reserve whatever label an already-rolled record is using. */
+  reserveFromRecord(set, w) {
+    if (!w || !w.name) return;
+    const m = /^Wormhole (.+)-[12]$/.exec(w.name);
+    set.add(m ? m[1] : w.name);
+  },
+
+  /**
+   * Rename duplicate throats without moving them.
+   *
+   * Every region used to draw from the full name pool independently, so the same
+   * label turned up in two quadrants - "The Undertow" in the Corps Quadrant and
+   * again in the Marrow, "Beta" in the core and the Reach. Different coordinates,
+   * different destinations, identical names, and a captain quite reasonably read
+   * that as the same wormhole appearing on every chart.
+   *
+   * Positions are left exactly as charted. Only labels change.
+   */
+  dedupeNames(ship) {
+    if (!ship || !ship.wormholeNet) return 0;
+
+    const takenPairs = new Set();
+    const takenSolos = new Set();
+    let renamed = 0;
+
+    // Authored singularities own their names too
+    const holeNames = [];
+    (GameData.blackHoles || []).forEach(b => holeNames.push(b.name));
+    Object.keys(GameData.regions || {}).forEach(rid =>
+      ((GameData.regions[rid] || {}).blackHoles || []).forEach(b => holeNames.push(b.name)));
+    this.SOLO_NAMES.forEach(n => {
+      if (holeNames.some(h => String(h).indexOf(n) >= 0)) takenSolos.add(n);
+    });
+
+    Object.keys(ship.wormholeNet).forEach(rid => {
+      const list = ship.wormholeNet[rid] || [];
+
+      // Group by PAIR IDENTITY, not by name. Keying on the family name could not
+      // tell two distinct pairs apart when both had been given the same label -
+      // which is exactly the case this repair exists to handle.
+      const groups = [];
+      const placed = new Set();
+      list.forEach(w => {
+        if (placed.has(w.id)) return;
+        const partner = w.pairId ? list.find(v => v.id === w.pairId) : null;
+        const group = partner ? [w, partner] : [w];
+        group.forEach(v => placed.add(v.id));
+        groups.push(group);
+      });
+
+      groups.forEach(group => {
+        const first = group[0];
+        const m = /^Wormhole (.+)-([12])$/.exec(first.name || "");
+
+        if (group.length === 2 || m) {
+          const fam = m ? m[1] : String(first.name);
+          let family = fam;
+          if (takenPairs.has(fam)) {
+            family = this.PAIR_NAMES.find(n => !takenPairs.has(n)) || (fam + "-" + (renamed + 2));
+            renamed++;
+          }
+          takenPairs.add(family);
+          if (family !== fam) {
+            group.forEach((v, i) => {
+              const vm = /^Wormhole (.+)-([12])$/.exec(v.name || "");
+              const suffix = vm ? vm[2] : String(i + 1);
+              v.name = `Wormhole ${family}-${suffix}`;
+            });
+            // keep each mouth pointing at its partner's new label
+            group.forEach((v, i) => {
+              const other = group[(i + 1) % group.length];
+              if (v.destName) {
+                v.destName = v.destName.replace(/^Wormhole .+?-[12]/, other.name);
+              }
+            });
+          }
+        } else {
+          let label = String(first.name);
+          if (takenSolos.has(label)) {
+            label = this.SOLO_NAMES.find(n => !takenSolos.has(n)) || (label + " II");
+            renamed++;
+            first.name = label;
+          }
+          takenSolos.add(label);
+        }
+      });
+    });
+
+    if (renamed > 0) {
+      console.warn(`WormholeNet: renamed ${renamed} duplicate throat name(s) so no two regions share a label`);
+    }
+    return renamed;
   },
 
   /** Publish the stored network into GameData and the region records. */

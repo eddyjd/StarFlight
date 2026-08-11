@@ -161,7 +161,15 @@ const GameManager = {
     try { this.loadGame(); } catch (e) { errors.push("loadGame: " + e.message); console.error("loadGame error:", e); }
     try { UI.init(); } catch (e) { errors.push("UI.init: " + e.message); console.error("UI.init error:", e); }
     // Now there is a terminal to report into
-    try { if (typeof ContentPacks !== "undefined") ContentPacks.flushReport(); } catch (e) { console.warn("ContentPacks report failed", e); }
+    try {
+      if (typeof ContentPacks !== "undefined") {
+        ContentPacks.flushReport();
+        if (this.pendingPackAudit) {
+          ContentPacks.reportAudit(this.pendingPackAudit.audit, this.pendingPackAudit.recovered);
+          this.pendingPackAudit = null;
+        }
+      }
+    } catch (e) { console.warn("ContentPacks report failed", e); }
     try { AudioController.init(); } catch (e) { errors.push("AudioController.init: " + e.message); console.error("AudioController.init error:", e); }
     try { Spaceport.init(); } catch (e) { errors.push("Spaceport.init: " + e.message); console.error("Spaceport.init error:", e); }
     try { Navigation.init(); } catch (e) { errors.push("Navigation.init: " + e.message); console.error("Navigation.init error:", e); }
@@ -983,6 +991,21 @@ const GameManager = {
     } catch (e) {
       console.warn("Failed to load progress", e);
     }
+
+    // A save records the packs that built it. If one is not loaded now, find out
+    // what that costs BEFORE anything tries to read it - a ship standing in a
+    // region that no longer exists is the shape of bug this project has shipped
+    // four times.
+    try {
+      if (typeof ContentPacks !== "undefined") {
+        const audit = ContentPacks.auditSave(this.ship);
+        if (audit.missingPacks.length) {
+          const recovered = ContentPacks.recoverStranded(this.ship);
+          this.pendingPackAudit = { audit: audit, recovered: recovered };
+          console.warn("Save references packs that are not loaded", audit);
+        }
+      }
+    } catch (e) { console.error("Content pack audit failed", e); }
 
     // The wormhole network is rolled per save. An older save has none stored, so
     // this is also the migration: it rolls once and keeps it from then on.

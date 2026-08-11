@@ -58,14 +58,37 @@ const WormholeNet = {
     return (Math.floor(Math.random() * 0xFFFFFFFF) >>> 0);
   },
 
-  /** A point that clears the edges, the starbase, and everything placed so far. */
+  SITE_CLEAR: 14,    // keep clear of wrecks, derelicts, beacons, ports, wells
+
+  /**
+   * Everything already sitting in a region that a throat should not land on.
+   *
+   * Without this, roughly one galaxy in four put a throat within 8 LY of a wreck
+   * or derelict - close enough that both register as "nearby" at once and the
+   * LAND control shows whichever wins the priority list, making the wormhole
+   * prompt unreachable.
+   */
+  occupiedIn(regionId) {
+    const D = (typeof GameData !== "undefined") ? GameData : {};
+    const src = (regionId === "core") ? D : ((D.regions || {})[regionId] || {});
+    const out = [];
+    ["spaceWrecks", "derelicts", "distressSignals", "alienPorts", "asteroidFields", "blackHoles", "starSystems"]
+      .forEach(k => (src[k] || []).forEach(o => {
+        if (typeof o.x === "number") out.push({ x: o.x, y: o.y });
+      }));
+    return out;
+  },
+
+  /** A point that clears the edges, the starbase, other sites, and prior throats. */
   placePoint(rand, taken, cfg) {
     const lo = this.MARGIN, hi = 500 - this.MARGIN;
+    const sites = cfg.occupied || [];
     for (let attempt = 0; attempt < 200; attempt++) {
       const x = Math.round(lo + rand() * (hi - lo));
       const y = Math.round(lo + rand() * (hi - lo));
       if (cfg.avoid && Math.hypot(x - cfg.avoid.x, y - cfg.avoid.y) < this.BASE_CLEAR) continue;
       if (taken.some(p => Math.hypot(x - p.x, y - p.y) < this.MIN_SEP)) continue;
+      if (sites.some(o => Math.hypot(x - o.x, y - o.y) < this.SITE_CLEAR)) continue;
       return { x: x, y: y };
     }
     return null;   // caller drops this throat rather than placing a bad one
@@ -178,7 +201,9 @@ const WormholeNet = {
 
     if (!ship.wormholeNet || !ship.wormholeNet.core || !ship.wormholeNet.core.length) {
       const seed = (ship.wormholeSeed = ship.wormholeSeed || this.newSeed());
-      ship.wormholeNet = { core: this.generate(seed, { pairs: 3, solos: 2, reserved: reserved, idPrefix: "wh_core" }) };
+      ship.wormholeNet = { core: this.generate(seed, {
+        pairs: 3, solos: 2, reserved: reserved, idPrefix: "wh_core", occupied: this.occupiedIn("core")
+      }) };
     } else {
       // Already rolled - claim its names so later regions cannot repeat them
       (ship.wormholeNet.core || []).forEach(w => this.reserveFromRecord(reserved, w));
@@ -198,7 +223,8 @@ const WormholeNet = {
       const cfg = regions[id].wormholeCfg || { pairs: 1, solos: 1 };
       ship.wormholeNet[id] = this.generate(
         (seed ^ Math.imul(0x9E3779B9, offset)) >>> 0,
-        { pairs: cfg.pairs, solos: cfg.solos, avoid: null, reserved: reserved, idPrefix: "wh_" + id }
+        { pairs: cfg.pairs, solos: cfg.solos, avoid: null, reserved: reserved,
+          idPrefix: "wh_" + id, occupied: this.occupiedIn(id) }
       );
     });
 

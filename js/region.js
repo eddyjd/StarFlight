@@ -198,6 +198,8 @@ const RegionManager = {
     if (!ship) return ["core"];
     if (!ship.visitedRegions) ship.visitedRegions = { core: true };
     ship.visitedRegions[ship.region || "core"] = true;
+    // Only regions that still EXIST. A pack can be removed, and offering its
+    // chart in the selector would open a view of nothing.
     return Object.keys(this.all()).filter(id => ship.visitedRegions[id]);
   },
 

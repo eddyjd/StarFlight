@@ -581,6 +581,15 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Two sweep checks were clobbering `ContentPacks.installed` and never restoring it. A check that borrows a global registry has to put it back.
     * Sweep grew to **391 checks**, verified over three consecutive clean runs.
 
+96. **PHASE A6 - A Save Whose Content Pack Is Gone (v1.17.4)**:
+    * The risk the plan named up front, and the one this project has already shipped four times in other forms. Measured first, before writing anything: a save made inside a pack's quadrant, opened without that pack, left the ship standing in a region that **did not exist**, and **the star map threw** on `RegionManager.get(...).name`.
+    * **`ContentPacks.auditSave()`** reports exactly what a save references that is no longer present - missing packs by name, a stranded vessel, orphaned region records, charted systems, in-progress quests, cargo and artifacts. It reports only; it never modifies the save.
+    * **`recoverStranded()`** brings the vessel home to Starbase Prime and **keeps everything else**. The region's own chart, salvage ledger and contact log stay under `ship.regions` untouched, so re-installing the pack resumes it exactly. Verified both directions: remove the pack and the chart, quest, puzzle, cargo and artifact all survive; put it back and the region returns with its two charted systems still charted and the ship able to fly there again.
+    * **It is said out loud.** The terminal names the missing pack, says where the ship was and where it went, lists suspended directives, and ends with "NOTHING HAS BEEN DELETED. RE-INSTALL THE PACK TO RESTORE IT." Silently discarding a captain's progress was never an option.
+    * The star map no longer assumes a viewed region exists - it renders and labels the chart `(PACK MISSING)` instead of throwing.
+    * **A real placement bug found while chasing a flaky check**: rolled wormhole throats had no clearance rule against *other* deep-space objects, so in roughly **one galaxy in four** a throat landed within 8 LY of a wreck, derelict or port. Both then register as "nearby" at once and the LAND control shows whichever wins the priority list - **making the wormhole prompt unreachable**. Throats now keep 14 LY clear of every other site. Measured at 10 collisions per 40 galaxies before, 0 after.
+    * Sweep grew to **398 checks**, verified over three consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

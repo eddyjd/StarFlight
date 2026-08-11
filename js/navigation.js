@@ -3403,7 +3403,11 @@ Action: Hails and scans passing vessels for contraband.`
     const infoText = document.getElementById("starmap-info-text");
     if (infoText) {
       const stateStr = (window.game.spaceState === "system" && ship.currentSystem) ? `ORBITING ${ship.currentSystem.name.toUpperCase()}` : "HYPERSPACE";
-      infoText.textContent = `[${String(RegionManager.get(RegionManager.viewedId()).name).toUpperCase()}${viewingElsewhere ? " - ARCHIVED CHART" : ""}] ${viewingElsewhere ? "VESSEL NOT IN THIS REGION" : `VESSEL POSITION: X ${galCoords.x.toFixed(1)}, Y ${galCoords.y.toFixed(1)} (${stateStr})`} | SYSTEMS LOGGED: ${discoveredCount} / ${RegionManager.viewedContent('starSystems').length} | SECTORS: ${Object.keys(view.exploredSectors || {}).length} / 100`;
+      // A region can vanish when a content pack is removed, so this must not
+      // assume the record is still there - reading .name off null threw and took
+      // the whole chart down.
+      const viewedRegion = RegionManager.get(RegionManager.viewedId()) || { name: RegionManager.viewedId() + " (PACK MISSING)" };
+      infoText.textContent = `[${String(viewedRegion.name).toUpperCase()}${viewingElsewhere ? " - ARCHIVED CHART" : ""}] ${viewingElsewhere ? "VESSEL NOT IN THIS REGION" : `VESSEL POSITION: X ${galCoords.x.toFixed(1)}, Y ${galCoords.y.toFixed(1)} (${stateStr})`} | SYSTEMS LOGGED: ${discoveredCount} / ${RegionManager.viewedContent('starSystems').length} | SECTORS: ${Object.keys(view.exploredSectors || {}).length} / 100`;
     }
   },
 

@@ -358,6 +358,134 @@ const ContentPacks = {
     ship.contentPacks = this.installed.map(p => p.id);
   },
 
+  /**
+   * What does this save reference that is no longer here?
+   *
+   * A save records the packs that built it. Open it without one and the ship can
+   * be standing in a region that does not exist, holding a quest nothing defines,
+   * carrying cargo no commodity table knows. This project has shipped four bugs
+   * of exactly that shape, so the answer is not to guess - it is to look, report
+   * it in plain words, and never quietly discard what the captain earned.
+   *
+   * Reports only. Nothing here modifies the save.
+   */
+  auditSave(ship) {
+    const D = (typeof GameData !== "undefined") ? GameData : {};
+    const missingPacks = this.missingFor(ship);
+    const out = {
+      missingPacks: missingPacks,
+      strandedIn: null,
+      lostRegions: [],
+      lostSystems: [],
+      lostQuests: [],
+      lostCommodities: [],
+      lostArtifacts: []
+    };
+    if (!ship) return out;
+
+    // Where the ship is standing
+    const here = ship.region || "core";
+    if (here !== "core" && !(D.regions || {})[here]) out.strandedIn = here;
+
+    // Region records with nowhere to belong
+    Object.keys(ship.regions || {}).forEach(rid => {
+      if (rid !== "core" && !(D.regions || {})[rid]) out.lostRegions.push(rid);
+    });
+
+    // Systems charted in regions that are still present
+    const knownSystems = new Set();
+    (D.starSystems || []).forEach(sy => knownSystems.add(sy.name));
+    Object.keys(D.regions || {}).forEach(rid =>
+      ((D.regions[rid] || {}).starSystems || []).forEach(sy => knownSystems.add(sy.name)));
+    Object.keys(ship.discoveredSystems || {}).forEach(n => {
+      if (n !== "Starbase Prime" && !knownSystems.has(n)) out.lostSystems.push(n);
+    });
+
+    // Quests in progress that nothing defines any more
+    Object.keys(ship.quests || {}).forEach(qid => {
+      const st = ship.quests[qid];
+      if (!st || st.stage < 0) return;
+      if (!(D.quests || []).some(q => q.id === qid)) out.lostQuests.push(qid);
+    });
+
+    // Cargo and artifacts with no record behind them
+    Object.keys(ship.cargo || {}).forEach(k => {
+      if (!(D.commodities || {})[k]) out.lostCommodities.push(k);
+    });
+    (ship.artifactsCollected || []).forEach(a => {
+      if (typeof a !== "string" || !a) return;
+      const known = Object.keys(D.regions || {}).some(rid =>
+        ((D.regions[rid] || {}).starSystems || []).some(sy =>
+          (sy.planets || []).some(pl => pl.artifact === a)))
+        || (D.starSystems || []).some(sy => (sy.planets || []).some(pl => pl.artifact === a));
+      if (!known) out.lostArtifacts.push(a);
+    });
+
+    return out;
+  },
+
+  /**
+   * Bring a ship home if it is standing somewhere that no longer exists.
+   *
+   * The region's own exploration record is LEFT INTACT under ship.regions, so
+   * re-installing the pack restores the chart, the salvage ledger and everything
+   * else exactly as it was. Only the vessel moves.
+   */
+  recoverStranded(ship) {
+    if (!ship) return false;
+    const D = (typeof GameData !== "undefined") ? GameData : {};
+    const here = ship.region || "core";
+    if (here === "core" || (D.regions || {})[here]) return false;
+
+    // Stash what the ship currently has live, so the record survives for later
+    try {
+      if (typeof RegionManager !== "undefined") {
+        RegionManager.migrate(ship);
+        RegionManager.stash(ship, here);
+      }
+    } catch (e) { console.warn("Could not stash the stranded region's record", e); }
+
+    ship.region = "core";
+    try {
+      if (typeof RegionManager !== "undefined") RegionManager.restore(ship, "core");
+    } catch (e) { console.warn("Could not restore the core record", e); }
+
+    ship.coordinates = { x: 250, y: 250 };
+    ship.currentSystem = null;
+    ship.currentPlanet = null;
+    ship.isInSpacebase = true;
+    if (typeof Navigation !== "undefined" && Navigation.resetPhysics) Navigation.resetPhysics(250, 250);
+    return true;
+  },
+
+  /** Tell the captain what happened, in the terminal, once there is one. */
+  reportAudit(audit, recovered) {
+    const log = (m) => {
+      if (typeof UI !== "undefined" && UI.addLog && UI.elements && UI.elements.logTerminal) UI.addLog(m);
+      else console.log(m);
+    };
+    if (!audit || !audit.missingPacks.length) return;
+
+    log("=== CONTENT PACK MISSING ===");
+    log(`THIS SAVE WAS MADE WITH: ${audit.missingPacks.join(", ").toUpperCase()} - NOT CURRENTLY LOADED.`);
+
+    if (recovered) {
+      log(`THE VESSEL WAS IN ${String(audit.strandedIn).toUpperCase()}, WHICH IS NOT PRESENT. RECOVERED TO STARBASE PRIME.`);
+      log("THAT REGION'S CHART AND SALVAGE RECORD ARE KEPT. RE-INSTALL THE PACK AND IT RESUMES.");
+    }
+    if (audit.lostQuests.length) log(`SUSPENDED DIRECTIVE(S): ${audit.lostQuests.join(", ").toUpperCase()}.`);
+    if (audit.lostSystems.length) {
+      log(`${audit.lostSystems.length} CHARTED SYSTEM(S) BELONG TO THE MISSING PACK AND ARE HIDDEN, NOT ERASED.`);
+    }
+    if (audit.lostCommodities.length) {
+      log(`CARGO WITH NO MANIFEST ENTRY: ${audit.lostCommodities.join(", ").toUpperCase()} - STILL IN THE HOLD.`);
+    }
+    if (audit.lostArtifacts.length) {
+      log(`ARTIFACT(S) FROM THE MISSING PACK: ${audit.lostArtifacts.join(", ").toUpperCase()} - STILL RECORDED.`);
+    }
+    log("NOTHING HAS BEEN DELETED. RE-INSTALL THE PACK TO RESTORE IT.");
+  },
+
   summary() {
     return {
       installed: this.installed.map(p => `${p.name} (${p.id})`),

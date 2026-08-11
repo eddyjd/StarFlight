@@ -26,8 +26,8 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.17.0</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.17.0</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.17.1</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.17.1</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
@@ -846,30 +846,67 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.17.0"></script>
-  <script src="js/audio.js?v=1.17.0"></script>
-  <script src="js/ui.js?v=1.17.0"></script>
-  <script src="js/spaceport.js?v=1.17.0"></script>
-  <script src="js/navigation.js?v=1.17.0"></script>
-  <script src="js/planet.js?v=1.17.0"></script>
-  <script src="js/content/quests.js?v=1.17.0"></script>
-  <script src="js/content/archives.js?v=1.17.0"></script>
-  <script src="js/content/puzzles.js?v=1.17.0"></script>
-  <script src="js/content/resources.js?v=1.17.0"></script>
-  <script src="js/content/regions.js?v=1.17.0"></script>
-  <script src="js/clues.js?v=1.17.0"></script>
-  <script src="js/quest.js?v=1.17.0"></script>
-  <script src="js/archive.js?v=1.17.0"></script>
-  <script src="js/region.js?v=1.17.0"></script>
-  <script src="js/validate.js?v=1.17.0"></script>
-  <script src="js/content/consumables.js?v=1.17.0"></script>
-  <script src="js/content/dialogue.js?v=1.17.0"></script>
-  <script src="js/consumables.js?v=1.17.0"></script>
-  <script src="js/content/signals.js?v=1.17.0"></script>
-  <script src="js/distress.js?v=1.17.0"></script>
-  <script src="js/wormholes.js?v=1.17.0"></script>
-  <script src="js/puzzle.js?v=1.17.0"></script>
-  <script src="js/encounter.js?v=1.17.0"></script>
-  <script src="js/game.js?v=1.17.0"></script>
+  <script src="js/data.js?v=1.17.1"></script>
+  <script src="js/audio.js?v=1.17.1"></script>
+  <script src="js/ui.js?v=1.17.1"></script>
+  <script src="js/spaceport.js?v=1.17.1"></script>
+  <script src="js/navigation.js?v=1.17.1"></script>
+  <script src="js/planet.js?v=1.17.1"></script>
+  <script src="js/content/quests.js?v=1.17.1"></script>
+  <script src="js/content/archives.js?v=1.17.1"></script>
+  <script src="js/content/puzzles.js?v=1.17.1"></script>
+  <script src="js/content/resources.js?v=1.17.1"></script>
+  <script src="js/content/regions.js?v=1.17.1"></script>
+  <script src="js/clues.js?v=1.17.1"></script>
+  <script src="js/quest.js?v=1.17.1"></script>
+  <script src="js/archive.js?v=1.17.1"></script>
+  <script src="js/region.js?v=1.17.1"></script>
+  <script src="js/validate.js?v=1.17.1"></script>
+  <script src="js/packs.js?v=1.17.1"></script>
+  <script src="js/content/packs/manifest.js?v=1.17.1"></script>
+  <script>
+    // Inject every pack the manifest lists, plus anything installed through the
+    // in-game importer.
+    //
+    // Dynamically inserted scripts with async=false execute in insertion order
+    // AND hold back the load event, so every pack has registered itself before
+    // window.onload fires GameManager.init() - which is where applyAll() runs.
+    //
+    // Manifest packs are .js and call ContentPacks.register() themselves.
+    // Imported packs are stored as JSON data and registered directly: nothing
+    // pasted into the importer is ever executed as code.
+    (function bootContentPacks() {
+      try {
+        (window.ContentPackManifest || []).forEach(function (file) {
+          var el = document.createElement("script");
+          el.src = "js/content/packs/" + file;
+          el.async = false;
+          el.onerror = function () {
+            console.error("ContentPacks: manifest lists a file that will not load - " + file);
+          };
+          document.head.appendChild(el);
+        });
+      } catch (e) { console.error("ContentPacks: manifest injection failed", e); }
+
+      try {
+        var raw = localStorage.getItem("starflight_content_packs");
+        if (raw) {
+          JSON.parse(raw).forEach(function (pack) {
+            pack.__source = "imported";
+            window.ContentPacks.register(pack);
+          });
+        }
+      } catch (e) { console.error("ContentPacks: stored packs unreadable", e); }
+    })();
+  </script>
+  <script src="js/content/consumables.js?v=1.17.1"></script>
+  <script src="js/content/dialogue.js?v=1.17.1"></script>
+  <script src="js/consumables.js?v=1.17.1"></script>
+  <script src="js/content/signals.js?v=1.17.1"></script>
+  <script src="js/distress.js?v=1.17.1"></script>
+  <script src="js/wormholes.js?v=1.17.1"></script>
+  <script src="js/puzzle.js?v=1.17.1"></script>
+  <script src="js/encounter.js?v=1.17.1"></script>
+  <script src="js/game.js?v=1.17.1"></script>
 </body>
 </html>

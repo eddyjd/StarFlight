@@ -151,6 +151,13 @@ const GameManager = {
   init() {
     const errors = [];
 
+    // Packs merge BEFORE anything reads GameData. Each is validated against a
+    // trial merge first; a pack that fails is rejected with a report and the game
+    // boots exactly as it would have without it.
+    try {
+      if (typeof ContentPacks !== "undefined") ContentPacks.applyAll();
+    } catch (e) { errors.push("ContentPacks: " + e.message); console.error("ContentPacks error:", e); }
+
     try { this.loadGame(); } catch (e) { errors.push("loadGame: " + e.message); console.error("loadGame error:", e); }
     try { UI.init(); } catch (e) { errors.push("UI.init: " + e.message); console.error("UI.init error:", e); }
     try { AudioController.init(); } catch (e) { errors.push("AudioController.init: " + e.message); console.error("AudioController.init error:", e); }

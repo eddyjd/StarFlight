@@ -559,6 +559,16 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Both the sweep and the forthcoming pack loader call the same `ContentValidator.validate()`, so there is no second opinion to drift.
     * Sweep grew to **370 checks**.
 
+94. **PHASE A2 - The Content Pack Loader (v1.17.1)**:
+    * `js/packs.js` (NEW) plus `js/content/packs/manifest.js`. A pack is one file of pure data that adds to the game, and the loader is the thing that makes "hand any AI a prompt and load what it writes" safe.
+    * **Two operations, because the existing content files already need both.** `add` puts new records into a collection; `extend` patches records that already exist (`push` onto an array field, `set` a value, `merge` into an object such as a race's `dialogue.nodes`). `extend` is not a convenience - **a new quadrant is unreachable unless the pack can also hang a singularity off an existing region with `leadsTo` pointing at itself.** Without it, packs could only add places nobody can get to.
+    * **Nothing merges until it validates.** Every queued pack is applied to a throwaway snapshot, `ContentValidator` runs over the *result*, and only a clean galaxy is committed. A pack that fails is rejected with a readable report naming the culprit, and the game boots exactly as it would have without it. Packs are judged together rather than in load order, so packs that reference each other are assessed on the finished galaxy.
+    * **A pack cannot invent a collection or overwrite an existing record** - both are refused rather than silently written, so a typo cannot create a collection nothing reads or hijack an authored region.
+    * **Boot order**: dynamically injected scripts with `async = false` execute in order *and* hold back the `load` event, so every pack has registered before `GameManager.init()` fires - which is where `applyAll()` runs, ahead of `loadGame()`. Manifest packs are `.js` and call `register()`; imported packs are stored as **JSON data and registered directly, never executed as code**.
+    * **A gap the new checks caught immediately**: the combined re-test of individually-valid packs consulted only the validator and ignored structural problems. Two packs claiming the same region id therefore both reported as installed while the second had quietly merged nothing. The combined pass now honours collisions too.
+    * Verified end to end: a pack adds a region, pushes its own gate onto the core, and `RegionManager`, `WormholeNet`, traffic generation and `resolveGateway` all read it as though it were authored. With no packs loaded there is zero residue and the validator is still clean - traditional play is untouched.
+    * Sweep grew to **377 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

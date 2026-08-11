@@ -38,8 +38,55 @@ const ContentPacks = {
     "regions", "commodities", "techParts", "aliens", "consumables", "archiveLocations"
   ],
 
-  installed: [],      // { id, name, version, source, counts }
+  installed: [],      // { id, name, version, hash, source, counts }
   failures: [],       // { id, source, errors }
+
+  // ---- identity ----------------------------------------------------------
+
+  /**
+   * A stable fingerprint of a pack's content.
+   *
+   * A version string is what the author claims; this is what the pack actually
+   * is. The common real-world failure is not a version bump - it is an author
+   * editing a published pack in place and leaving the version alone, after which
+   * a save says "built with v1" and gets something else entirely.
+   *
+   * Keys are sorted so the fingerprint depends on content and not on the order
+   * the author happened to type the fields in.
+   */
+  hash(pack) {
+    const canon = (v) => {
+      if (v === null || typeof v !== "object") return JSON.stringify(v);
+      if (Array.isArray(v)) return "[" + v.map(canon).join(",") + "]";
+      return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}";
+    };
+    // Identity is the content, not the label - name/author/description changes
+    // are not a different pack.
+    const body = canon({ add: pack.add || {}, extend: pack.extend || {} });
+    let h = 0x811c9dc5;                       // FNV-1a, 32-bit
+    for (let i = 0; i < body.length; i++) {
+      h ^= body.charCodeAt(i) & 0xff;
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+      if (body.charCodeAt(i) > 0xff) {        // keep non-ASCII significant
+        h ^= (body.charCodeAt(i) >> 8) & 0xff;
+        h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+      }
+    }
+    return ("0000000" + h.toString(16)).slice(-8);
+  },
+
+  /** The installed-record for a pack that has just been merged. */
+  record(pack, counts) {
+    return {
+      id: pack.id,
+      name: pack.name || pack.id,
+      version: String(pack.version || "1"),
+      hash: this.hash(pack),
+      author: pack.author || "",
+      source: pack.__source || "manifest",
+      counts: counts
+    };
+  },
 
   // ---- registration ------------------------------------------------------
 
@@ -242,10 +289,7 @@ const ContentPacks = {
     if (!failedAll) {
       queue.forEach(pack => {
         const r = this.applyTo(GameData, pack);
-        this.installed.push({
-          id: pack.id, name: pack.name || pack.id, version: pack.version || "1",
-          author: pack.author || "", source: pack.__source || "manifest", counts: r.counts
-        });
+        this.installed.push(this.record(pack, r.counts));
       });
       this.pendingReport = { verdict: verdict, failed: [] };
       return { installed: this.installed.slice(), failed: [] };
@@ -282,10 +326,7 @@ const ContentPacks = {
       if (cv.ok && !clash.length) {
         good.forEach(pack => {
           const r = this.applyTo(GameData, pack);
-          this.installed.push({
-            id: pack.id, name: pack.name || pack.id, version: pack.version || "1",
-            author: pack.author || "", source: pack.__source || "manifest", counts: r.counts
-          });
+          this.installed.push(this.record(pack, r.counts));
         });
       } else {
         const why = clash.length ? clash : cv.errors;
@@ -342,20 +383,68 @@ const ContentPacks = {
 
   isInstalled(id) { return this.installed.some(p => p.id === id); },
 
-  /** Pack ids a save says it was created with. */
+  /**
+   * What a save says it was built with, always as records.
+   *
+   * Saves from before v1.17.6 hold a bare array of ids, and some hold nothing at
+   * all because nothing ever wrote the field. Both are normalised here rather
+   * than at every call site, and a null version is an honest "we do not know"
+   * instead of a guess.
+   */
   requiredBy(ship) {
-    return (ship && Array.isArray(ship.contentPacks)) ? ship.contentPacks.slice() : [];
+    const raw = (ship && Array.isArray(ship.contentPacks)) ? ship.contentPacks : [];
+    return raw.map(e => (typeof e === "string")
+      ? { id: e, version: null, hash: null }
+      : { id: e.id, version: e.version || null, hash: e.hash || null })
+      .filter(e => !!e.id);
   },
 
-  /** Which of a save's packs are not loaded right now. */
+  /** Which of a save's packs are not loaded right now. Ids, for the report. */
   missingFor(ship) {
-    return this.requiredBy(ship).filter(id => !this.isInstalled(id));
+    return this.requiredBy(ship).filter(e => !this.isInstalled(e.id)).map(e => e.id);
   },
 
-  /** Stamp the current pack set onto the ship so a save records what built it. */
+  /**
+   * Packs that ARE loaded but are not the ones this save was built with.
+   *
+   * This is the failure the version stamp exists for. It is silent by nature -
+   * the region is there, the ids resolve, and the content behind them is
+   * different from the content the captain played. Worth saying out loud even
+   * before there is a server to fetch the right version from.
+   */
+  driftFor(ship) {
+    const out = [];
+    this.requiredBy(ship).forEach(want => {
+      const have = this.installed.find(p => p.id === want.id);
+      if (!have) return;                                  // that is missingFor's business
+      if (want.hash && have.hash && want.hash !== have.hash) {
+        out.push({ id: want.id, name: have.name,
+                   wasVersion: want.version, nowVersion: have.version,
+                   reason: (want.version === have.version)
+                     ? "same version, different content"
+                     : "different version" });
+      } else if (want.version && have.version && want.version !== have.version) {
+        out.push({ id: want.id, name: have.name,
+                   wasVersion: want.version, nowVersion: have.version,
+                   reason: "different version" });
+      }
+    });
+    return out;
+  },
+
+  /**
+   * Stamp the current pack set onto the ship so a save records what built it.
+   *
+   * Called from saveGame(). It was written for A6 and then never wired up, which
+   * meant every audit read a field nothing had ever set: a real save made inside
+   * a pack's quadrant recorded the region but not the pack, so re-opening it
+   * without the pack produced no report and no recovery at all. Reproduced
+   * before fixing - the ship sat at (250, 100) in a region that did not exist
+   * and the game said nothing.
+   */
   stamp(ship) {
     if (!ship) return;
-    ship.contentPacks = this.installed.map(p => p.id);
+    ship.contentPacks = this.installed.map(p => ({ id: p.id, version: p.version, hash: p.hash }));
   },
 
   /**
@@ -379,9 +468,11 @@ const ContentPacks = {
       lostSystems: [],
       lostQuests: [],
       lostCommodities: [],
-      lostArtifacts: []
+      lostArtifacts: [],
+      drift: []
     };
     if (!ship) return out;
+    out.drift = this.driftFor(ship);
 
     // Where the ship is standing
     const here = ship.region || "core";
@@ -458,16 +549,45 @@ const ContentPacks = {
     return true;
   },
 
+  /**
+   * Does this audit need saying out loud?
+   *
+   * Deliberately not keyed on missingPacks. A save written before the stamp
+   * existed names no packs at all, and is exactly the save most likely to be
+   * standing in a region that is gone.
+   */
+  auditNeedsReport(audit) {
+    if (!audit) return false;
+    return !!(audit.missingPacks.length || audit.strandedIn || audit.lostRegions.length ||
+              audit.lostQuests.length || (audit.drift || []).length);
+  },
+
   /** Tell the captain what happened, in the terminal, once there is one. */
   reportAudit(audit, recovered) {
     const log = (m) => {
       if (typeof UI !== "undefined" && UI.addLog && UI.elements && UI.elements.logTerminal) UI.addLog(m);
       else console.log(m);
     };
-    if (!audit || !audit.missingPacks.length) return;
+    if (!this.auditNeedsReport(audit)) return;
+
+    // A pack whose content changed under a finished save. Nothing is broken and
+    // nothing needs recovering - but the galaxy is not the one that was played,
+    // and saying so is the whole point of stamping a version.
+    if (audit.drift.length) {
+      log("=== CONTENT PACK CHANGED ===");
+      audit.drift.forEach(d => {
+        log(`${String(d.name || d.id).toUpperCase()}: SAVED AGAINST ${String(d.wasVersion || "AN UNRECORDED VERSION").toUpperCase()}, ` +
+            `NOW RUNNING ${String(d.nowVersion).toUpperCase()} - ${d.reason.toUpperCase()}.`);
+      });
+      log("CHARTED CONTENT MAY HAVE MOVED OR BEEN REWRITTEN.");
+    }
+    if (!audit.missingPacks.length && !audit.strandedIn && !audit.lostRegions.length &&
+        !audit.lostQuests.length) return;
 
     log("=== CONTENT PACK MISSING ===");
-    log(`THIS SAVE WAS MADE WITH: ${audit.missingPacks.join(", ").toUpperCase()} - NOT CURRENTLY LOADED.`);
+    log(audit.missingPacks.length
+      ? `THIS SAVE WAS MADE WITH: ${audit.missingPacks.join(", ").toUpperCase()} - NOT CURRENTLY LOADED.`
+      : "THIS SAVE REFERENCES CONTENT THAT IS NOT LOADED. IT PREDATES PACK VERSION STAMPING, SO THE PACK CANNOT BE NAMED.");
 
     if (recovered) {
       log(`THE VESSEL WAS IN ${String(audit.strandedIn).toUpperCase()}, WHICH IS NOT PRESENT. RECOVERED TO STARBASE PRIME.`);

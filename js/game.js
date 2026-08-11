@@ -784,6 +784,13 @@ const GameManager = {
         }
       } catch (e) {}
 
+      // Record which packs - and which VERSIONS of them - built this save. Without
+      // this the audit reads a field nothing ever wrote, which is exactly what
+      // shipped in v1.17.4: a save made inside a pack's quadrant knew its region
+      // but not its pack, so opening it without the pack recovered nothing and
+      // said nothing.
+      try { if (typeof ContentPacks !== "undefined") ContentPacks.stamp(this.ship); } catch (e) {}
+
       const shipToSave = Object.assign({}, this.ship);
       if (this.spaceState === "hyper" || this.ship.isInSpacebase) {
         shipToSave.currentPlanet = null;
@@ -999,7 +1006,10 @@ const GameManager = {
     try {
       if (typeof ContentPacks !== "undefined") {
         const audit = ContentPacks.auditSave(this.ship);
-        if (audit.missingPacks.length) {
+        // Keyed on what is actually wrong, not on whether the save named a pack.
+        // Saves written before stamping name nothing and are the most likely to
+        // be standing somewhere that no longer exists.
+        if (ContentPacks.auditNeedsReport(audit)) {
           const recovered = ContentPacks.recoverStranded(this.ship);
           this.pendingPackAudit = { audit: audit, recovered: recovered };
           console.warn("Save references packs that are not loaded", audit);

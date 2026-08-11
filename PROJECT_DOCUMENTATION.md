@@ -623,6 +623,35 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Sweep at **399 checks**, three consecutive clean runs. The deliberate-refusal battery grew from
       9 historical bug classes to 12.
 
+98. **PACK VERSION STAMPING - AND THE WIRE THAT WAS NEVER CONNECTED (v1.17.6)**:
+    * Groundwork for serving packs from the Phase B server: a save must pin the exact pack it was
+      built with, or "fetch the missing pack" resolves an id to whatever happens to carry that name
+      now. That is worse than the honest failure it replaces, because nothing detects it.
+    * **Reproducing it first found something bigger.** `ContentPacks.stamp()` was written for A6 in
+      v1.17.4 and **never called from anywhere**. Every audit read a field nothing had ever written.
+      Measured against a real save: play into a pack's quadrant, `saveGame()`, remove the pack,
+      reload - the save recorded `region: "the_tessellation"` and **no `contentPacks` field at all**,
+      so `missingPacks` came back empty, recovery never fired, and the ship sat at (250, 100) in a
+      region that did not exist **with the game saying nothing**. The exact failure A6 was built to
+      prevent, shipped, because the audit was sound and unwired.
+    * `saveGame()` now stamps `{ id, version, hash }` per pack.
+    * **The audit triggers on the damage, not on the stamp.** It was keyed on `missingPacks.length`,
+      which is empty for every save written before stamping existed - precisely the saves most likely
+      to be stranded. Now any of stranding, orphaned regions, suspended quests or drift will speak.
+      Old saves that name nothing are recovered and reported too.
+    * **`hash()` is a content fingerprint**, FNV-1a over a key-sorted canonical form of `add` and
+      `extend` only. Renaming the pack or its author is not a different pack; changing a value is.
+      The real-world failure is not a version bump, it is an author editing a published pack in place
+      and leaving the version alone - now caught and named as SAME VERSION, DIFFERENT CONTENT.
+      Verified by actually editing the reference pack and reloading, not by faking the record.
+    * `requiredBy()` normalises both save shapes, so a pre-v1.17.6 array of bare ids still resolves.
+    * **A flaky check found and fixed honestly.** "A blind fold lands somewhere genuinely else"
+      asserted distance from the origin, which is a consequence rather than the property - clearing a
+      gravity well can push a far target back past the start. Measured at 1 failure in 200 runs, and
+      in the failure the hull went exactly where it was aimed. The assertion now checks that: aimed
+      point, cleared of wells, in bounds.
+    * Sweep at **403 checks**, three consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

@@ -19,7 +19,7 @@ boots as if it were not there**.
 ContentPacks.register({
   id: "my_quadrant",              // required, unique, lower_snake_case
   name: "The Quadrant",           // shown in the CONTENT PACKS screen
-  version: "1",
+  version: "1",                   // bump this whenever you change a published pack
   author: "you",
   description: "One line.",
 
@@ -27,6 +27,15 @@ ContentPacks.register({
   extend: { /* changes to records that already exist */ }
 });
 ```
+
+**`version` is a promise to the saves.** Every save records the id, version and a content
+fingerprint of each pack that built it. Change a published pack without bumping the version and
+the game will notice and say so on load — `SAVED AGAINST 1, NOW RUNNING 1 — SAME VERSION,
+DIFFERENT CONTENT` — because the fingerprint is of the content, not the label. Nothing breaks,
+but a captain's charted systems may now describe somewhere that no longer exists.
+
+Treat a published pack as immutable and ship changes as a new version. Renaming or removing a
+region, system, quest or commodity is the change that actually costs someone their progress.
 
 Two ways to install it:
 

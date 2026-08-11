@@ -131,6 +131,9 @@ const GameManager = {
     // One-use equipment, as { itemId: count }. Not cargo - see js/consumables.js.
     consumables: {},
 
+    // One-time dialogue lines already spoken, so they do not repeat
+    dialogueSeen: {},
+
     // Distress calls that have come in over the band and not yet lapsed
     dynamicSignals: [],
     nextSignalAt: null,
@@ -954,6 +957,7 @@ const GameManager = {
           this.ship.clues = this.ship.clues.filter(c => c && c.id && c.text);
         }
         if (!Array.isArray(this.ship.dynamicSignals)) this.ship.dynamicSignals = [];
+        if (!this.ship.dialogueSeen) this.ship.dialogueSeen = {};
         if (typeof this.ship.playClock !== "number") this.ship.playClock = 0;
         if (!this.ship.mapLayers) {
           this.ship.mapLayers = { systems: true, anomalies: true, salvage: true, aliens: true, patrols: true, ports: true, nebulae: true, unknown: true };
@@ -1038,6 +1042,7 @@ const GameManager = {
         portalReturn: null,
         consumables: {},
         playClock: 0,
+        dialogueSeen: {},
         dynamicSignals: [],
         nextSignalAt: null,
         signalSerial: 0,

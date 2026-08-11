@@ -10,13 +10,13 @@ const Encounter = {
   alien: null,
   posture: "friendly",
   dialogNode: null,
-  
+
   // Barter state
   playerOfferItems: {},
   alienOfferItems: {},
   haggleVal: 0,
   haggleTolerances: 3, // attempts before they get angry
-  
+
   // Combat state
   inCombat: false,
   alienHp: 100,
@@ -45,6 +45,7 @@ const Encounter = {
 
   // Trigger an encounter with a specific race
   trigger(raceKey) {
+    this.nodeId = null;
     const game = window.game;
     const ship = game.ship;
     const raceData = GameData.aliens[raceKey];
@@ -55,7 +56,7 @@ const Encounter = {
     this.fleeing = false;
     this.fleeTimer = 0;
     this.raceKey = raceKey;
-    
+
     // Copy alien attributes
     this.alien = JSON.parse(JSON.stringify(raceData));
     this.alienHp = this.alien.health;
@@ -102,8 +103,10 @@ const Encounter = {
   },
 
   setPosture(posture) {
+    // Changing tack drops you back to the top of the conversation
+    this.nodeId = null;
     this.posture = posture;
-    
+
     // Draw procedural retro alien face
     this.drawAlienPortrait();
 
@@ -143,7 +146,7 @@ const Encounter = {
       ctx.fillStyle = "#00ff66";
       ctx.shadowBlur = 8;
       ctx.shadowColor = "#00ff66";
-      
+
       // Blob body
       ctx.beginPath();
       ctx.ellipse(60, 75, 40, 25, 0, 0, Math.PI * 2);
@@ -179,7 +182,7 @@ const Encounter = {
       ctx.beginPath();
       ctx.arc(60, 80, 10, 0.1, Math.PI - 0.1, false);
       ctx.stroke();
-    } 
+    }
     else if (this.raceKey === "veloxi") {
       // Veloxi: red compound eye insectoid
       ctx.fillStyle = "#ff5533";
@@ -224,7 +227,7 @@ const Encounter = {
       ctx.moveTo(68, 90);
       ctx.quadraticCurveTo(75, 100, 60, 100);
       ctx.stroke();
-    } 
+    }
     else if (this.raceKey === "uhlek") {
       // Uhlek: Glowing cybornetic visor
       ctx.fillStyle = "#111b15";
@@ -273,7 +276,7 @@ const Encounter = {
       ctx.fillStyle = "#00cc66";
       ctx.shadowBlur = 12;
       ctx.shadowColor = "#00ff66";
-      
+
       // Main Saucer Body
       ctx.beginPath();
       ctx.ellipse(shipCenterX, shipCenterY, 45, 18, 0, 0, Math.PI * 2);
@@ -296,7 +299,7 @@ const Encounter = {
       ctx.font = "9px Share Tech Mono";
       ctx.fillStyle = "#00ff66";
       ctx.fillText("[SPEMIN BIO-SAUCER]", 155, 114);
-    } 
+    }
     else if (this.raceKey === "veloxi") {
       // Veloxi Ruby Battlecruiser Ship
       ctx.fillStyle = "#ff3333";
@@ -327,7 +330,7 @@ const Encounter = {
       ctx.font = "9px Share Tech Mono";
       ctx.fillStyle = "#ff5533";
       ctx.fillText("[VELOXI CRUISER]", 162, 114);
-    } 
+    }
     else if (this.raceKey === "uhlek") {
       // Uhlek Obsidian Dreadnought Ship
       ctx.fillStyle = "#1a2620";
@@ -357,7 +360,7 @@ const Encounter = {
       ctx.font = "9px Share Tech Mono";
       ctx.fillStyle = "#ff3333";
       ctx.fillText("[UHLEK DREADNOUGHT]", 152, 114);
-    } 
+    }
     else {
       // Generic Alien Corvette
       ctx.fillStyle = "#00ccff";
@@ -372,22 +375,122 @@ const Encounter = {
     ctx.restore();
   },
 
+  // ---- Conversation state -------------------------------------------------
+  // Dialogue used to be nine flat lines per race - three postures of three
+  // choices - and picking one printed a response without changing the options,
+  // so a conversation could not go anywhere. A choice may now carry `next`,
+  // which opens a follow-up node with its own text and choices, so a subject can
+  // actually be pursued.
+
+  /** Whichever node the conversation is standing in right now. */
+  currentNode() {
+    const d = this.alien && this.alien.dialogue;
+    if (!d) return null;
+    if (this.nodeId && d.nodes && d.nodes[this.nodeId]) return d.nodes[this.nodeId];
+    return d[this.posture] || null;
+  },
+
+  /** Has this one-time choice already been used, this game? */
+  choiceUsed(choice) {
+    if (!choice || !choice.once) return false;
+    const ship = window.game.ship;
+    const key = (this.alien && this.alien.portrait ? this.alien.portrait : "x") + ":" + choice.once;
+    return !!(ship.dialogueSeen && ship.dialogueSeen[key]);
+  },
+
+  markChoiceUsed(choice) {
+    if (!choice || !choice.once) return;
+    const ship = window.game.ship;
+    if (!ship.dialogueSeen) ship.dialogueSeen = {};
+    ship.dialogueSeen[(this.alien.portrait || "x") + ":" + choice.once] = true;
+  },
+
+  /**
+   * Can the captain say this yet? Requirements are authored as data so a new
+   * conditional line never needs engine work:
+   *   requires: { clue, quest, artifact, artifacts, cargo, credits, region, volume }
+   * Returns null when available, or a short reason when it is not.
+   */
+  choiceBlocked(choice) {
+    const req = choice && choice.requires;
+    if (!req) return null;
+    const ship = window.game.ship;
+
+    if (req.clue && !(typeof ClueLog !== "undefined" && ClueLog.has(req.clue))) {
+      return "You have nothing to go on yet.";
+    }
+    if (req.volume && !(Array.isArray(ship.volumesRead) && ship.volumesRead.indexOf(req.volume) >= 0)) {
+      return "You have not read the relevant record.";
+    }
+    if (req.artifact && !(Array.isArray(ship.artifactsCollected) && ship.artifactsCollected.indexOf(req.artifact) >= 0)) {
+      return `Requires the ${req.artifact}.`;
+    }
+    if (typeof req.artifacts === "number" &&
+        (ship.artifactsCollected || []).filter(a => typeof a === "string" && a).length < req.artifacts) {
+      return `Requires ${req.artifacts} Precursor artifacts.`;
+    }
+    if (req.cargo) {
+      const need = req.cargo;
+      for (const k in need) {
+        if ((ship.cargo[k] || 0) < need[k]) {
+          const c = GameData.commodities[k] || { name: k };
+          return `Requires ${need[k]} x ${c.name}.`;
+        }
+      }
+    }
+    if (typeof req.credits === "number" && (ship.credits || 0) < req.credits) {
+      return `Requires ${req.credits.toLocaleString()} M.U.`;
+    }
+    if (req.quest && typeof QuestEngine !== "undefined" && !QuestEngine.isActive(req.quest) && !QuestEngine.isComplete(req.quest)) {
+      return "Not while that means nothing to you.";
+    }
+    if (req.region && (ship.region || "core") !== req.region) {
+      return "Not in this part of space.";
+    }
+    return null;
+  },
+
   loadDialogueChoices() {
     const optionsGrid = document.getElementById("dialogue-options");
     optionsGrid.innerHTML = "";
-    
-    // Display choices based on posture
-    const choices = this.alien.dialogue[this.posture].choices;
-    choices.forEach((choice, index) => {
+
+    const node = this.currentNode();
+    const choices = (node && node.choices) || [];
+
+    choices.forEach((choice) => {
+      if (this.choiceUsed(choice)) return;                 // said once, and once was enough
+      const blocked = this.choiceBlocked(choice);
+      if (blocked && choice.hideWhenBlocked) return;       // some options should not even hint
+
       const btn = document.createElement("button");
-      btn.className = "action-btn";
+      btn.className = "action-btn" + (blocked ? "" : (choice.highlight ? " yellow-glow" : ""));
       btn.textContent = choice.text;
-      btn.addEventListener("click", () => {
-        AudioController.playBeep('click');
-        this.selectChoice(choice);
-      });
+      if (blocked) {
+        btn.disabled = true;
+        btn.title = blocked;
+        btn.textContent = choice.text + "  —  " + blocked;
+      } else {
+        btn.addEventListener("click", () => {
+          AudioController.playBeep('click');
+          this.selectChoice(choice);
+        });
+      }
       optionsGrid.appendChild(btn);
     });
+
+    // Deeper in a conversation, offer the way back out rather than the postures
+    if (this.nodeId) {
+      const back = document.createElement("button");
+      back.className = "action-btn";
+      back.textContent = "◄ Change the subject";
+      back.addEventListener("click", () => {
+        AudioController.playBeep('click');
+        this.nodeId = null;
+        this.setPosture(this.posture);
+      });
+      optionsGrid.appendChild(back);
+      return;
+    }
 
     // Add posture change options
     if (this.posture !== "friendly") {
@@ -426,16 +529,44 @@ const Encounter = {
       }, choice.clue));
     }
 
+    this.markChoiceUsed(choice);
+
+    // A choice may open a follow-up node instead of ending the exchange. This is
+    // what turns nine flat lines into a conversation you can actually pursue.
+    if (choice.next) {
+      this.nodeId = choice.next;
+      const node = this.currentNode();
+      if (node && node.text) dialogueBox.innerHTML = node.text;
+      this.loadDialogueChoices();
+      return;
+    }
+
+    // Item-for-item exchange, authored as data:
+    //   action: "swap", swap: { give: {key,count}, get: {key,count} }
+    if (choice.action === "swap" && choice.swap) {
+      this.resolveSwap(choice, dialogueBox);
+      this.loadDialogueChoices();
+      return;
+    }
+
+    // Buying a specific thing they carry:
+    //   action: "buy", buy: { key, count, price }
+    if (choice.action === "buy" && choice.buy) {
+      this.resolvePurchase(choice, dialogueBox);
+      this.loadDialogueChoices();
+      return;
+    }
+
     // Action handling
     if (choice.action === "exit") {
       setTimeout(() => this.endEncounter(), 1500);
-    } 
+    }
     else if (choice.action === "combat") {
       this.enterCombat();
-    } 
+    }
     else if (choice.action === "trade") {
       setTimeout(() => this.startTrade(), 1200);
-    } 
+    }
     else if (choice.action === "surrender") {
       // Give away all cargo
       window.game.ship.cargo = {};
@@ -457,23 +588,93 @@ const Encounter = {
     }
   },
 
+  /**
+   * A named thing for a named thing. The captain's side is checked first, so a
+   * trade can never take goods without delivering.
+   */
+  resolveSwap(choice, dialogueBox) {
+    const ship = window.game.ship;
+    const give = choice.swap.give || {};
+    const get = choice.swap.get || {};
+    const giveC = GameData.commodities[give.key] || { name: give.key, mass: 1 };
+    const getC = GameData.commodities[get.key] || { name: get.key, mass: 1 };
+    const giveN = give.count || 1;
+    const getN = get.count || 1;
+
+    if ((ship.cargo[give.key] || 0) < giveN) {
+      dialogueBox.innerHTML = choice.refuse ||
+        `"You are offering something you do not have. Come back with ${giveN} ${giveC.name} and we will talk."`;
+      return false;
+    }
+
+    // Room for what comes back, after what goes out
+    ship.cargo[give.key] -= giveN;
+    if (ship.cargo[give.key] <= 0) delete ship.cargo[give.key];
+    const used = UI.calculateCargoMass(ship.cargo);
+    if (used + (getC.mass || 1) * getN > (ship.cargoCap || 20)) {
+      ship.cargo[give.key] = (ship.cargo[give.key] || 0) + giveN;   // put it back
+      dialogueBox.innerHTML = `"Your hold will not take it. Make room and we will trade."`;
+      return false;
+    }
+
+    ship.cargo[get.key] = (ship.cargo[get.key] || 0) + getN;
+    dialogueBox.innerHTML = choice.response ||
+      `"Done. ${giveN} ${giveC.name} for ${getN} ${getC.name}."`;
+    UI.addLog(`TRADE AGREED: ${giveN}x ${String(giveC.name).toUpperCase()} FOR ${getN}x ${String(getC.name).toUpperCase()}.`);
+    if (typeof AudioController !== "undefined") AudioController.playBeep("success");
+    if (typeof QuestEngine !== "undefined") {
+      QuestEngine.notify("trade", { raceKey: this.raceKey, gave: give.key, got: get.key });
+    }
+    UI.updateShip(ship);
+    window.game.saveGame();
+    return true;
+  },
+
+  /** Buying a specific item they carry, for credits. */
+  resolvePurchase(choice, dialogueBox) {
+    const ship = window.game.ship;
+    const buy = choice.buy;
+    const c = GameData.commodities[buy.key] || { name: buy.key, mass: 1 };
+    const n = buy.count || 1;
+    const price = buy.price || 500;
+
+    if ((ship.credits || 0) < price) {
+      dialogueBox.innerHTML = choice.refuse || `"Your credit does not cover it."`;
+      return false;
+    }
+    const used = UI.calculateCargoMass(ship.cargo);
+    if (used + (c.mass || 1) * n > (ship.cargoCap || 20)) {
+      dialogueBox.innerHTML = `"Your hold is full. We are not carrying it for you."`;
+      return false;
+    }
+
+    ship.credits -= price;
+    ship.cargo[buy.key] = (ship.cargo[buy.key] || 0) + n;
+    dialogueBox.innerHTML = choice.response || `"Agreed. ${n} ${c.name}, for ${price.toLocaleString()} M.U."`;
+    UI.addLog(`PURCHASED FROM ${String(this.alien.name).toUpperCase()}: ${n}x ${String(c.name).toUpperCase()} FOR ${price.toLocaleString()} M.U.`);
+    if (typeof AudioController !== "undefined") AudioController.playBeep("success");
+    UI.updateShip(ship);
+    window.game.saveGame();
+    return true;
+  },
+
   // Transition to Combat dashboard
   enterCombat() {
     this.inCombat = true;
     this.combatTimer = 0;
     this.fleeing = false;
-    
+
     // Hide standard dialog options
     document.getElementById("dialogue-options").classList.add("hidden");
-    
+
     // Show combat actions
     const combatActions = document.getElementById("combat-actions");
     combatActions.classList.remove("hidden");
-    
+
     // Update ammo counts
     document.getElementById("ammo-count").textContent = window.game.ship.missilesAmmo;
     document.getElementById("dialogue-box").innerHTML = "=== ALERT: WEAPONS HOT. DEFLECTOR SHIELDS ARMED. ===";
-    
+
     UI.addLog(`ENGAGING COMBAT PROTOCOLS WITH ${this.alien.name.toUpperCase()}`);
     AudioController.startAlarm();
   },
@@ -488,7 +689,7 @@ const Encounter = {
     if (!this.inCombat) return;
 
     this.combatTimer += dt;
-    
+
     // Alien fires weapons every 2 seconds
     if (this.combatTimer >= 2.0) {
       this.combatTimer = 0;
@@ -500,7 +701,7 @@ const Encounter = {
       this.fleeTimer += dt;
       const pct = Math.min(100, (this.fleeTimer / 3.0) * 100);
       document.getElementById("dialogue-box").innerHTML = `ENGAGING HYPER JUMP ESCAPE VECTOR... ${Math.round(pct)}%`;
-      
+
       if (this.fleeTimer >= 3.0) {
         this.fleeSuccess();
       }
@@ -509,7 +710,7 @@ const Encounter = {
 
   alienAttack() {
     const ship = window.game.ship;
-    
+
     // Determine damage based on alien blaster stats
     const rawDmg = this.alien.blaster * (0.8 + Math.random() * 0.4);
     AudioController.playLaser();
@@ -518,7 +719,7 @@ const Encounter = {
       const absorbs = Math.min(ship.shieldsCharge, rawDmg);
       ship.shieldsCharge = Math.max(0, ship.shieldsCharge - absorbs);
       UI.addLog(`SHIELDS IMPEDIMENT: Deflectors absorbed ${Math.round(absorbs)} damage.`);
-      
+
       const bleedDmg = rawDmg - absorbs;
       if (bleedDmg > 0) {
         this.applyHullDamage(bleedDmg);
@@ -535,10 +736,10 @@ const Encounter = {
     // Armor level mitigates direct hull damage (Class 1 = 100%, Class 5 = 60% damage)
     const armorMod = 1.1 - (ship.armorLevel * 0.1);
     const finalDmg = Math.ceil(amount * armorMod);
-    
+
     ship.hull = Math.max(0, ship.hull - finalDmg);
     UI.addLog(`HULL ALERT: Vessel received ${finalDmg} structural damage!`);
-    
+
     if (ship.hull <= 0) {
       this.triggerGameOver();
     }
@@ -620,9 +821,9 @@ const Encounter = {
       AudioController.stopAlarm();
       AudioController.playExplosion();
       AudioController.playVictory();
-      
+
       UI.addLog(`VICTORY: Enemy vessel destroyed.`);
-      
+
       // Salvage cargo loot
       const ship = window.game.ship;
       let salvaged = 0;
@@ -654,7 +855,7 @@ const Encounter = {
     // Transition back to Dialog menu
     document.getElementById("combat-actions").classList.add("hidden");
     document.getElementById("dialogue-options").classList.remove("hidden");
-    
+
     this.setPosture("friendly");
   },
 
@@ -676,7 +877,7 @@ const Encounter = {
     AudioController.stopAlarm();
     AudioController.playDefeat();
     alert("CRITICAL DAMAGE: Ship Hull Destroyed. GAME OVER.");
-    
+
     // Clear save and reload page
     window.game.resetGameData();
     window.location.reload();
@@ -686,11 +887,11 @@ const Encounter = {
     this.active = false;
     this.inCombat = false;
     AudioController.stopAlarm();
-    
+
     window.game.encounterCooldown = 25.0; // 25 seconds of clear flight immunity
     window.game.viewState = "navigation";
     UI.switchView("navigation");
-    
+
     // Re-engage engine hum
     AudioController.startEngine();
     window.game.saveGame();
@@ -723,7 +924,7 @@ const Encounter = {
       const count = ship.cargo[key];
       if (count > 0) {
         hasPlayerInv = true;
-        const item = GameData.commodities[key];
+        const item = GameData.commodities[key] || { name: key, sellVal: 10, buyVal: 10, mass: 1 };
         const row = document.createElement("div");
         row.className = `barter-item ${this.playerOfferItems[key] ? 'selected' : ''}`;
         row.innerHTML = `<span>${item.name} (${count})</span> <span>Value: ${item.sellVal} M.U.</span>`;
@@ -740,7 +941,7 @@ const Encounter = {
     this.alien.cargo.forEach((c, idx) => {
       if (c.count > 0) {
         hasAlienInv = true;
-        const item = GameData.commodities[c.type];
+        const item = GameData.commodities[c.type] || { name: c.type, sellVal: 10, buyVal: 10, mass: 1 };
         const row = document.createElement("div");
         const key = `alien_${idx}`;
         row.className = `barter-item ${this.alienOfferItems[key] ? 'selected' : ''}`;
@@ -793,7 +994,7 @@ const Encounter = {
 
     // Initial haggle offset is the difference
     this.haggleVal = playerSum - alienSum;
-    
+
     // Update labels
     const offerLabel = document.getElementById("offer-value");
     offerLabel.textContent = this.haggleVal;
@@ -808,7 +1009,7 @@ const Encounter = {
     AudioController.playBeep('click');
     // Adjust the net credits offer
     this.haggleVal += Math.round(this.haggleVal * percent) || (percent > 0 ? 10 : -10);
-    
+
     const offerLabel = document.getElementById("offer-value");
     offerLabel.textContent = this.haggleVal;
     if (this.haggleVal < 0) {
@@ -821,12 +1022,12 @@ const Encounter = {
   submitHaggleOffer() {
     const ship = window.game.ship;
     const commSkill = ship.crew.comm ? ship.crew.comm.skill : 40;
-    
+
     // Haggling evaluation formula
     // Spemin: very cowardly, accepts low deals. Veloxi: strict.
     const strictness = this.raceKey === "spemin" ? 0.75 : this.raceKey === "veloxi" ? 1.05 : 1.2;
     const charismaFactor = 1.0 + (commSkill / 200); // +0% to +50% advantage
-    
+
     let playerSum = 0;
     let alienSum = 0;
 
@@ -850,7 +1051,7 @@ const Encounter = {
       // Accept deal!
       AudioController.playVictory();
       UI.addLog("COMMERCE TRANSACTION ACCEPTED.");
-      
+
       // Perform trades
       // 1. Remove player items
       for (let key in this.playerOfferItems) {
@@ -861,7 +1062,7 @@ const Encounter = {
       for (let key in this.alienOfferItems) {
         const itemType = this.alienOfferItems[key].type;
         ship.cargo[itemType] = (ship.cargo[itemType] || 0) + 1;
-        
+
         // Remove from alien inventory
         const alienIdx = parseInt(key.split("_")[1]);
         this.alien.cargo[alienIdx].count--;
@@ -875,7 +1076,7 @@ const Encounter = {
     } else {
       AudioController.playBeep('error');
       this.haggleTolerances--;
-      
+
       const reactionNode = document.getElementById("haggle-reaction");
       if (this.haggleTolerances > 0) {
         reactionNode.textContent = `"Your terms are unacceptable. Re-calculate transaction values."`;

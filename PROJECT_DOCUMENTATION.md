@@ -538,6 +538,16 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Ids are now region-tagged (`wh_core_1`, `wh_the_marrow_1`). `migrateIds()` re-keys old saves and carries `pairId` references, `traversedLinks` and `contactLog` across with them, leaving every coordinate untouched - nothing a captain has charted or flown is forgotten.
     * Sweep grew to **357 checks**.
 
+92. **Conversations That Go Somewhere, And Trade For Named Things (v1.16.0)**:
+    * Alien dialogue was **nine flat lines per race** - three postures of three choices - and selecting one printed a response *without re-rendering the options*, so the conversation could not progress. That is why it felt limited: there was nowhere for it to go.
+    * **Follow-up nodes.** A choice may carry `next`, which opens a node with its own text and choices, and a `◄ Change the subject` option walks back out. Thrynn now goes top level -> business -> information, three levels deep.
+    * **Conditional lines.** `requires: { clue, volume, artifact, artifacts, cargo, credits, quest, region }` gates a choice. A blocked option shows the reason inline ("Requires 3 Precursor artifacts") unless it declares `hideWhenBlocked`, which is how the Veloxi will only discuss the structures **while you are standing inside the Lattice**.
+    * **One-time lines.** `once: "id"` retires a choice permanently, tracked in `ship.dialogueSeen`, so the Uhlek's single answer stays a single answer.
+    * **Trade for a named thing**, both directions and both authored as data: `action: "swap"` exchanges specific goods (2 precursor alloy for 6 iridium), and `action: "buy"` purchases a specific lot for credits. Both check the hold and the tank before anything moves - a swap that would overflow the hold puts the goods back rather than eating them, which the sweep verifies explicitly.
+    * `js/content/dialogue.js` (NEW) extends all four races without touching `data.js`. The Spemin sell contraband and trade glass for living things; the Thrynn deal metal, alloy and information; the Veloxi permit exactly three questions; the Uhlek say one thing, once, and close the channel.
+    * Also fixed while in there: the barter screen looked up `GameData.commodities[key]` unguarded on both sides, so one unrecognised item in either hold would have thrown - the same shape as the alien-port bug in v1.15.1.
+    * Sweep grew to **366 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

@@ -548,6 +548,17 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Also fixed while in there: the barter screen looked up `GameData.commodities[key]` unguarded on both sides, so one unrecognised item in either hold would have thrown - the same shape as the alien-port bug in v1.15.1.
     * Sweep grew to **366 checks**.
 
+93. **PHASE A1 - The Content Validator (v1.17.0)**:
+    * First step toward AI-authorable content: before any generated pack can be trusted, there has to be one definition of what "valid game content" means. **That definition already existed - it was just scattered across roughly 25 regression checks**, each one written after a real bug. `js/validate.js` (NEW) extracts it into 17 rules across four concerns:
+      * **References** - commodity keys, module keys, dialogue follow-up targets, archive wiring, puzzle sites, quest objectives, region gates
+      * **Coordinates** - in-bounds, clues pointing at real landmarks, and no gate arrival inside a gravity well
+      * **Uniqueness** - ids within a collection, system and singularity names across regions, and **planet names**, because a surface is generated from the name and two planets sharing one would be the same world
+      * **Completeness** - commodity shape and rarity tier, implemented nebula and consumable effects, every flyable race contactable
+    * **The validator's honesty check**: it must report **zero errors against the entire shipped game**. It does - 17 rules, 0 errors, 0 warnings. If a rule ever flags real working content, the rule is wrong and gets fixed. That happened on the first run: the resource-profile rule assumed bare commodity keys when profiles actually hold weighted `{ key, w }` records. The rule was corrected, not the content.
+    * The sweep now drives the validator against **nine deliberately broken clones**, one per bug class this project has actually shipped - unknown commodity key (v1.15.1), dangling clue coordinates, duplicate name across regions (v1.15.5), arrival inside a well (v1.14.1), reused id across regions (v1.15.6), unimplemented effect (v1.12.2), dangling dialogue node (v1.16.0), unreachable region, uncontactable race in traffic. Every one is rejected, and an unmodified clone still passes, so the rejections mean something.
+    * Both the sweep and the forthcoming pack loader call the same `ContentValidator.validate()`, so there is no second opinion to drift.
+    * Sweep grew to **370 checks**.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

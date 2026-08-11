@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Build output goes outside the repo. The game half of this repo is a
+    zero-dependency browser app that people open straight off the filesystem;
+    dropping bin/obj trees next to it helps nobody. This also matches the
+    house rule about keeping write-heavy build output out of synced folders.
+  -->
+  <PropertyGroup>
+    <BaseOutputPath>$(LOCALAPPDATA)\StarflightServerBuild\$(MSBuildProjectName)\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(LOCALAPPDATA)\StarflightServerBuild\$(MSBuildProjectName)\obj\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

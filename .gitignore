@@ -8,3 +8,10 @@ Thumbs.db
 *.log
 *.tmp
 .gstack/
+
+# Server build output (also redirected out of the repo by server/Directory.Build.props)
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal

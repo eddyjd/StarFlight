@@ -42,9 +42,33 @@ const CloudSync = {
     try { s = JSON.parse(localStorage.getItem(this.STORE_KEY) || "null"); } catch (e) { s = null; }
     this.state = Object.assign({
       url: "", key: "", device: this.defaultDeviceName(),
-      lastRevision: 0, lastSyncUtc: "", autoPush: false
+      lastRevision: 0, lastSlot: "", lastSyncUtc: "", autoPush: false
     }, s || {});
     return this.state;
+  },
+
+  /**
+   * Which relay slot the remembered revision belongs to.
+   *
+   * `lastRevision` is what the server's concurrency guard compares against, and
+   * it only means anything for the address and key it was obtained from. Point
+   * the panel at a different relay or paste a different key and that number
+   * describes somebody else's slot - if it happened to match, the write would
+   * sail straight past the guard and overwrite a save this device never saw.
+   *
+   * Recording the slot alongside the number is sturdier than trying to notice
+   * the moment it changes: a half-typed key is simply a slot we have no revision
+   * for, which is the truth.
+   */
+  slotId(s) {
+    const st = s || this.load();
+    return String(st.url || "").replace(/\/+$/, "") + "|" + String(st.key || "");
+  },
+
+  /** The revision to claim we are working from - 0 unless it is this slot's. */
+  effectiveBase() {
+    const s = this.load();
+    return (s.lastSlot && s.lastSlot === this.slotId(s)) ? (s.lastRevision || 0) : 0;
   },
 
   save() {
@@ -162,7 +186,7 @@ const CloudSync = {
       const path = force ? "/api/saves/force" : "/api/saves";
       const r = await this.call(path, {
         method: "PUT",
-        body: { baseRevision: s.lastRevision || 0, device: s.device || "unknown", save: ship }
+        body: { baseRevision: this.effectiveBase(), device: s.device || "unknown", save: ship }
       });
 
       if (r.status === 409 && r.body) {
@@ -174,6 +198,7 @@ const CloudSync = {
       if (!r.ok) return { ok: false, message: "Upload refused (" + (r.error || r.status) + ")." };
 
       s.lastRevision = (r.body && r.body.revision) || s.lastRevision;
+      s.lastSlot = this.slotId(s);
       s.lastSyncUtc = new Date().toISOString();
       this.lastConflict = null;
       this.save();
@@ -206,6 +231,7 @@ const CloudSync = {
       localStorage.setItem("starflight_odyssey_save", JSON.stringify(r.body.save));
       const s = this.load();
       s.lastRevision = r.body.revision || 0;
+      s.lastSlot = this.slotId(s);
       s.lastSyncUtc = new Date().toISOString();
       this.lastConflict = null;
       this.save();
@@ -233,7 +259,7 @@ const CloudSync = {
       configured: true,
       reachable: r.ok,
       error: r.error,
-      localRevision: s.lastRevision || 0,
+      localRevision: this.effectiveBase(),
       serverRevision: (r.body && r.body.revision) || 0,
       serverDevice: (r.body && r.body.device) || "",
       serverUpdatedUtc: (r.body && r.body.updatedUtc) || "",

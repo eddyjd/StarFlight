@@ -1619,6 +1619,18 @@ const UI = {
     const auto = document.getElementById("cloud-auto");
     if (auto) auto.checked = !!s.autoPush;
 
+    // Typing is enough. No button press should be a precondition for the panel
+    // and the module agreeing with each other.
+    if (!this._cloudInputsWired) {
+      ["cloud-url", "cloud-key", "cloud-device"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("input", () => UI.cloudAdoptPanel());
+      });
+      const auto = document.getElementById("cloud-auto");
+      if (auto) auto.addEventListener("change", () => UI.cloudAdoptPanel());
+      this._cloudInputsWired = true;
+    }
+
     const modal = document.getElementById("cloud-modal");
     if (modal) modal.classList.remove("hidden");
     this.cloudRenderConflict();
@@ -1636,42 +1648,48 @@ const UI = {
     if (box) box.innerHTML = `<span style="color:${colour || "#00ff66"};">${String(html).replace(/</g, "&lt;")}</span>`;
   },
 
-  cloudSaveSettings() {
+  /**
+   * Take whatever is in the panel into CloudSync, silently.
+   *
+   * EVERY cloud action calls this first. The original code only did it on the
+   * buttons I happened to think of, so typing an address and key and pressing
+   * DOWNLOAD went to a module that still had empty settings and answered "cloud
+   * save is not set up" - correctly, and uselessly. Reading the panel is now the
+   * first line of every action AND live on input, so forgetting one call site
+   * cannot bring the bug back.
+   *
+   * No revision bookkeeping here on purpose: which slot a revision belongs to is
+   * recorded with the revision itself (CloudSync.slotId), so a half-typed key is
+   * simply a slot with no known revision rather than a wrong one.
+   */
+  cloudAdoptPanel() {
+    if (typeof CloudSync === "undefined") return;
     const s = CloudSync.load();
-    const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
-    s.url = get("cloud-url");
-    s.key = get("cloud-key");
-    s.device = get("cloud-device") || CloudSync.defaultDeviceName();
+    const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
+    const url = get("cloud-url"), key = get("cloud-key"), device = get("cloud-device");
+    if (url !== null) s.url = url;
+    if (key !== null) s.key = key;
+    if (device !== null) s.device = device || CloudSync.defaultDeviceName();
     const auto = document.getElementById("cloud-auto");
-    s.autoPush = !!(auto && auto.checked);
-
-    // A different key or a different relay is a DIFFERENT SLOT, so the revision
-    // this device remembers no longer describes anything. Carrying it over is not
-    // cosmetic: baseRevision is what the concurrency check compares, so a stale 4
-    // pointed at a slot that happens to be on 4 would sail straight past the
-    // conflict guard and overwrite a save this device has never seen.
-    const wasUrl = s.__lastUrl, wasKey = s.__lastKey;
-    if ((wasUrl !== undefined && wasUrl !== s.url) || (wasKey !== undefined && wasKey !== s.key)) {
-      s.lastRevision = 0;
-      s.lastSyncUtc = "";
-      CloudSync.lastConflict = null;
-    }
-    s.__lastUrl = s.url;
-    s.__lastKey = s.key;
+    if (auto) s.autoPush = !!auto.checked;
     CloudSync.save();
+  },
+
+  cloudSaveSettings() {
+    this.cloudAdoptPanel();
     this.cloudSay("SETTINGS SAVED.", "#00ff66");
     this.cloudRefresh();
   },
 
   async cloudTest() {
-    this.cloudSaveSettings();
+    this.cloudAdoptPanel();
     this.cloudSay("TESTING...", "#ffcc00");
     const r = await CloudSync.testConnection();
     this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");
   },
 
   async cloudNewKey() {
-    this.cloudSaveSettings();
+    this.cloudAdoptPanel();
     if (CloudSync.load().key &&
         !confirm("This device already has a captain key. Issuing a new one starts an empty slot and " +
                  "does NOT delete the old one - but you will need the old key to reach it again.\n\nContinue?")) {
@@ -1687,6 +1705,7 @@ const UI = {
   },
 
   async cloudRefresh() {
+    this.cloudAdoptPanel();
     const line = document.getElementById("cloud-status-line");
     if (!CloudSync.configured()) {
       if (line) line.textContent = "NOT SET UP - PLAYING OFFLINE";
@@ -1704,7 +1723,7 @@ const UI = {
   },
 
   async cloudPush() {
-    this.cloudSaveSettings();
+    this.cloudAdoptPanel();
     this.cloudSay("UPLOADING...", "#ffcc00");
     const r = await CloudSync.push(false);
     if (r.conflict) { this.cloudSay(r.message.toUpperCase(), "#ff5555"); this.cloudRenderConflict(); return; }
@@ -1714,6 +1733,7 @@ const UI = {
   },
 
   async cloudForce() {
+    this.cloudAdoptPanel();
     if (!confirm("Overwrite the relay's newer save with this device's?\n\n" +
                  "The relay keeps the replaced revision in its history, so this can be undone.")) return;
     this.cloudSay("OVERWRITING...", "#ffcc00");
@@ -1724,6 +1744,7 @@ const UI = {
   },
 
   async cloudPull() {
+    this.cloudAdoptPanel();
     if (!confirm("Replace this device's save with the relay's copy?\n\n" +
                  "The current save is kept locally and UNDO LAST DOWNLOAD brings it back.")) return;
     this.cloudSay("DOWNLOADING...", "#ffcc00");
@@ -1739,6 +1760,7 @@ const UI = {
   },
 
   cloudRestore() {
+    this.cloudAdoptPanel();
     if (!confirm("Put back the save from before the last download?")) return;
     const r = CloudSync.restoreBeforePull();
     this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");

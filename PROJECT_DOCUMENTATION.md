@@ -681,6 +681,28 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
       immutable because saves pin it - the groundwork laid in v1.17.6.
     * Sweep at **408 checks**, three consecutive clean runs.
 
+100. **"CLOUD SAVE IS NOT SET UP" WITH THE PANEL FILLED IN (v1.18.1)**:
+    * Reported from real use, reproduced exactly: type a relay address and a captain key into the
+      panel, press **DOWNLOAD RELAY SAVE**, and it answers `CLOUD SAVE IS NOT SET UP.` The status
+      line likewise sat at `NOT SET UP - PLAYING OFFLINE` no matter what was typed.
+    * The cause was mine and unglamorous. `cloudPush`, `cloudTest` and `cloudNewKey` read the panel
+      before acting; **`cloudPull`, `cloudForce`, `cloudRefresh` and `cloudRestore` did not.** They
+      went straight to a module whose settings were still empty, which then correctly reported that
+      nothing was configured. Every button that could plausibly be the *first* one a captain presses
+      on a second device was in the broken half.
+    * Fixed structurally rather than by patching three call sites, because forgetting one is exactly
+      how it happened: reading the panel is now the first line of **every** action, and the fields
+      also adopt live on `input`. Either mechanism alone is sufficient; both means a future action
+      added without the call still works.
+    * **The revision bookkeeping got better in the process.** It used to try to notice the moment the
+      key changed and zero `lastRevision`, which made a half-typed key look like a new slot and could
+      force a spurious conflict. The revision is now stored **with the slot it came from**
+      (`CloudSync.slotId`), and `effectiveBase()` claims it only for that slot. Measured: 7 for its
+      own slot, 0 for a foreign one, and 7 again on returning - the number is never destroyed, merely
+      not claimed where it would be a lie. The concurrency guard it feeds is unchanged and still the
+      thing standing between two devices and a silent overwrite.
+    * Sweep at **409 checks**, three consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

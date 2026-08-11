@@ -26,10 +26,11 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.17.6</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.17.6</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.18.0</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.18.0</span></div>
         <div style="display: flex; gap: 8px;">
           <button id="packsBtn" class="sound-btn" onclick="try{UI.openPacksModal()}catch(e){alert('PACKS FAILED: '+e.message)}">CONTENT PACKS</button>
+          <button id="cloudBtn" class="sound-btn" onclick="try{UI.openCloudModal()}catch(e){alert('CLOUD FAILED: '+e.message)}">CLOUD SAVE</button>
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
           <button id="helpBtn" class="sound-btn" onclick="UI.openHelpModal()">HELP [?]</button>
@@ -721,6 +722,84 @@
     </div>
   </div>
 
+  <div id="cloud-modal" class="modal hidden">
+    <div class="modal-content" style="width: 780px; max-width: 96%; padding: 18px; box-sizing: border-box; border-color:#00ccff;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #00ccff; padding-bottom:6px; margin-bottom:12px;">
+        <h2 style="color:#00ccff; margin:0; border:none; padding:0;">☁ CLOUD SAVE</h2>
+        <span id="cloud-status-line" style="font-size:11px; color:#88ccaa;"></span>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#00ff66;">RELAY</span></div>
+        <div class="log-card-body" style="font-size:12px; line-height:1.7;">
+          Optional. With nothing set here the game runs exactly as it always has - offline, off the
+          filesystem, no account. Your save stays on this machine either way; this only keeps a copy
+          so another device can carry on from it.
+          <div style="display:flex; gap:8px; align-items:center; margin:10px 0 6px 0; flex-wrap:wrap;">
+            <label style="font-size:11px; color:#88ccaa; min-width:96px;">RELAY ADDRESS</label>
+            <input id="cloud-url" type="text" spellcheck="false" placeholder="http://localhost:8792"
+              style="flex:1; min-width:240px; background:#04140a; color:#00ff66; border:1px solid rgba(0,255,102,0.35);
+                     font-family:'Share Tech Mono',monospace; font-size:11px; padding:6px;">
+            <button class="glow-btn" onclick="try{UI.cloudTest()}catch(e){alert(e.message)}">TEST</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap;">
+            <label style="font-size:11px; color:#88ccaa; min-width:96px;">CAPTAIN KEY</label>
+            <input id="cloud-key" type="text" spellcheck="false" placeholder="SFO-..."
+              style="flex:1; min-width:240px; background:#04140a; color:#00ff66; border:1px solid rgba(0,255,102,0.35);
+                     font-family:'Share Tech Mono',monospace; font-size:11px; padding:6px;">
+            <button class="glow-btn" onclick="try{UI.cloudNewKey()}catch(e){alert(e.message)}">NEW KEY</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap;">
+            <label style="font-size:11px; color:#88ccaa; min-width:96px;">THIS DEVICE</label>
+            <input id="cloud-device" type="text" spellcheck="false" placeholder="Desktop"
+              style="width:180px; background:#04140a; color:#00ff66; border:1px solid rgba(0,255,102,0.35);
+                     font-family:'Share Tech Mono',monospace; font-size:11px; padding:6px;">
+            <label style="font-size:11px; color:#88ccaa; display:flex; align-items:center; gap:6px;">
+              <input id="cloud-auto" type="checkbox"> upload automatically after each save
+            </label>
+            <button class="glow-btn green-glow" onclick="try{UI.cloudSaveSettings()}catch(e){alert(e.message)}">SAVE SETTINGS</button>
+          </div>
+          <div style="font-size:11px; color:#ffcc00; margin-top:6px;">
+            The captain key is the only credential and it is shown once. Anyone holding it can read and
+            overwrite this save. Copy it to your other device and keep it somewhere you would keep a password.
+          </div>
+        </div>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#ffcc00;">SYNC</span></div>
+        <div class="log-card-body" style="font-size:12px; line-height:1.6;">
+          <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+            <button class="glow-btn" onclick="try{UI.cloudRefresh()}catch(e){alert(e.message)}">REFRESH</button>
+            <button class="glow-btn green-glow" onclick="try{UI.cloudPush()}catch(e){alert(e.message)}">UPLOAD THIS SAVE</button>
+            <button class="glow-btn" onclick="try{UI.cloudPull()}catch(e){alert(e.message)}">DOWNLOAD RELAY SAVE</button>
+            <button class="glow-btn red-glow" onclick="try{UI.cloudRestore()}catch(e){alert(e.message)}">UNDO LAST DOWNLOAD</button>
+          </div>
+          <div id="cloud-result" style="font-size:11px; line-height:1.7; white-space:pre-wrap;"></div>
+        </div>
+      </div>
+
+      <div id="cloud-conflict-card" class="log-card hidden" style="margin-bottom:12px; border-color:#ff5555;">
+        <div class="log-card-header"><span style="color:#ff5555;">TWO VERSIONS OF THIS VOYAGE</span></div>
+        <div class="log-card-body" style="font-size:12px; line-height:1.7;">
+          <div id="cloud-conflict-body"></div>
+          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <button class="glow-btn red-glow" onclick="try{UI.cloudForce()}catch(e){alert(e.message)}">KEEP MINE, OVERWRITE THE RELAY</button>
+            <button class="glow-btn" onclick="try{UI.cloudPull()}catch(e){alert(e.message)}">TAKE THE RELAY'S COPY</button>
+          </div>
+          <div style="font-size:11px; color:#88ccaa; margin-top:8px;">
+            Whichever you choose, the other one stays in the relay's history and can be brought back.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <span style="font-size:11px; color:#889999;">Run the relay yourself: <code>server/README.md</code>.</span>
+        <button class="glow-btn" onclick="try{UI.closeCloudModal()}catch(e){alert(e.message)}">CLOSE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <div id="rescue-modal" class="modal hidden">
     <div class="modal-content" style="width: 680px; max-width: 95%; padding: 18px; box-sizing: border-box; border-color:#ff5555;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ff5555; padding-bottom:6px; margin-bottom:12px;">
@@ -891,24 +970,24 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.17.6"></script>
-  <script src="js/audio.js?v=1.17.6"></script>
-  <script src="js/ui.js?v=1.17.6"></script>
-  <script src="js/spaceport.js?v=1.17.6"></script>
-  <script src="js/navigation.js?v=1.17.6"></script>
-  <script src="js/planet.js?v=1.17.6"></script>
-  <script src="js/content/quests.js?v=1.17.6"></script>
-  <script src="js/content/archives.js?v=1.17.6"></script>
-  <script src="js/content/puzzles.js?v=1.17.6"></script>
-  <script src="js/content/resources.js?v=1.17.6"></script>
-  <script src="js/content/regions.js?v=1.17.6"></script>
-  <script src="js/clues.js?v=1.17.6"></script>
-  <script src="js/quest.js?v=1.17.6"></script>
-  <script src="js/archive.js?v=1.17.6"></script>
-  <script src="js/region.js?v=1.17.6"></script>
-  <script src="js/validate.js?v=1.17.6"></script>
-  <script src="js/packs.js?v=1.17.6"></script>
-  <script src="js/content/packs/manifest.js?v=1.17.6"></script>
+  <script src="js/data.js?v=1.18.0"></script>
+  <script src="js/audio.js?v=1.18.0"></script>
+  <script src="js/ui.js?v=1.18.0"></script>
+  <script src="js/spaceport.js?v=1.18.0"></script>
+  <script src="js/navigation.js?v=1.18.0"></script>
+  <script src="js/planet.js?v=1.18.0"></script>
+  <script src="js/content/quests.js?v=1.18.0"></script>
+  <script src="js/content/archives.js?v=1.18.0"></script>
+  <script src="js/content/puzzles.js?v=1.18.0"></script>
+  <script src="js/content/resources.js?v=1.18.0"></script>
+  <script src="js/content/regions.js?v=1.18.0"></script>
+  <script src="js/clues.js?v=1.18.0"></script>
+  <script src="js/quest.js?v=1.18.0"></script>
+  <script src="js/archive.js?v=1.18.0"></script>
+  <script src="js/region.js?v=1.18.0"></script>
+  <script src="js/validate.js?v=1.18.0"></script>
+  <script src="js/packs.js?v=1.18.0"></script>
+  <script src="js/content/packs/manifest.js?v=1.18.0"></script>
   <script>
     // Inject every pack the manifest lists, plus anything installed through the
     // in-game importer.
@@ -944,14 +1023,15 @@
       } catch (e) { console.error("ContentPacks: stored packs unreadable", e); }
     })();
   </script>
-  <script src="js/content/consumables.js?v=1.17.6"></script>
-  <script src="js/content/dialogue.js?v=1.17.6"></script>
-  <script src="js/consumables.js?v=1.17.6"></script>
-  <script src="js/content/signals.js?v=1.17.6"></script>
-  <script src="js/distress.js?v=1.17.6"></script>
-  <script src="js/wormholes.js?v=1.17.6"></script>
-  <script src="js/puzzle.js?v=1.17.6"></script>
-  <script src="js/encounter.js?v=1.17.6"></script>
-  <script src="js/game.js?v=1.17.6"></script>
+  <script src="js/content/consumables.js?v=1.18.0"></script>
+  <script src="js/content/dialogue.js?v=1.18.0"></script>
+  <script src="js/consumables.js?v=1.18.0"></script>
+  <script src="js/content/signals.js?v=1.18.0"></script>
+  <script src="js/distress.js?v=1.18.0"></script>
+  <script src="js/wormholes.js?v=1.18.0"></script>
+  <script src="js/puzzle.js?v=1.18.0"></script>
+  <script src="js/encounter.js?v=1.18.0"></script>
+  <script src="js/cloud.js?v=1.18.0"></script>
+    <script src="js/game.js?v=1.18.0"></script>
 </body>
 </html>

@@ -1521,7 +1521,7 @@ const UI = {
     "cargo-modal", "tv-cargo-modal", "starmap-modal", "archive-modal",
     "puzzle-modal", "rescue-modal", "port-modal", "locker-modal",
     "captains-log-modal", "help-modal", "legend-modal",
-    "landing-site-modal", "victory-modal", "packs-modal"
+    "landing-site-modal", "victory-modal", "packs-modal", "cloud-modal"
   ],
 
   setupModalBackdrops() {
@@ -1601,6 +1601,181 @@ const UI = {
   closePacksModal() {
     const modal = document.getElementById("packs-modal");
     if (modal) modal.classList.add("hidden");
+  },
+
+  // ---- cloud save ---------------------------------------------------------
+  //
+  // Every one of these is a no-op when nothing is configured, and every failure
+  // is a line in the panel rather than an exception. The game has to keep working
+  // with the relay switched off, unreachable, or never set up at all.
+
+  openCloudModal() {
+    if (typeof CloudSync === "undefined") { alert("Cloud sync module not loaded."); return; }
+    const s = CloudSync.load();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ""; };
+    set("cloud-url", s.url);
+    set("cloud-key", s.key);
+    set("cloud-device", s.device);
+    const auto = document.getElementById("cloud-auto");
+    if (auto) auto.checked = !!s.autoPush;
+
+    const modal = document.getElementById("cloud-modal");
+    if (modal) modal.classList.remove("hidden");
+    this.cloudRenderConflict();
+    this.cloudRefresh();
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  closeCloudModal() {
+    const modal = document.getElementById("cloud-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  cloudSay(html, colour) {
+    const box = document.getElementById("cloud-result");
+    if (box) box.innerHTML = `<span style="color:${colour || "#00ff66"};">${String(html).replace(/</g, "&lt;")}</span>`;
+  },
+
+  cloudSaveSettings() {
+    const s = CloudSync.load();
+    const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+    s.url = get("cloud-url");
+    s.key = get("cloud-key");
+    s.device = get("cloud-device") || CloudSync.defaultDeviceName();
+    const auto = document.getElementById("cloud-auto");
+    s.autoPush = !!(auto && auto.checked);
+
+    // A different key or a different relay is a DIFFERENT SLOT, so the revision
+    // this device remembers no longer describes anything. Carrying it over is not
+    // cosmetic: baseRevision is what the concurrency check compares, so a stale 4
+    // pointed at a slot that happens to be on 4 would sail straight past the
+    // conflict guard and overwrite a save this device has never seen.
+    const wasUrl = s.__lastUrl, wasKey = s.__lastKey;
+    if ((wasUrl !== undefined && wasUrl !== s.url) || (wasKey !== undefined && wasKey !== s.key)) {
+      s.lastRevision = 0;
+      s.lastSyncUtc = "";
+      CloudSync.lastConflict = null;
+    }
+    s.__lastUrl = s.url;
+    s.__lastKey = s.key;
+    CloudSync.save();
+    this.cloudSay("SETTINGS SAVED.", "#00ff66");
+    this.cloudRefresh();
+  },
+
+  async cloudTest() {
+    this.cloudSaveSettings();
+    this.cloudSay("TESTING...", "#ffcc00");
+    const r = await CloudSync.testConnection();
+    this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");
+  },
+
+  async cloudNewKey() {
+    this.cloudSaveSettings();
+    if (CloudSync.load().key &&
+        !confirm("This device already has a captain key. Issuing a new one starts an empty slot and " +
+                 "does NOT delete the old one - but you will need the old key to reach it again.\n\nContinue?")) {
+      return;
+    }
+    this.cloudSay("REQUESTING A KEY...", "#ffcc00");
+    const r = await CloudSync.createKey();
+    if (!r.ok) { this.cloudSay(r.message.toUpperCase(), "#ff5555"); return; }
+    const el = document.getElementById("cloud-key");
+    if (el) el.value = r.key;
+    this.cloudSay("NEW CAPTAIN KEY:\n" + r.key + "\n\nCOPY IT NOW. IT IS NOT SHOWN AGAIN.", "#ffcc00");
+    this.cloudRefresh();
+  },
+
+  async cloudRefresh() {
+    const line = document.getElementById("cloud-status-line");
+    if (!CloudSync.configured()) {
+      if (line) line.textContent = "NOT SET UP - PLAYING OFFLINE";
+      return;
+    }
+    if (line) line.textContent = "CHECKING...";
+    const st = await CloudSync.status();
+    if (!line) return;
+    if (!st.reachable) { line.textContent = "RELAY UNREACHABLE (" + (st.error || "no answer") + ")"; return; }
+    line.textContent = st.empty
+      ? "RELAY EMPTY - NOTHING UPLOADED YET"
+      : `RELAY REVISION ${st.serverRevision}` +
+        (st.serverDevice ? ` FROM ${String(st.serverDevice).toUpperCase()}` : "") +
+        ` / THIS DEVICE AT ${st.localRevision}`;
+  },
+
+  async cloudPush() {
+    this.cloudSaveSettings();
+    this.cloudSay("UPLOADING...", "#ffcc00");
+    const r = await CloudSync.push(false);
+    if (r.conflict) { this.cloudSay(r.message.toUpperCase(), "#ff5555"); this.cloudRenderConflict(); return; }
+    this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");
+    if (r.ok) this.addLog("SAVE MIRRORED TO RELAY. REVISION " + r.revision + ".");
+    this.cloudRefresh();
+  },
+
+  async cloudForce() {
+    if (!confirm("Overwrite the relay's newer save with this device's?\n\n" +
+                 "The relay keeps the replaced revision in its history, so this can be undone.")) return;
+    this.cloudSay("OVERWRITING...", "#ffcc00");
+    const r = await CloudSync.push(true);
+    this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");
+    if (r.ok) { CloudSync.lastConflict = null; this.cloudRenderConflict(); }
+    this.cloudRefresh();
+  },
+
+  async cloudPull() {
+    if (!confirm("Replace this device's save with the relay's copy?\n\n" +
+                 "The current save is kept locally and UNDO LAST DOWNLOAD brings it back.")) return;
+    this.cloudSay("DOWNLOADING...", "#ffcc00");
+    const r = await CloudSync.pull();
+    this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");
+    if (r.ok) {
+      CloudSync.lastConflict = null;
+      // Reload rather than hot-swapping: loadGame runs migrations, the pack audit
+      // and the region restore, and half-applying those to a running game is how
+      // you get a ship standing somewhere that does not exist.
+      setTimeout(() => location.reload(), 1200);
+    }
+  },
+
+  cloudRestore() {
+    if (!confirm("Put back the save from before the last download?")) return;
+    const r = CloudSync.restoreBeforePull();
+    this.cloudSay(r.message.toUpperCase(), r.ok ? "#00ff66" : "#ff5555");
+    if (r.ok) setTimeout(() => location.reload(), 1200);
+  },
+
+  cloudRenderConflict() {
+    const card = document.getElementById("cloud-conflict-card");
+    const body = document.getElementById("cloud-conflict-body");
+    const c = CloudSync.lastConflict;
+    if (!card || !body) return;
+    if (!c) { card.classList.add("hidden"); return; }
+
+    // Describe both sides in terms a captain can judge, not revision numbers.
+    const describe = (ship) => {
+      if (!ship) return "unreadable";
+      const bits = [];
+      if (typeof ship.credits === "number") bits.push(ship.credits.toLocaleString() + " M.U.");
+      if (ship.region) bits.push("in " + String(ship.region).replace(/_/g, " "));
+      const charted = Object.keys(ship.discoveredSystems || {}).length;
+      if (charted) bits.push(charted + " systems charted");
+      if (typeof ship.fuel === "number") bits.push(Math.round(ship.fuel) + " fuel");
+      return bits.length ? bits.join(", ") : "no readable detail";
+    };
+    let mine = null;
+    try { mine = JSON.parse(localStorage.getItem("starflight_odyssey_save") || "null"); } catch (e) { mine = null; }
+
+    const when = c.serverUpdatedUtc ? new Date(c.serverUpdatedUtc).toLocaleString() : "unknown time";
+    body.innerHTML =
+      `<div style="margin-bottom:6px;">The relay was written from another device after this one last synced. ` +
+      `Nothing has been changed on either side.</div>` +
+      `<div style="margin:8px 0;"><span style="color:#00ff66;">THIS DEVICE</span> ` +
+      `(${String(CloudSync.load().device || "here").toUpperCase()}): ${describe(mine)}</div>` +
+      `<div><span style="color:#ffcc00;">THE RELAY</span> ` +
+      `(${String(c.serverDevice || "other device").toUpperCase()}, ${when}, revision ${c.serverRevision}): ` +
+      `${describe(c.serverSave)}</div>`;
+    card.classList.remove("hidden");
   },
 
   renderPacks() {

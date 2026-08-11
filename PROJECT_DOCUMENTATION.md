@@ -652,6 +652,35 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
       point, cleared of wells, in bounds.
     * Sweep at **403 checks**, three consecutive clean runs.
 
+99. **PHASE B - CROSS-DEVICE SAVES (v1.18.0)**:
+    * A small .NET minimal API in `server/`, plus `js/cloud.js` in the game. **The game does not need
+      it.** With nothing configured there is no account, no network call and no visible difference -
+      checked by the sweep, which counts `fetch` calls across a save and load cycle and requires zero.
+    * **The plan's stated blocker was wrong, and measuring it first changed the design.** "fetch does
+      not work on file://" is about fetching local *files*; calling an HTTP API from a `file://` page
+      is fine - the page sends `Origin: null` and the server allows it. Verified from the real client
+      before any server code was written: CORS preflight passes with an `Authorization` header and a
+      full 57-field save round-trips. So sync works the way the game is actually played, by opening
+      `index.html` directly, with no local web server.
+    * **Captain keys**: 32 random bytes, shown once, stored only as SHA-256. No email, no name, no
+      other personal data. The key is the only credential and the panel says so plainly.
+    * **Optimistic concurrency, never last-write-wins.** Two devices are the entire point, and
+      silently flattening one with the other would make the service worse than no service. A stale
+      `PUT` returns **409 carrying the server's own copy**, and the conflict panel describes both
+      sides in terms a captain can judge - credits, region, systems charted, fuel - rather than
+      revision numbers. Forcing is a separate endpoint so it cannot happen by accident or by a retry.
+    * **Nothing is ever destroyed.** The server keeps the last 50 revisions; a download stashes the
+      local save first and UNDO LAST DOWNLOAD restores it without needing the relay at all.
+    * **Credentials are not part of the save.** They live in their own `localStorage` key, because
+      putting them in `ship` would export the key inside every save file a player shares. Checked.
+    * **A real bug caught in review of my own code**: changing the captain key or relay left
+      `lastRevision` pointing at the old slot. That value *is* the concurrency guard, so a stale 4
+      aimed at a slot that happened to be on 4 would have sailed straight past the check and
+      overwritten a save this device had never seen. Changing either now resets it.
+    * Packs are served as data and never evaluated as script, and a published `(id, version)` is
+      immutable because saves pin it - the groundwork laid in v1.17.6.
+    * Sweep at **408 checks**, three consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

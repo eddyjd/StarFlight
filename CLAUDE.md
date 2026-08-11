@@ -17,7 +17,7 @@ consult it when a piece of code looks odd, but treat this file as the current ar
 ## Running and verifying
 
 ```powershell
-# Simplest: open directly (file:// works — no fetch/XHR anywhere)
+# Simplest: open directly (file:// is the primary way this is played)
 Start-Process "C:\Data\Dev\Starflight\index.html"
 
 # Or serve locally if you want a clean cache/origin
@@ -43,7 +43,7 @@ The game is loaded from `file://` or a static host, so browser caching is the #1
 "my fix didn't apply". Every release bumps the version in **every** place it appears in
 `index.html` — currently ~21 occurrences:
 
-1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (27 of them).
+1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (28 of them).
 2. The version span in `.header-title`.
 3. The `VER` span in `.header-decor`.
 
@@ -55,7 +55,7 @@ to `PROJECT_DOCUMENTATION.md` section 6.
 
 ## Regression sweep
 
-There is no test framework, but there **is** a 249-check regression harness kept outside the repo in
+There is no test framework, but there **is** a 408-check regression harness kept outside the repo in
 the session scratchpad (`sweep-final.js`). It is a self-contained IIFE that drives the real game in a
 headless browser and writes its results to `window.__SWEEP__`.
 
@@ -103,11 +103,30 @@ Each `js/*.js` file defines one object literal and assigns it to `window` at the
 | `WormholeNet` | `js/wormholes.js` | Rolls the wormhole network per save and publishes it into `GameData` |
 | `ContentValidator` | `js/validate.js` | 18 rules defining what valid content is. Must report zero errors against the shipped game |
 | `ContentPacks` | `js/packs.js` | Merges third-party content (`add` / `extend`), and audits a save whose pack has gone |
+| `CloudSync` | `js/cloud.js` | **Optional** cross-device save relay. Does nothing unless configured |
 
 The governing principle for everything added after v1.10: **build engines, author content as data.**
 A new quest, archive volume, puzzle, region, alien port or nebula should be a record in
 `js/content/*.js` (or `js/data.js`), not new engine code. If adding one requires touching an engine,
 the engine is not finished.
+
+### Cloud save (optional, `server/`)
+
+`js/cloud.js` mirrors the save to a small .NET service in `server/`. **It is entirely opt-in and the
+game must keep working with it switched off, unreachable, or never set up** — that promise is checked
+by the sweep, including that a save/load cycle makes zero `fetch` calls when nothing is configured.
+
+Three things not to break:
+
+* **Relay address and captain key live in their own `localStorage` key, never in `ship`.** Putting
+  them in the save would export the credential inside every save file the player shares.
+* **Writes use optimistic concurrency, never last-write-wins.** A stale push gets a 409 carrying the
+  server's copy, and the *player* chooses. `baseRevision` is what the guard compares, so changing key
+  or relay must reset it — a revision carried over from another slot can match by coincidence and
+  sail straight past the check.
+* **`fetch` from `file://` to an HTTP API works.** The restriction people remember applies to
+  fetching local *files*; calling a server is fine (the page sends `Origin: null`). This was measured,
+  not assumed — it is why the manifest is still a `.js` file but cloud save needs no local web server.
 
 ### Content packs
 

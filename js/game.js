@@ -437,6 +437,7 @@ const GameManager = {
       const portModal = document.getElementById("port-modal");
       const lockerModal = document.getElementById("locker-modal");
       const packsModal = document.getElementById("packs-modal");
+      const cloudModal = document.getElementById("cloud-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
@@ -448,7 +449,8 @@ const GameManager = {
                           (rescueModal && !rescueModal.classList.contains("hidden")) ||
                           (portModal && !portModal.classList.contains("hidden")) ||
                           (lockerModal && !lockerModal.classList.contains("hidden")) ||
-                          (packsModal && !packsModal.classList.contains("hidden"));
+                          (packsModal && !packsModal.classList.contains("hidden")) ||
+                          (cloudModal && !cloudModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         // Every `.modal` is a full-screen overlay at z-index 100 that takes
@@ -467,7 +469,7 @@ const GameManager = {
           "cargo-modal", "tv-cargo-modal", "starmap-modal", "archive-modal",
           "puzzle-modal", "rescue-modal", "port-modal", "locker-modal",
           "captains-log-modal", "help-modal", "legend-modal",
-          "landing-site-modal", "victory-modal", "packs-modal"
+          "landing-site-modal", "victory-modal", "packs-modal", "cloud-modal"
         ];
         escapable.forEach(id => {
           const m = document.getElementById(id);
@@ -796,6 +798,13 @@ const GameManager = {
         shipToSave.currentPlanet = null;
       }
       localStorage.setItem("starflight_odyssey_save", JSON.stringify(shipToSave));
+
+      // Mirror to the relay if the captain asked for that. Fire and forget: the
+      // local save is already written and committed, and a relay that is off must
+      // never turn a successful save into a visible failure.
+      try {
+        if (typeof CloudSync !== "undefined") CloudSync.autoPushAfterSave();
+      } catch (e) { /* offline is the normal case, not an error */ }
     } catch (e) {
       console.warn("Failed to auto save progress", e);
     }

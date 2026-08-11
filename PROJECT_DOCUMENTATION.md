@@ -569,6 +569,18 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * Verified end to end: a pack adds a region, pushes its own gate onto the core, and `RegionManager`, `WormholeNet`, traffic generation and `resolveGateway` all read it as though it were authored. With no packs loaded there is zero residue and the validator is still clean - traditional play is untouched.
     * Sweep grew to **377 checks**.
 
+95. **PHASE A5 - The Tessellation, A Quadrant Authored Entirely As A Pack (v1.17.3)**:
+    * `js/content/packs/the-tessellation.js` - a fifth region built with **no engine changes**, exercising every operation a generated pack needs: `add` for regions, quests, puzzles, archives, archive locations and a brand-new commodity; `extend.push` for the singularity that makes it reachable; `extend.merge` for new Thrynn conversation. Four systems that are one system at four scales, because someone was working out how big to make the Lattice.
+    * **Its whole purpose is to break the format before a generated pack does, and it did - three times:**
+      * **The validator refused the first draft.** Its return point sat exactly on the gate leading in, so coming home would drop the ship inside the mouth it had just left - **the v1.14.1 Lattice trap, repeated by me**. The rule extracted in A1 caught it before it ever loaded. Rules earn their keep.
+      * **`extend` could not reach a nested field.** `merge: { nodes: ... }` wrote to `aliens.thrynn.nodes` - a field nothing reads. Conversation lives at `aliens.<race>.dialogue.nodes`, two levels down. The loader counted the records, reported success, and the content was simply not there. Field names are now **dotted paths**.
+      * **A pack could not give its commodity an icon.** `getItemIconAndBadge()` was a closed switch over authored keys, so any resource a pack introduced always drew the generic glyph. Commodities may now carry their own `icon`; authored ones have no such field and still fall through unchanged.
+    * **A real load-order bug**: `applyAll()` must run before `loadGame()` so a save resolves against pack content - but that is earlier than the terminal exists, and announcing the load threw inside the merge and **took the entire pack load down silently**. Reporting is now deferred to `flushReport()` after `UI.init()`, and `announce()` falls back to the console.
+    * **New validator rule driven by this work**: a cipher puzzle's ciphertext must actually decode to its plaintext under *some* rotation. A generated cipher can very easily carry a mismatched pair - unsolvable, in a way that looks completely fine.
+    * Played headless end to end: flown into through its own gate, four systems, five vessels, five throats, derelict paying out its invented commodity with the module held behind the puzzle, cipher solved at rotation 4, port trading at 44 M.U./unit with the resin sought at 1,188, its own archive, its beacon's clue tagged to the right region, its quest advancing through `visit_region`, and its Thrynn conversation node reachable.
+    * Two sweep checks were clobbering `ContentPacks.installed` and never restoring it. A check that borrows a global registry has to put it back.
+    * Sweep grew to **391 checks**, verified over three consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

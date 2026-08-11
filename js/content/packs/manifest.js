@@ -16,5 +16,7 @@
  */
 
 window.ContentPackManifest = [
-  // "my-quadrant.js",
+  // The reference pack. It is the worked example CONTENT_PACKS.md points at, and
+  // it is loaded by default so the format is always being exercised for real.
+  "the-tessellation.js"
 ];

@@ -1665,6 +1665,21 @@ const PlanetExploration = {
     if (tileType === "gate_return") {
       return { icon: "⬡", label: "RETURN", color: "#ffcc00" };
     }
+    // A commodity may carry its own icon. Without this the lookup was a closed
+    // switch over authored keys, so anything a content pack introduced always
+    // drew the generic glyph and no pack could ever add a resource that looked
+    // like itself. Authored commodities have no `icon` field and still fall
+    // through to the switch below, so nothing existing changes.
+    const commodity = (typeof GameData !== "undefined" && GameData.commodities)
+      ? GameData.commodities[itemKey] : null;
+    if (commodity && commodity.icon) {
+      return {
+        icon: commodity.icon,
+        label: String(commodity.name || itemKey).toUpperCase(),
+        color: commodity.color || "#00ccff"
+      };
+    }
+
     switch (itemKey) {
       case "endurium_ore":
         return { icon: "🔋", label: "ENDURIUM", color: "#00ff66" };

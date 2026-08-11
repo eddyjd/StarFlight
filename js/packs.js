@@ -146,36 +146,63 @@ const ContentPacks = {
         }
         if (!record) { problems.push(`extend.${key}["${recId}"] does not exist`); return; }
 
+        // Field names may be dotted paths. The thing a pack most obviously wants
+        // to extend - a race's conversation - lives at aliens.<race>.dialogue.nodes,
+        // two levels down. Without this, `merge: { nodes: ... }` wrote to
+        // aliens.<race>.nodes, a field nothing reads: the pack reported success,
+        // the loader counted the records, and the content was simply not there.
+        // Found by authoring the reference pack, which is what it is for.
+        const resolve = (root, path, createAs) => {
+          const parts = String(path).split(".");
+          let node = root;
+          for (let i = 0; i < parts.length - 1; i++) {
+            const seg = parts[i];
+            if (node[seg] === undefined || node[seg] === null) node[seg] = {};
+            if (typeof node[seg] !== "object") return null;
+            node = node[seg];
+          }
+          const leaf = parts[parts.length - 1];
+          if (createAs === "array" && !Array.isArray(node[leaf])) node[leaf] = [];
+          if (createAs === "object" && (!node[leaf] || typeof node[leaf] !== "object")) node[leaf] = {};
+          return { parent: node, leaf: leaf };
+        };
+
         Object.keys(op.push || {}).forEach(field => {
           const items = op.push[field];
           if (!Array.isArray(items)) { problems.push(`extend.${key}["${recId}"].push.${field} must be an array`); return; }
-          if (!Array.isArray(record[field])) record[field] = [];
+          const at = resolve(record, field, "array");
+          if (!at) { problems.push(`extend.${key}["${recId}"].push.${field} does not resolve to a field`); return; }
+          const arr = at.parent[at.leaf];
           items.forEach(it => {
-            if (it && it.id && record[field].some(x => x && x.id === it.id)) {
+            if (it && it.id && arr.some(x => x && x.id === it.id)) {
               problems.push(`extend.${key}["${recId}"].push.${field} record "${it.id}" already exists`);
               return;
             }
-            record[field].push(it);
+            arr.push(it);
             bump(key + "." + field, 1);
           });
         });
 
         Object.keys(op.set || {}).forEach(field => {
-          record[field] = op.set[field];
+          const at = resolve(record, field, null);
+          if (!at) { problems.push(`extend.${key}["${recId}"].set.${field} does not resolve to a field`); return; }
+          at.parent[at.leaf] = op.set[field];
           bump(key + "." + field, 1);
         });
 
-        // merge: shallow-merge into an object field, e.g. a race's dialogue.nodes
+        // merge: shallow-merge into an object field, e.g. dialogue.nodes
         Object.keys(op.merge || {}).forEach(field => {
           const src = op.merge[field];
           if (!src || typeof src !== "object") { problems.push(`extend.${key}["${recId}"].merge.${field} must be an object`); return; }
-          if (!record[field] || typeof record[field] !== "object") record[field] = {};
+          const at = resolve(record, field, "object");
+          if (!at) { problems.push(`extend.${key}["${recId}"].merge.${field} does not resolve to a field`); return; }
+          const dest = at.parent[at.leaf];
           Object.keys(src).forEach(k2 => {
-            if (record[field][k2] !== undefined) {
+            if (dest[k2] !== undefined) {
               problems.push(`extend.${key}["${recId}"].merge.${field}["${k2}"] already exists`);
               return;
             }
-            record[field][k2] = src[k2];
+            dest[k2] = src[k2];
             bump(key + "." + field, 1);
           });
         });
@@ -220,7 +247,7 @@ const ContentPacks = {
           author: pack.author || "", source: pack.__source || "manifest", counts: r.counts
         });
       });
-      this.announce(verdict);
+      this.pendingReport = { verdict: verdict, failed: [] };
       return { installed: this.installed.slice(), failed: [] };
     }
 
@@ -270,13 +297,21 @@ const ContentPacks = {
     }
 
     this.failures = this.failures.concat(failed);
-    this.announce(verdict, failed);
+    this.pendingReport = { verdict: verdict, failed: failed };
     return { installed: this.installed.slice(), failed: failed };
   },
 
-  /** Say what happened, in the terminal and the console. */
+  /**
+   * Say what happened, in the terminal and the console.
+   *
+   * Called AFTER UI.init(), never during the merge. applyAll() has to run before
+   * loadGame() so a save resolves against pack content, but that is earlier than
+   * the terminal exists - writing to it there threw inside the merge and took the
+   * whole pack load down with it, silently.
+   */
   announce(verdict, failed) {
-    const log = (m) => { if (typeof UI !== "undefined" && UI.addLog) UI.addLog(m); };
+    const ready = (typeof UI !== "undefined" && UI.addLog && UI.elements && UI.elements.logTerminal);
+    const log = (m) => { if (ready) { try { UI.addLog(m); } catch (e) { console.warn(m); } } else { console.log(m); } };
 
     this.installed.forEach(p => {
       const total = Object.keys(p.counts).reduce((n, k) => n + p.counts[k], 0);
@@ -293,6 +328,14 @@ const ContentPacks = {
     if (verdict && verdict.warnings && verdict.warnings.length && this.installed.length) {
       console.warn("ContentPacks: warnings\n" + verdict.warnings.join("\n"));
     }
+  },
+
+  /** Flush whatever applyAll() decided, once there is a terminal to say it in. */
+  flushReport() {
+    const r = this.pendingReport;
+    this.pendingReport = null;
+    if (!r) return;
+    this.announce(r.verdict, r.failed);
   },
 
   // ---- queries -----------------------------------------------------------

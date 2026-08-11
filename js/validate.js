@@ -208,8 +208,24 @@ const ContentValidator = {
         });
         (D.puzzles || []).forEach(p => {
           if (!p.type) bad.push(`puzzle ${p.id} declares no type`);
-          if (p.type === "cipher" && (!p.ciphertext || !p.plaintext)) {
-            bad.push(`cipher puzzle ${p.id} is missing ciphertext or plaintext`);
+          if (p.type === "cipher") {
+            if (!p.ciphertext || !p.plaintext) {
+              bad.push(`cipher puzzle ${p.id} is missing ciphertext or plaintext`);
+            } else if (typeof PuzzleEngine !== "undefined" && PuzzleEngine.rot) {
+              // The answer to a cipher is the ROTATION, so the pair has to
+              // actually correspond under some rotation. A generated puzzle can
+              // very easily carry a plaintext that its ciphertext never decodes
+              // to - which is unsolvable, and unsolvable in a way that looks fine.
+              let solvable = false;
+              for (let k = 1; k < 26 && !solvable; k++) {
+                if (PuzzleEngine.rot(p.ciphertext, -k).toUpperCase() === String(p.plaintext).toUpperCase()) {
+                  solvable = true;
+                }
+              }
+              if (!solvable) {
+                bad.push(`cipher puzzle ${p.id} has no rotation that turns its ciphertext into its plaintext - it cannot be solved`);
+              }
+            }
           }
           if (p.type === "sequence" && !(p.solution || []).length) {
             bad.push(`sequence puzzle ${p.id} has no solution`);

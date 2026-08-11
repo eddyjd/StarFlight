@@ -160,6 +160,8 @@ const GameManager = {
 
     try { this.loadGame(); } catch (e) { errors.push("loadGame: " + e.message); console.error("loadGame error:", e); }
     try { UI.init(); } catch (e) { errors.push("UI.init: " + e.message); console.error("UI.init error:", e); }
+    // Now there is a terminal to report into
+    try { if (typeof ContentPacks !== "undefined") ContentPacks.flushReport(); } catch (e) { console.warn("ContentPacks report failed", e); }
     try { AudioController.init(); } catch (e) { errors.push("AudioController.init: " + e.message); console.error("AudioController.init error:", e); }
     try { Spaceport.init(); } catch (e) { errors.push("Spaceport.init: " + e.message); console.error("Spaceport.init error:", e); }
     try { Navigation.init(); } catch (e) { errors.push("Navigation.init: " + e.message); console.error("Navigation.init error:", e); }

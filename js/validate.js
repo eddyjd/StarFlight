@@ -522,6 +522,60 @@ const ContentValidator = {
         });
         return bad;
       }
+    },
+
+    {
+      // A pack that passes every other rule can still take the game down the
+      // instant the player arrives. The first quadrant ever written from
+      // CONTENT_PACKS.md set `danger: 3` - a plausible reading of a field named
+      // "danger" - and RegionManager.travelTo() threw .toUpperCase on it. Valid
+      // by every reference and coordinate rule, and unplayable. So the types the
+      // engines actually call methods on are checked, at error severity, because
+      // the failure is a crash rather than a blemish.
+      id: "field-types",
+      title: "Fields the engines call string methods on are strings",
+      run(D) {
+        const bad = [];
+        const str = (v, what) => {
+          if (v !== undefined && v !== null && typeof v !== "string") {
+            bad.push(`${what} must be a string, got ${typeof v} (${JSON.stringify(v)})`);
+          }
+        };
+        const num = (v, what) => {
+          if (v !== undefined && v !== null && (typeof v !== "number" || isNaN(v))) {
+            bad.push(`${what} must be a number, got ${typeof v} (${JSON.stringify(v)})`);
+          }
+        };
+        Object.keys(D.regions || {}).forEach(rid => {
+          const r = D.regions[rid] || {};
+          str(r.name, `region ${rid} name`);
+          str(r.danger, `region ${rid} danger (it is an advisory sentence, not a rating)`);
+          str(r.blurb, `region ${rid} blurb`);
+        });
+        ContentValidator.eachRegion(D, (rid, src) => {
+          (src.starSystems || []).forEach(sy => {
+            str(sy.name, `${rid} system name`);
+            num(sy.x, `${rid} system ${sy.name} x`);
+            num(sy.y, `${rid} system ${sy.name} y`);
+            (sy.planets || []).forEach(pl => {
+              str(pl.name, `${rid}/${sy.name} planet name`);
+              num(pl.gravity, `${rid}/${pl.name} gravity`);
+              num(pl.temp, `${rid}/${pl.name} temp`);
+            });
+          });
+          ["blackHoles", "derelicts", "spaceWrecks", "distressSignals", "alienPorts", "nebulae"]
+            .forEach(k => (src[k] || []).forEach(o => {
+              str(o.name, `${rid} ${k} ${o.id} name`);
+              num(o.x, `${rid} ${k} ${o.id} x`);
+              num(o.y, `${rid} ${k} ${o.id} y`);
+            }));
+        });
+        Object.keys(D.commodities || {}).forEach(k => {
+          str((D.commodities[k] || {}).name, `commodity ${k} name`);
+          num((D.commodities[k] || {}).sellVal, `commodity ${k} sellVal`);
+        });
+        return bad;
+      }
     }
   ],
 

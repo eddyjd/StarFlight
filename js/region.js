@@ -185,7 +185,11 @@ const RegionManager = {
 
     UI.addLog(`=== TRANSITED TO ${String(target.name).toUpperCase()} ===`);
     if (target.blurb) UI.addLog(target.blurb);
-    if (target.danger) UI.addLog(`ADVISORY: ${target.danger.toUpperCase()}`);
+    // String() because a content pack can put anything here. Authored regions all
+    // carry a sentence, but the first pack written from CONTENT_PACKS.md read the
+    // field name as a rating and set danger: 3 - which threw here and stranded the
+    // ship mid-transit. The validator now refuses that, and this refuses to care.
+    if (target.danger) UI.addLog(`ADVISORY: ${String(target.danger).toUpperCase()}`);
     if (typeof QuestEngine !== "undefined") QuestEngine.notify("region", { region: regionId });
 
     game.saveGame();

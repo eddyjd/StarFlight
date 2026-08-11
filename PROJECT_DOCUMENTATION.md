@@ -590,6 +590,39 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
     * **A real placement bug found while chasing a flaky check**: rolled wormhole throats had no clearance rule against *other* deep-space objects, so in roughly **one galaxy in four** a throat landed within 8 LY of a wreck, derelict or port. Both then register as "nearby" at once and the LAND control shows whichever wins the priority list - **making the wormhole prompt unreachable**. Throats now keep 14 LY clear of every other site. Measured at 10 collisions per 40 galaxies before, 0 after.
     * Sweep grew to **398 checks**, verified over three consecutive clean runs.
 
+97. **PHASE A4 - THE DOCUMENT IS THE PROMPT (v1.17.5)**:
+    * `CONTENT_PACKS.md`. Not documentation about the pack format - the artifact you paste into any
+      AI, followed by "write me a quadrant themed around X". It carries the pack shape, both
+      operations, every collection a pack may write to, the record shapes, the rules stated as rules
+      rather than as code, and a section on writing content that is worth playing rather than merely
+      valid.
+    * **It was tested the only way that means anything: by writing a quadrant from it.** A fifth
+      region - a generation ship that never arrived - authored strictly from the document, with the
+      reference pack deliberately not consulted. Then run through the shipped validator and played
+      headless end to end. Three defects came out of that, all in the document:
+      - **It built a trap.** The region shape listed `returnTo`, so the way out looked handled. It is
+        not a gate - it is only the coordinates a `returnsTo` singularity lands you at, and a region
+        needs a singularity of its own to leave. The document now teaches two gates, not one.
+      - **It walked into the v1.14.1 loop again.** The document did say to keep arrivals clear of
+        gravity wells, and the pack still landed its return inside one - because the natural place to
+        put `returnTo` is where the player left, and where they left is the entry gate you just
+        added. Now stated as that specific trap, with `gravityRadius x 2.4` as the number.
+      - **`danger: 3`.** The field was listed with no type next to numeric-looking neighbours, and a
+        rating is the obvious reading. It is an advisory sentence, read aloud on arrival.
+    * That last one was the important one. The pack **passed all 17 rules and crashed the game on
+      arrival** - `RegionManager.travelTo()` called `.toUpperCase()` on the number. Valid was not the
+      same as safe. Fixed at all three layers: an 18th rule **`field-types`** at error severity over
+      every field an engine calls a string method on, `String()` coercion in `region.js` so the
+      engine does not care, and the type spelled out in the document.
+    * With the three corrections applied, the quadrant loads with **zero errors and zero warnings**
+      and plays: gate in from the core, region takes hold, two systems chart, derelict boarded for
+      +8 fuel and 420 M.U., the pack's own commodity priced at its own port, its archive stocked and
+      readable, its cipher accepting the right rotation and refusing a wrong one, its quest
+      advancing a stage on two objectives, its commodity drawing with its own glyph, and the way
+      home landing exactly where it was authored to.
+    * Sweep at **399 checks**, three consecutive clean runs. The deliberate-refusal battery grew from
+      9 historical bug classes to 12.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

@@ -43,7 +43,7 @@ The game is loaded from `file://` or a static host, so browser caching is the #1
 "my fix didn't apply". Every release bumps the version in **every** place it appears in
 `index.html` — currently ~21 occurrences:
 
-1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (19 of them).
+1. The `?v=` cache-busting query string on **every** `<script src="js/*.js?v=...">` tag (27 of them).
 2. The version span in `.header-title`.
 3. The `VER` span in `.header-decor`.
 
@@ -101,11 +101,28 @@ Each `js/*.js` file defines one object literal and assigns it to `window` at the
 | `PuzzleEngine` | `js/puzzle.js` | Puzzle type registry (`register(type, {render, validate})`) |
 | `RegionManager` | `js/region.js` | Separate volumes of space; per-region exploration records; singularity transit |
 | `WormholeNet` | `js/wormholes.js` | Rolls the wormhole network per save and publishes it into `GameData` |
+| `ContentValidator` | `js/validate.js` | 18 rules defining what valid content is. Must report zero errors against the shipped game |
+| `ContentPacks` | `js/packs.js` | Merges third-party content (`add` / `extend`), and audits a save whose pack has gone |
 
 The governing principle for everything added after v1.10: **build engines, author content as data.**
 A new quest, archive volume, puzzle, region, alien port or nebula should be a record in
 `js/content/*.js` (or `js/data.js`), not new engine code. If adding one requires touching an engine,
 the engine is not finished.
+
+### Content packs
+
+`CONTENT_PACKS.md` is the authoring contract — written to be pasted into any AI as the prompt for
+generating a quadrant. It is not documentation *about* the format; it *is* the format's definition,
+and `js/content/packs/the-tessellation.js` is the worked example it points at.
+
+Two rules when touching this area:
+
+* **`ContentValidator` must report zero errors against the shipped game.** If a rule flags real
+  authored content, the rule is wrong, not the content.
+* **A pack that passes validation must not be able to crash the game.** That is a stronger claim
+  than "valid", and v1.17.5 exists because it was briefly untrue: a region with `danger: 3` passed
+  every rule and threw on arrival. When you find that shape again, fix all three layers — the rule,
+  the engine's defensiveness, and the sentence in `CONTENT_PACKS.md` that invited the mistake.
 
 ### State: one object, one localStorage key
 

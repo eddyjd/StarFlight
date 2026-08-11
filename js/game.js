@@ -797,7 +797,18 @@ const GameManager = {
       if (this.spaceState === "hyper" || this.ship.isInSpacebase) {
         shipToSave.currentPlanet = null;
       }
+      // Tile maps go out as bitsets. Runtime keeps the dictionaries.
+      shipToSave.exploredPlanets = this.packExploredPlanets(this.ship.exploredPlanets);
       localStorage.setItem("starflight_odyssey_save", JSON.stringify(shipToSave));
+
+      // A save that starts working again should stop shouting about it.
+      if (this._saveFailureAnnounced) {
+        this._saveFailureAnnounced = false;
+        try {
+          document.title = "StarFlight: Odyssey";
+          if (typeof UI !== "undefined" && UI.addLog) UI.addLog("SAVE RECORDING AGAIN. PROGRESS IS BEING WRITTEN.");
+        } catch (e2) {}
+      }
 
       // Mirror to the relay if the captain asked for that. Fire and forget: the
       // local save is already written and committed, and a relay that is off must
@@ -806,7 +817,7 @@ const GameManager = {
         if (typeof CloudSync !== "undefined") CloudSync.autoPushAfterSave();
       } catch (e) { /* offline is the normal case, not an error */ }
     } catch (e) {
-      console.warn("Failed to auto save progress", e);
+      this.reportSaveFailure(e);
     }
   },
 
@@ -817,6 +828,7 @@ const GameManager = {
       if (this.spaceState === "hyper" || this.ship.isInSpacebase) {
         shipToSave.currentPlanet = null;
       }
+      shipToSave.exploredPlanets = this.packExploredPlanets(this.ship.exploredPlanets);
 
       const saveData = {
         title: "StarFlight: Odyssey Save File",
@@ -865,6 +877,7 @@ const GameManager = {
         // Reset runtime states
         this.resetGameData();
         this.ship = Object.assign({}, this.ship, shipData);
+        this.unpackExploredPlanets(this.ship);
         if (!this.ship.salvagedIds) this.ship.salvagedIds = {};
         if (!this.ship.quests) this.ship.quests = {};
         if (!Array.isArray(this.ship.clues)) this.ship.clues = [];
@@ -921,6 +934,141 @@ const GameManager = {
   },
 
   // Load game state
+  // ---- save size ----------------------------------------------------------
+  //
+  // A well-played save measured 262 KB, of which 88% was exploredPlanets - and
+  // almost all of THAT was `exploredTiles`, a dictionary of "x_y": true with one
+  // key per walked tile. A thoroughly explored surface holds 1,643 of them, about
+  // 24 KB, for what is genuinely 1,750 bits of information.
+  //
+  // Left alone it does not merely bloat, it has a ceiling: 98 landable planets
+  // fully explored is roughly 2.1 MB of tile keys, and each content pack quadrant
+  // adds more planets. localStorage gives about 5 MB, and the failure at that
+  // point was silent - saveGame caught the quota error and only console.warned,
+  // so the game would go on looking fine while saving nothing.
+  //
+  // The fix is a bitset, applied ONLY at the storage boundary. Runtime keeps the
+  // plain dictionaries, so nothing in planet.js changes and no gameplay code has
+  // to know this exists. 1,750 bits is 219 bytes, 292 base64 characters - about
+  // 80x smaller for a busy planet, and bounded rather than proportional to how
+  // much of the surface has been walked.
+
+  TILE_SETS: ["minedTiles", "exploredTiles", "analyzedTiles"],
+
+  packTiles(dict) {
+    const w = 50, h = 35;                       // PlanetExploration.gridWidth/Height
+    if (!dict || typeof dict !== "object") return dict;
+    const bytes = new Uint8Array(Math.ceil((w * h) / 8));
+    const overflow = {};
+    let any = false;
+
+    Object.keys(dict).forEach(k => {
+      if (!dict[k]) return;
+      const m = /^(\d+)_(\d+)$/.exec(k);
+      const x = m ? parseInt(m[1], 10) : -1;
+      const y = m ? parseInt(m[2], 10) : -1;
+      if (!m || x < 0 || x >= w || y < 0 || y >= h) {
+        // Anything that is not a plain in-bounds tile key is kept verbatim.
+        // Losing data to save space would be a poor trade.
+        overflow[k] = dict[k];
+        return;
+      }
+      const bit = y * w + x;
+      bytes[bit >> 3] |= (1 << (bit & 7));
+      any = true;
+    });
+
+    if (!any && !Object.keys(overflow).length) return {};
+
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const out = { __b: btoa(bin) };
+    if (Object.keys(overflow).length) out.__o = overflow;
+
+    // A bitset is a fixed 292 characters whether one tile is set or all 1,750.
+    // For a planet the rover barely touched, the plain dictionary is smaller - and
+    // a captain who lands on many planets and explores few is a normal captain.
+    // Take whichever is actually shorter; unpackTiles already passes a plain
+    // dictionary straight through, so the two formats mix freely in one save.
+    return (JSON.stringify(out).length < JSON.stringify(dict).length) ? out : dict;
+  },
+
+  unpackTiles(packed) {
+    if (!packed || typeof packed !== "object") return {};
+    if (typeof packed.__b !== "string") return packed;    // already a plain dict
+    const w = 50, h = 35;
+    const out = {};
+    try {
+      const bin = atob(packed.__b);
+      for (let bit = 0; bit < w * h; bit++) {
+        const byte = bin.charCodeAt(bit >> 3);
+        if (byte & (1 << (bit & 7))) out[(bit % w) + "_" + Math.floor(bit / w)] = true;
+      }
+    } catch (e) {
+      console.warn("Could not decode a packed tile set - leaving it empty", e);
+    }
+    if (packed.__o) Object.keys(packed.__o).forEach(k => { out[k] = packed.__o[k]; });
+    return out;
+  },
+
+  /** A shallow copy of exploredPlanets with the three tile sets packed. */
+  packExploredPlanets(exploredPlanets) {
+    if (!exploredPlanets || typeof exploredPlanets !== "object") return exploredPlanets;
+    const out = {};
+    Object.keys(exploredPlanets).forEach(name => {
+      const src = exploredPlanets[name];
+      if (!src || typeof src !== "object") { out[name] = src; return; }
+      const copy = Object.assign({}, src);
+      this.TILE_SETS.forEach(k => { if (copy[k]) copy[k] = this.packTiles(copy[k]); });
+      out[name] = copy;
+    });
+    return out;
+  },
+
+  /** Reverse it in place. Tolerant of saves written before this existed. */
+  unpackExploredPlanets(ship) {
+    if (!ship || !ship.exploredPlanets) return;
+    Object.keys(ship.exploredPlanets).forEach(name => {
+      const rec = ship.exploredPlanets[name];
+      if (!rec || typeof rec !== "object") return;
+      this.TILE_SETS.forEach(k => { if (rec[k]) rec[k] = this.unpackTiles(rec[k]); });
+    });
+  },
+
+  /**
+   * Say when a save did not happen.
+   *
+   * The old behaviour was a console.warn, which nobody playing a game is looking
+   * at. Running out of room and carrying on as though everything is fine is how a
+   * captain loses an evening, so this is loud once and then persistent.
+   */
+  reportSaveFailure(e) {
+    const quota = e && (e.name === "QuotaExceededError" ||
+                        e.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+                        e.code === 22 || e.code === 1014);
+    console.error("Failed to auto save progress", e);
+    const say = (m) => { try { if (typeof UI !== "undefined" && UI.addLog) UI.addLog(m); } catch (e2) {} };
+
+    if (quota) {
+      say("*** SAVE FAILED - LOCAL STORAGE IS FULL. PROGRESS IS NOT BEING RECORDED. ***");
+      say("EXPORT YOUR SAVE TO A FILE, OR UPLOAD IT FROM CLOUD SAVE, BEFORE CLOSING THIS PAGE.");
+    } else {
+      say("*** SAVE FAILED (" + String((e && e.message) || e).toUpperCase() + "). PROGRESS IS NOT BEING RECORDED. ***");
+    }
+
+    if (!this._saveFailureAnnounced) {
+      this._saveFailureAnnounced = true;
+      try {
+        document.title = "SAVE FAILING - StarFlight: Odyssey";
+        alert("StarFlight could not save your progress.\n\n" +
+              (quota ? "The browser's storage for this page is full."
+                     : "The browser refused the write: " + ((e && e.message) || e)) +
+              "\n\nYour game is still running, but nothing since the last successful save is " +
+              "being recorded. Export your save to a file (or upload it from CLOUD SAVE) now.");
+      } catch (e2) { /* alert can be blocked; the log lines still stand */ }
+    }
+  },
+
   loadGame() {
     try {
       const data = localStorage.getItem("starflight_odyssey_save");
@@ -928,6 +1076,10 @@ const GameManager = {
         const parsed = JSON.parse(data);
         // Merge attributes carefully
         this.ship = Object.assign({}, this.ship, parsed);
+        // Tile maps come back to plain dictionaries before anything reads them.
+        // Saves written before packing existed already hold dictionaries and pass
+        // through untouched.
+        this.unpackExploredPlanets(this.ship);
         this.viewState = "intro";
 
         if (this.ship.isInSpacebase || this.spaceState === "hyper") {

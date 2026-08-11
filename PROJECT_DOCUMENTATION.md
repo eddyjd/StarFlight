@@ -703,6 +703,35 @@ The master controller is `window.game` (`GameManager` in `js/game.js`).
       thing standing between two devices and a silent overwrite.
     * Sweep at **409 checks**, three consecutive clean runs.
 
+101. **THE SAVE HAD A CEILING, AND HITTING IT WAS SILENT (v1.18.2)**:
+    * Found by looking at a real save rather than a test one. A well-played game measured **262 KB**,
+      of which **88% was `exploredPlanets`** - and nearly all of that was `exploredTiles`, a
+      dictionary of `"x_y": true` with one key per walked tile. A thoroughly explored surface holds
+      1,643 of them, about 24 KB, for what is genuinely 1,750 bits.
+    * That is not merely wasteful, it has an **end**. 98 landable planets fully explored is roughly
+      **2.1 MB** of tile keys, every content pack quadrant adds more planets, and localStorage gives
+      about 5 MB. What happens at the ceiling was the real problem: `saveGame` caught the quota error
+      and called **`console.warn`**, which nobody playing a game is reading. The game would carry on
+      looking perfectly healthy while recording nothing.
+    * **Failure is now loud**: a line in the terminal naming the cause, the tab title changed to
+      `SAVE FAILING`, and a single alert telling the captain to export or upload before closing the
+      page. When writing works again it says so and clears all three.
+    * **Tile maps are stored as bitsets**, applied only at the storage boundary - `saveGame`,
+      `loadGame`, export and import. Runtime keeps the plain dictionaries, so **nothing in
+      `planet.js` changed** and no gameplay code knows this exists.
+    * Measured against the actual 262 KB save: **262 KB -> 85 KB**, and lossless - 24 planets, 15,614
+      tiles, zero mismatches, with `droppedItems` and `landingSites` untouched. The worst case falls
+      from ~2,100 KB to **91 KB**, so the ceiling is removed rather than raised.
+    * **A check caught a flaw in the first version.** Packing measured only 7.3x across a mixed set of
+      planets, because a bitset is a fixed 292 characters whether one tile is set or all 1,750 - so
+      for a planet the rover barely touched it was *bigger* than the dictionary. Packing now keeps
+      whichever form is actually shorter, and the two mix freely in one save because `unpackTiles`
+      already passed plain dictionaries through.
+    * Keys that cannot go in a bitset - out of range, malformed - ride along verbatim in an overflow
+      map. Losing data to save space would be a poor trade.
+    * Saves written before this still load untouched, which is checked.
+    * Sweep at **414 checks**, three consecutive clean runs.
+
 ---
 
 ## 8. Stability & Economy Baseline (measured v1.9.20)

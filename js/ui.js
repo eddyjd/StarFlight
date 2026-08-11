@@ -1521,7 +1521,7 @@ const UI = {
     "cargo-modal", "tv-cargo-modal", "starmap-modal", "archive-modal",
     "puzzle-modal", "rescue-modal", "port-modal", "locker-modal",
     "captains-log-modal", "help-modal", "legend-modal",
-    "landing-site-modal", "victory-modal"
+    "landing-site-modal", "victory-modal", "packs-modal"
   ],
 
   setupModalBackdrops() {
@@ -1540,6 +1540,186 @@ const UI = {
         if (typeof AudioController !== "undefined" && AudioController.playBeep) AudioController.playBeep("click");
       });
     });
+  },
+
+  // ---- Content packs -----------------------------------------------------
+  // Two ways in, same gate. Packs you author go in js/content/packs/ and get
+  // listed in manifest.js; packs you are handed get pasted here. Either way
+  // ContentValidator runs over the merged result before anything is kept.
+  //
+  // Pasted packs are stored and registered as DATA. Nothing typed into that box
+  // is ever executed - that is the difference between installing content and
+  // running someone else's code.
+
+  PACK_STORE: "starflight_content_packs",
+
+  storedPacks() {
+    try {
+      const raw = localStorage.getItem(this.PACK_STORE);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.warn("Stored content packs unreadable", e);
+      return [];
+    }
+  },
+
+  writeStoredPacks(list) {
+    try {
+      localStorage.setItem(this.PACK_STORE, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      this.addLog("PACK NOT SAVED: LOCAL STORAGE REFUSED IT.");
+      console.error("Could not persist content packs", e);
+      return false;
+    }
+  },
+
+  openPacksModal() {
+    const modal = document.getElementById("packs-modal");
+    if (!modal) return;
+    this.renderPacks();
+    const box = document.getElementById("pack-result");
+    if (box) box.textContent = "";
+    const file = document.getElementById("pack-file");
+    if (file && !file.dataset.wired) {
+      file.dataset.wired = "1";
+      file.addEventListener("change", (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          document.getElementById("pack-json").value = String(rd.result || "");
+          this.validatePastedPack();
+        };
+        rd.readAsText(f);
+      });
+    }
+    modal.classList.remove("hidden");
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('click');
+  },
+
+  closePacksModal() {
+    const modal = document.getElementById("packs-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  renderPacks() {
+    const CP = window.ContentPacks;
+    const inst = document.getElementById("packs-installed");
+    const failCard = document.getElementById("packs-failed-card");
+    const fail = document.getElementById("packs-failed");
+    const count = document.getElementById("packs-count");
+    if (!CP || !inst) return;
+
+    count.textContent = `${CP.installed.length} INSTALLED / ${CP.failures.length} REJECTED`;
+
+    if (!CP.installed.length) {
+      inst.innerHTML = `<span style="color:#88ccaa;">No packs loaded. The game is running on its authored content only.</span>`;
+    } else {
+      const stored = this.storedPacks().map(p2 => p2.id);
+      inst.innerHTML = CP.installed.map(p2 => {
+        const total = Object.keys(p2.counts || {}).reduce((n, k) => n + p2.counts[k], 0);
+        const what = Object.keys(p2.counts || {}).map(k => `${p2.counts[k]} ${k}`).join(", ");
+        const removable = stored.indexOf(p2.id) >= 0;
+        return `<div style="display:flex; align-items:center; gap:10px; padding:5px 0; border-bottom:1px solid rgba(0,255,102,0.12);">
+          <div style="flex:1;">
+            <div style="color:#00ccff;">${p2.name} <span style="color:#889999;">(${p2.id} v${p2.version})</span></div>
+            <div style="font-size:11px; color:#aaccbb;">${total} record(s): ${what || "none"} &nbsp;|&nbsp; ${p2.source}</div>
+          </div>
+          ${removable
+            ? `<button class="glow-btn" style="padding:2px 8px; font-size:11px;"
+                 onclick="try{UI.removePack('${p2.id}')}catch(e){alert(e.message)}">REMOVE</button>`
+            : `<span style="font-size:10px; color:#889999;">edit manifest.js to remove</span>`}
+        </div>`;
+      }).join("");
+    }
+
+    if (CP.failures.length) {
+      failCard.classList.remove("hidden");
+      fail.innerHTML = CP.failures.map(f => `
+        <div style="padding:5px 0; border-bottom:1px solid rgba(255,85,85,0.2);">
+          <div style="color:#ff8866;">${f.name || f.id}</div>
+          <div style="font-size:11px; color:#ffaa99;">${f.errors.slice(0, 4).map(e => "• " + String(e).replace(/</g, "&lt;")).join("<br>")}
+          ${f.errors.length > 4 ? `<br>• ...and ${f.errors.length - 4} more` : ""}</div>
+        </div>`).join("");
+    } else {
+      failCard.classList.add("hidden");
+    }
+  },
+
+  /** Parse the box. Returns { pack } or { error }. */
+  readPastedPack() {
+    const raw = (document.getElementById("pack-json") || {}).value || "";
+    if (!raw.trim()) return { error: "Nothing to read - paste a pack or choose a file." };
+    let pack;
+    try {
+      pack = JSON.parse(raw);
+    } catch (e) {
+      return { error: "That is not valid JSON.\n" + e.message };
+    }
+    if (!pack || typeof pack !== "object" || Array.isArray(pack)) return { error: "A pack must be a JSON object." };
+    if (!pack.id) return { error: "A pack must declare an \"id\"." };
+    if (!pack.add && !pack.extend) return { error: "A pack must contain \"add\" and/or \"extend\"." };
+    return { pack: pack };
+  },
+
+  /** Dry run: say exactly what would happen, change nothing. */
+  validatePastedPack() {
+    const box = document.getElementById("pack-result");
+    const read = this.readPastedPack();
+    if (read.error) { box.innerHTML = `<span style="color:#ff5555;">${read.error.replace(/</g, "&lt;")}</span>`; return null; }
+
+    const CP = window.ContentPacks;
+    if (CP.isInstalled(read.pack.id)) {
+      box.innerHTML = `<span style="color:#ffcc00;">"${read.pack.id}" is already installed.</span>`;
+      return null;
+    }
+
+    const trial = CP.snapshot();
+    const applied = CP.applyTo(trial, read.pack);
+    const verdict = ContentValidator.validate(trial);
+    const problems = applied.problems.concat(verdict.errors);
+
+    if (problems.length) {
+      box.innerHTML = `<span style="color:#ff5555;">REFUSED - ${problems.length} problem(s):</span><br>` +
+        problems.slice(0, 8).map(e => "• " + String(e).replace(/</g, "&lt;")).join("<br>") +
+        (problems.length > 8 ? `<br>• ...and ${problems.length - 8} more` : "");
+      return null;
+    }
+
+    const total = Object.keys(applied.counts).reduce((n, k) => n + applied.counts[k], 0);
+    const what = Object.keys(applied.counts).map(k => `${applied.counts[k]} ${k}`).join(", ");
+    box.innerHTML = `<span style="color:#00ff66;">VALID - passes all ${verdict.ruleCount} content rules.</span><br>` +
+      `Would add ${total} record(s): ${what}` +
+      (verdict.warnings.length ? `<br><span style="color:#ffcc00;">${verdict.warnings.length} warning(s): ` +
+        verdict.warnings.slice(0, 3).map(w => String(w).replace(/</g, "&lt;")).join("; ") + `</span>` : "");
+    return read.pack;
+  },
+
+  installPastedPack() {
+    const pack = this.validatePastedPack();
+    if (!pack) return false;
+
+    const list = this.storedPacks();
+    list.push(pack);
+    if (!this.writeStoredPacks(list)) return false;
+
+    const box = document.getElementById("pack-result");
+    box.innerHTML = `<span style="color:#00ff66;">INSTALLED. Reload to bring "${pack.name || pack.id}" into the galaxy.</span>`;
+    this.addLog(`CONTENT PACK INSTALLED: ${String(pack.name || pack.id).toUpperCase()}. RELOAD TO APPLY.`);
+    if (typeof AudioController !== 'undefined' && AudioController.playBeep) AudioController.playBeep('powerup');
+    this.renderPacks();
+    return true;
+  },
+
+  removePack(id) {
+    const list = this.storedPacks().filter(p2 => p2.id !== id);
+    if (!this.writeStoredPacks(list)) return false;
+    this.addLog(`CONTENT PACK REMOVED: ${String(id).toUpperCase()}. RELOAD TO APPLY.`);
+    const box = document.getElementById("pack-result");
+    if (box) box.innerHTML = `<span style="color:#ffcc00;">Removed "${id}". Reload to apply.</span>`;
+    this.renderPacks();
+    return true;
   },
 
   // ---- Region labelling --------------------------------------------------

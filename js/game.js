@@ -426,6 +426,7 @@ const GameManager = {
       const rescueModal = document.getElementById("rescue-modal");
       const portModal = document.getElementById("port-modal");
       const lockerModal = document.getElementById("locker-modal");
+      const packsModal = document.getElementById("packs-modal");
 
       const isModalOpen = (cargoModal && !cargoModal.classList.contains("hidden")) ||
                           (transferModal && !transferModal.classList.contains("hidden")) ||
@@ -436,7 +437,8 @@ const GameManager = {
                           (puzzleModal && !puzzleModal.classList.contains("hidden")) ||
                           (rescueModal && !rescueModal.classList.contains("hidden")) ||
                           (portModal && !portModal.classList.contains("hidden")) ||
-                          (lockerModal && !lockerModal.classList.contains("hidden"));
+                          (lockerModal && !lockerModal.classList.contains("hidden")) ||
+                          (packsModal && !packsModal.classList.contains("hidden"));
 
       if (e.key === "Escape") {
         // Every `.modal` is a full-screen overlay at z-index 100 that takes
@@ -455,7 +457,7 @@ const GameManager = {
           "cargo-modal", "tv-cargo-modal", "starmap-modal", "archive-modal",
           "puzzle-modal", "rescue-modal", "port-modal", "locker-modal",
           "captains-log-modal", "help-modal", "legend-modal",
-          "landing-site-modal", "victory-modal"
+          "landing-site-modal", "victory-modal", "packs-modal"
         ];
         escapable.forEach(id => {
           const m = document.getElementById(id);

@@ -26,9 +26,10 @@
       
       <!-- Top Title Bar -->
       <header class="console-header">
-        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.17.1</span></div>
-        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.17.1</span></div>
+        <div class="header-title">STARFLIGHT : ODYSSEY <span style="font-size: 11px; color: #00ccff; margin-left: 8px; font-weight: bold;">v1.17.2</span></div>
+        <div class="header-decor">SYS-STATUS: ONLINE // DATE: 4620.3 // <span style="color: #00ff66; font-weight: bold;">VER 1.17.2</span></div>
         <div style="display: flex; gap: 8px;">
+          <button id="packsBtn" class="sound-btn" onclick="try{UI.openPacksModal()}catch(e){alert('PACKS FAILED: '+e.message)}">CONTENT PACKS</button>
           <button id="legendBtn" class="sound-btn yellow-glow" onclick="UI.openLegendModal()">LEGEND</button>
           <button id="fontToggle" class="sound-btn" onclick="UI.cycleFontSize()">FONT: NORMAL</button>
           <button id="helpBtn" class="sound-btn" onclick="UI.openHelpModal()">HELP [?]</button>
@@ -676,6 +677,50 @@
     </div>
   </div>
 
+  <!-- Content packs: what is loaded, and a way to install more -->
+  <div id="packs-modal" class="modal hidden">
+    <div class="modal-content" style="width: 780px; max-width: 96%; padding: 18px; box-sizing: border-box; border-color:#00ccff;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #00ccff; padding-bottom:6px; margin-bottom:12px;">
+        <h2 style="color:#00ccff; margin:0; border:none; padding:0;">📦 CONTENT PACKS</h2>
+        <span id="packs-count" style="font-size:11px; color:#88ccaa;"></span>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#00ff66;">INSTALLED</span></div>
+        <div id="packs-installed" class="log-card-body" style="font-size:12px; line-height:1.7; max-height:22vh; overflow-y:auto;"></div>
+      </div>
+
+      <div id="packs-failed-card" class="log-card hidden" style="margin-bottom:12px; border-color:#ff5555;">
+        <div class="log-card-header"><span style="color:#ff5555;">REJECTED</span></div>
+        <div id="packs-failed" class="log-card-body" style="font-size:12px; line-height:1.7; max-height:18vh; overflow-y:auto;"></div>
+      </div>
+
+      <div class="log-card" style="margin-bottom:12px;">
+        <div class="log-card-header"><span style="color:#ffcc00;">INSTALL A PACK</span></div>
+        <div class="log-card-body" style="font-size:12px; line-height:1.6;">
+          Paste a pack as JSON, or choose a <code>.json</code> file. It is checked against every content
+          rule before anything is added - a pack that fails is refused and told to you, and the game is
+          left exactly as it was. Pasted packs are <strong>data only and are never run as code</strong>.
+          <div style="display:flex; gap:8px; align-items:center; margin:8px 0;">
+            <input type="file" id="pack-file" accept=".json,application/json" style="font-size:11px;">
+            <button class="glow-btn" onclick="try{UI.validatePastedPack()}catch(e){alert(e.message)}">CHECK ONLY</button>
+            <button class="glow-btn green-glow" onclick="try{UI.installPastedPack()}catch(e){alert(e.message)}">INSTALL</button>
+          </div>
+          <textarea id="pack-json" spellcheck="false" placeholder='{ "id": "my_quadrant", "name": "My Quadrant", "add": { ... } }'
+            style="width:100%; height:130px; background:#04140a; color:#00ff66; border:1px solid rgba(0,255,102,0.35);
+                   font-family:'Share Tech Mono',monospace; font-size:11px; padding:8px; box-sizing:border-box;"></textarea>
+          <div id="pack-result" style="margin-top:8px; font-size:11px; line-height:1.6; white-space:pre-wrap;"></div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <span style="font-size:11px; color:#889999;">Packs you author can also be dropped into
+          <code>js/content/packs/</code> and listed in <code>manifest.js</code>. See CONTENT_PACKS.md.</span>
+        <button class="glow-btn" onclick="try{UI.closePacksModal()}catch(e){alert(e.message)}">CLOSE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
   <div id="rescue-modal" class="modal hidden">
     <div class="modal-content" style="width: 680px; max-width: 95%; padding: 18px; box-sizing: border-box; border-color:#ff5555;">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ff5555; padding-bottom:6px; margin-bottom:12px;">
@@ -846,24 +891,24 @@
   </div>
 
   <!-- Game Scripts -->
-  <script src="js/data.js?v=1.17.1"></script>
-  <script src="js/audio.js?v=1.17.1"></script>
-  <script src="js/ui.js?v=1.17.1"></script>
-  <script src="js/spaceport.js?v=1.17.1"></script>
-  <script src="js/navigation.js?v=1.17.1"></script>
-  <script src="js/planet.js?v=1.17.1"></script>
-  <script src="js/content/quests.js?v=1.17.1"></script>
-  <script src="js/content/archives.js?v=1.17.1"></script>
-  <script src="js/content/puzzles.js?v=1.17.1"></script>
-  <script src="js/content/resources.js?v=1.17.1"></script>
-  <script src="js/content/regions.js?v=1.17.1"></script>
-  <script src="js/clues.js?v=1.17.1"></script>
-  <script src="js/quest.js?v=1.17.1"></script>
-  <script src="js/archive.js?v=1.17.1"></script>
-  <script src="js/region.js?v=1.17.1"></script>
-  <script src="js/validate.js?v=1.17.1"></script>
-  <script src="js/packs.js?v=1.17.1"></script>
-  <script src="js/content/packs/manifest.js?v=1.17.1"></script>
+  <script src="js/data.js?v=1.17.2"></script>
+  <script src="js/audio.js?v=1.17.2"></script>
+  <script src="js/ui.js?v=1.17.2"></script>
+  <script src="js/spaceport.js?v=1.17.2"></script>
+  <script src="js/navigation.js?v=1.17.2"></script>
+  <script src="js/planet.js?v=1.17.2"></script>
+  <script src="js/content/quests.js?v=1.17.2"></script>
+  <script src="js/content/archives.js?v=1.17.2"></script>
+  <script src="js/content/puzzles.js?v=1.17.2"></script>
+  <script src="js/content/resources.js?v=1.17.2"></script>
+  <script src="js/content/regions.js?v=1.17.2"></script>
+  <script src="js/clues.js?v=1.17.2"></script>
+  <script src="js/quest.js?v=1.17.2"></script>
+  <script src="js/archive.js?v=1.17.2"></script>
+  <script src="js/region.js?v=1.17.2"></script>
+  <script src="js/validate.js?v=1.17.2"></script>
+  <script src="js/packs.js?v=1.17.2"></script>
+  <script src="js/content/packs/manifest.js?v=1.17.2"></script>
   <script>
     // Inject every pack the manifest lists, plus anything installed through the
     // in-game importer.
@@ -899,14 +944,14 @@
       } catch (e) { console.error("ContentPacks: stored packs unreadable", e); }
     })();
   </script>
-  <script src="js/content/consumables.js?v=1.17.1"></script>
-  <script src="js/content/dialogue.js?v=1.17.1"></script>
-  <script src="js/consumables.js?v=1.17.1"></script>
-  <script src="js/content/signals.js?v=1.17.1"></script>
-  <script src="js/distress.js?v=1.17.1"></script>
-  <script src="js/wormholes.js?v=1.17.1"></script>
-  <script src="js/puzzle.js?v=1.17.1"></script>
-  <script src="js/encounter.js?v=1.17.1"></script>
-  <script src="js/game.js?v=1.17.1"></script>
+  <script src="js/content/consumables.js?v=1.17.2"></script>
+  <script src="js/content/dialogue.js?v=1.17.2"></script>
+  <script src="js/consumables.js?v=1.17.2"></script>
+  <script src="js/content/signals.js?v=1.17.2"></script>
+  <script src="js/distress.js?v=1.17.2"></script>
+  <script src="js/wormholes.js?v=1.17.2"></script>
+  <script src="js/puzzle.js?v=1.17.2"></script>
+  <script src="js/encounter.js?v=1.17.2"></script>
+  <script src="js/game.js?v=1.17.2"></script>
 </body>
 </html>

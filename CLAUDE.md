@@ -55,18 +55,28 @@ to `PROJECT_DOCUMENTATION.md` section 6.
 
 ## Regression sweep
 
-There is no test framework, but there **is** a 408-check regression harness kept outside the repo in
-the session scratchpad (`sweep-final.js`). It is a self-contained IIFE that drives the real game in a
-headless browser and writes its results to `window.__SWEEP__`.
+There is no test framework, but there **is** a 414-check regression harness. It is a self-contained
+IIFE that drives the real game in a headless browser and writes its results to `window.__SWEEP__`.
+
+**It lives at `%LOCALAPPDATA%\StarflightSweep\sweep-final.js`**, not in the repo and not in a session
+scratchpad. It used to live in the scratchpad, which meant it would have been lost to a reboot or a
+`%TEMP%` clean — 414 checks representing more work than the code they cover. If you extend it, copy
+it back to that path.
 
 ```bash
 # gstack browse: `goto` (not `open`), and `eval` takes a FILE PATH, not inline JS
+D="$LOCALAPPDATA/StarflightSweep"
+cp "$D/sweep-final.js" ./_sweep_tmp.js          # must sit beside index.html to be script-loadable
 B=~/.claude/skills/gstack/browse/dist/browse.exe
 $B goto "file:///C:/Data/Dev/Starflight/index.html"
-# the harness is too large for a command-line argument - inject it as a <script src>
-$B eval _inject.js      # _inject.js appends <script src="_sweep_tmp.js?t=...">
-$B eval _poll.js        # reads window.__SWEEP__ -> {pass, fail, total, failures[]}
+# too large for a command-line argument - inject it as a <script src>
+$B eval "$D/inject.js"   # appends <script src="_sweep_tmp.js?x=...">
+$B eval "$D/verify.js"   # reads window.__SWEEP__ -> {total, pass, failed[]}
+rm ./_sweep_tmp.js                               # never commit it
 ```
+
+Records are `{g: group, n: name, s: "PASS"|..., d: detail}` — a failure is `r.s !== "PASS"`.
+A run takes roughly 60-90 seconds; poll rather than assuming a fixed wait.
 
 Extend it whenever you add a system, and treat a newly failing check as a real signal before
 assuming the check is stale — several genuine design bugs surfaced that way (charting silently
